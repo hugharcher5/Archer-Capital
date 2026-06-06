@@ -1,0 +1,32 @@
+positions:
+  - ticker: ANET
+    shares: 17
+    avg_price: 163.76
+
+  - ticker: FINV
+    shares: 203
+    avg_price: 5.73
+
+  - ticker: META
+    shares: 8
+    avg_price: 688.10
+
+  - ticker: MSFT
+    shares: 5
+    avg_price: 527.83
+
+  - ticker: NVDA
+    shares: 31
+    avg_price: 187.39
+
+  - ticker: ORCL
+    shares: 20
+    avg_price: 238.35
+
+  - ticker: TSM
+    shares: 13
+    avg_price: 303.65
+
+  - ticker: ZS
+    shares: 12
+    avg_price: 321.58
