@@ -27,6 +27,7 @@ def _assemble(raw, drivers, wacc_r) -> Assumptions:
     ebit_last  = float(raw.ebit.iloc[-1]) if not raw.ebit.empty else 0.0
     da_last    = float(raw.da.iloc[-1])   if not raw.da.empty   else 0.0
     cur_ebitda = ebit_last + da_last
+    market_ev  = raw.market_cap_local + (raw.total_debt - raw.cash)  # mktcap + net debt
 
     return Assumptions(
         ticker=raw.ticker,
@@ -55,6 +56,7 @@ def _assemble(raw, drivers, wacc_r) -> Assumptions:
         implied_rating=wacc_r.implied_rating,
         current_price_usd=raw.current_price_usd,
         current_ebitda=cur_ebitda,
+        market_ev_local=market_ev,
     )
 
 
@@ -78,8 +80,10 @@ def _print_assumptions(a: Assumptions):
     print(f"  Revenue growth yr 1 : {a.revenue_growth:.2%}   → fades linearly to {a.terminal_g:.2%} by yr {a.forecast_years}")
     print(f"  EBIT margin         : {a.ebit_margin:.2%}")
     print(f"  Tax rate            : {a.tax_rate:.2%}")
-    print(f"  D&A / Revenue       : {a.da_pct:.2%}")
-    print(f"  CapEx / Revenue     : {a.capex_pct:.2%}")
+    capex_end = a.da_pct if a.capex_pct > a.da_pct else a.capex_pct
+    fade_note = f"→ fades to {capex_end:.2%} (= D&A%) by yr {a.forecast_years}" if a.capex_pct > a.da_pct else "no fade needed (≤ D&A%)"
+    print(f"  D&A / Revenue       : {a.da_pct:.2%}   (held constant)")
+    print(f"  CapEx / Revenue     : {a.capex_pct:.2%}   {fade_note}")
     print(f"  NWC / Revenue       : {a.nwc_pct:.2%}")
     print(f"  Terminal growth (g) : {a.terminal_g:.2%}")
     print(f"  WACC                : {a.wacc:.3%}")
@@ -96,8 +100,16 @@ def _print_forecast(a: Assumptions, r) -> None:
     df  = r.forecast
     ccy = a.currency
 
+    capex_start = df['CapEx%'].iloc[0]
+    capex_end   = df['CapEx%'].iloc[-1]
+    da_pct      = a.da_pct
+    if abs(capex_start - capex_end) > 0.001:
+        print(f"\n  CapEx% fades {capex_start:.2%} → {capex_end:.2%} (= D&A% {da_pct:.2%}) — maintenance reinvestment in terminal year")
+    else:
+        print(f"\n  CapEx% held constant at {capex_start:.2%} (already ≤ D&A% {da_pct:.2%})")
+
     hdr = (f"\n  {'Yr':>3}  {'Growth':>7}  {'Revenue':>9}  {'EBIT':>8}  "
-           f"{'NOPAT':>8}  {'D&A':>7}  {'CapEx':>7}  {'ΔNWC':>7}  "
+           f"{'NOPAT':>8}  {'D&A':>7}  {'CapEx%':>7}  {'CapEx':>8}  {'ΔNWC':>7}  "
            f"{'FCFF':>8}  {'Disc.':>7}  {'PV(FCFF)':>9}")
     print(hdr)
     print("  " + "─" * (len(hdr) - 3))
@@ -110,7 +122,8 @@ def _print_forecast(a: Assumptions, r) -> None:
             f"{row['EBIT']/1e9:>8.3f}  "
             f"{row['NOPAT']/1e9:>8.3f}  "
             f"{row['D&A']/1e9:>7.3f}  "
-            f"{row['CapEx']/1e9:>7.3f}  "
+            f"{row['CapEx%']:>7.2%}  "
+            f"{row['CapEx']/1e9:>8.3f}  "
             f"{row['ΔNWC']/1e9:>7.3f}  "
             f"{row['FCFF']/1e9:>8.3f}  "
             f"{row['Disc.']:>7.4f}  "
@@ -134,19 +147,38 @@ def _print_forecast(a: Assumptions, r) -> None:
 def _print_crosscheck(a: Assumptions, r) -> None:
     _sec("EV / EBITDA CROSS-CHECK")
     ccy = a.currency
-    print(f"\n  Current EBITDA (last fiscal yr) : {ccy} {a.current_ebitda/1e9:.3f}B")
-    print(f"  Implied EV (from DCF)           : {ccy} {r.ev_local/1e9:.3f}B")
-    if not math.isnan(r.implied_ev_ebitda):
-        mult = r.implied_ev_ebitda
-        print(f"  Implied EV / EBITDA             : {mult:.1f}×")
-        if mult < 5:
-            print(f"  ⚠  < 5× — assumptions may be too conservative (high WACC or low margins).")
-        elif mult > 30:
-            print(f"  ⚠  > 30× — assumptions may be too aggressive (high growth or low WACC).")
-        else:
-            print(f"  ✓  Within 5–30× — reasonable range.")
+    ebitda = a.current_ebitda
+
+    mkt_multiple = (a.market_ev_local / ebitda
+                    if ebitda and ebitda > 0 else float('nan'))
+    dcf_multiple = r.implied_ev_ebitda
+
+    print(f"\n  Current EBITDA (last fiscal yr)  : {ccy} {ebitda/1e9:.3f}B")
+    print()
+    print(f"  Market EV (mktcap + net debt)    : {ccy} {a.market_ev_local/1e9:.3f}B")
+    if not math.isnan(mkt_multiple):
+        print(f"  Market EV / EBITDA               : {mkt_multiple:.1f}×")
     else:
-        print(f"  Implied EV / EBITDA             : n/a (EBITDA ≤ 0)")
+        print(f"  Market EV / EBITDA               : n/a")
+    print()
+    print(f"  DCF implied EV                   : {ccy} {r.ev_local/1e9:.3f}B")
+    if not math.isnan(dcf_multiple):
+        print(f"  DCF implied EV / EBITDA          : {dcf_multiple:.1f}×")
+    else:
+        print(f"  DCF implied EV / EBITDA          : n/a (EBITDA ≤ 0)")
+
+    if not math.isnan(mkt_multiple) and not math.isnan(dcf_multiple) and mkt_multiple > 0:
+        diff_x   = dcf_multiple - mkt_multiple
+        diff_pct = diff_x / mkt_multiple * 100
+        sign     = "premium" if diff_x > 0 else "discount"
+        print(f"\n  DCF vs market: {abs(diff_x):.1f}× {sign}  ({abs(diff_pct):.0f}% {'above' if diff_x > 0 else 'below'} market multiple)")
+        if abs(diff_pct) > 50:
+            direction = "optimistic" if diff_x > 0 else "conservative"
+            print(f"  ⚠  Gap > 50% — DCF assumptions appear significantly {direction} vs market pricing.")
+        elif abs(diff_pct) > 25:
+            print(f"  ~  Gap 25–50% — moderate divergence from market; worth reviewing key assumptions.")
+        else:
+            print(f"  ✓  Gap < 25% — DCF and market multiples broadly consistent.")
 
 
 def _print_bridge(a: Assumptions, r) -> None:

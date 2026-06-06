@@ -11,7 +11,7 @@ from .drivers import Drivers
 load_dotenv()
 
 # ── Damodaran implied ERP — easily editable constant ─────────────────────────
-ERP: float = 0.050   # 5.0% (Damodaran Jan 2024 implied ERP)
+ERP: float = 0.045   # 4.5% (Damodaran current implied ERP)
 
 # ── Damodaran synthetic-rating table (large/stable company, Jan 2024) ─────────
 # Rows: (coverage_min_inclusive, coverage_max_exclusive, rating_label, spread)

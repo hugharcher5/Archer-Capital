@@ -49,6 +49,7 @@ class Assumptions:
     # ── Market data — for cross-checks ────────────────────────────────────────
     current_price_usd: float
     current_ebitda: float       # most recent actual EBITDA in local currency
+    market_ev_local: float      # market cap + net debt, in local currency
 
 
 @dataclass
@@ -74,16 +75,25 @@ def _compute(a: Assumptions) -> DCFResult:
     # Growth schedule: linearly fades from starting rate to terminal_g
     growth_rates = np.linspace(a.revenue_growth, a.terminal_g, a.forecast_years)
 
+    # CapEx% fades to D&A% by the terminal year so that in steady state
+    # net reinvestment (CapEx − D&A) → 0, consistent with low terminal growth.
+    # If historical CapEx% is already ≤ D&A%, hold it constant (no upward fade).
+    capex_terminal = a.da_pct
+    if a.capex_pct > capex_terminal:
+        capex_pcts = np.linspace(a.capex_pct, capex_terminal, a.forecast_years)
+    else:
+        capex_pcts = np.full(a.forecast_years, a.capex_pct)
+
     rows   = []
     prev_rev = a.start_revenue
     prev_nwc = a.start_revenue * a.nwc_pct   # NWC at t=0
 
-    for t, g in enumerate(growth_rates, start=1):
+    for t, (g, cp) in enumerate(zip(growth_rates, capex_pcts), start=1):
         rev   = prev_rev * (1 + g)
         ebit  = rev * a.ebit_margin
         nopat = ebit * (1 - a.tax_rate)      # EBIT×(1−tax); SBC already in EBIT (Route 1)
         da    = rev * a.da_pct
-        capex = rev * a.capex_pct
+        capex = rev * cp
         nwc   = rev * a.nwc_pct
         dnwc  = nwc - prev_nwc               # +ve = cash consumed; –ve = cash released
         fcff  = nopat + da - capex - dnwc    # FCFF = NOPAT + D&A − CapEx − ΔNWC
@@ -97,6 +107,7 @@ def _compute(a: Assumptions) -> DCFResult:
             'EBIT':      ebit,
             'NOPAT':     nopat,
             'D&A':       da,
+            'CapEx%':    cp,
             'CapEx':     capex,
             'ΔNWC':      dnwc,
             'FCFF':      fcff,
