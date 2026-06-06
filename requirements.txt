@@ -1,3 +1,7 @@
 yfinance
 pyyaml
 rich
+streamlit
+plotly
+fredapi
+python-dotenv
