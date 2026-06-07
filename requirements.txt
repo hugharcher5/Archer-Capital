@@ -5,3 +5,5 @@ streamlit
 plotly
 fredapi
 python-dotenv
+scipy
+matplotlib

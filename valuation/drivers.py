@@ -29,6 +29,9 @@ class Drivers:
     nwc_pct: float
     sbc_pct: float
 
+    # Best (peak) historical EBIT margin — anchor for target_margin
+    best_ebit_margin: float
+
     # Standard deviations — for Monte Carlo later
     std_revenue_growth: float
     std_ebit_margin: float
@@ -73,14 +76,15 @@ def compute_drivers(raw: RawData) -> Drivers:
     df = df.dropna(subset=['revenue_growth'])
     years_used = len(df)
 
-    rev_growth  = float(df['revenue_growth'].mean())
-    ebit_margin = float(df['ebit_margin'].mean())
-    tax_rate    = float(df['tax_rate'].mean())
-    da_pct      = float(df['da_pct'].mean())
-    capex_pct   = float(df['capex_pct'].mean())
-    sbc_pct     = float(df['sbc_pct'].mean())
-    std_growth  = float(df['revenue_growth'].std())
-    std_margin  = float(df['ebit_margin'].std())
+    rev_growth   = float(df['revenue_growth'].mean())
+    ebit_margin  = float(df['ebit_margin'].mean())
+    best_margin  = float(df['ebit_margin'].max())
+    tax_rate     = float(df['tax_rate'].mean())
+    da_pct       = float(df['da_pct'].mean())
+    capex_pct    = float(df['capex_pct'].mean())
+    sbc_pct      = float(df['sbc_pct'].mean())
+    std_growth   = float(df['revenue_growth'].std())
+    std_margin   = float(df['ebit_margin'].std())
 
     # ── Print historical table ────────────────────────────────────────────────
     print(f"\n{'='*60}")
@@ -112,7 +116,7 @@ def compute_drivers(raw: RawData) -> Drivers:
     print(f"  Base-case drivers (mean of {years_used} years):")
     print(f"  {'─'*42}")
     print(f"  Revenue growth  : {rev_growth:>7.2%}   σ = {std_growth:.2%}")
-    print(f"  EBIT margin     : {ebit_margin:>7.2%}   σ = {std_margin:.2%}")
+    print(f"  EBIT margin     : {ebit_margin:>7.2%}   σ = {std_margin:.2%}   (best historical: {best_margin:.2%})")
     print(f"  Tax rate        : {tax_rate:>7.2%}")
     print(f"  D&A / Revenue   : {da_pct:>7.2%}")
     print(f"  CapEx / Revenue : {capex_pct:>7.2%}")
@@ -122,6 +126,7 @@ def compute_drivers(raw: RawData) -> Drivers:
     drivers = Drivers(
         revenue_growth=rev_growth,
         ebit_margin=ebit_margin,
+        best_ebit_margin=best_margin,
         tax_rate=max(0.0, min(tax_rate, 0.6)),
         da_pct=da_pct,
         capex_pct=capex_pct,

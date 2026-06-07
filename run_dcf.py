@@ -13,7 +13,7 @@ from valuation.drivers import compute_drivers
 from valuation.wacc    import compute_wacc
 from valuation.dcf     import (
     Assumptions, detailed_value,
-    TERMINAL_G, HIGH_GROWTH_THRESHOLD,
+    TERMINAL_G, HIGH_GROWTH_THRESHOLD, MATURE_MARGIN_DEFAULT,
 )
 
 
@@ -29,12 +29,15 @@ def _assemble(raw, drivers, wacc_r) -> Assumptions:
     cur_ebitda = ebit_last + da_last
     market_ev  = raw.market_cap_local + (raw.total_debt - raw.cash)  # mktcap + net debt
 
+    target_margin = max(drivers.best_ebit_margin, MATURE_MARGIN_DEFAULT)
+
     return Assumptions(
         ticker=raw.ticker,
         currency=raw.currency,
         start_revenue=start_rev,
         revenue_growth=drivers.revenue_growth,
         ebit_margin=drivers.ebit_margin,
+        target_margin=target_margin,
         tax_rate=drivers.tax_rate,
         da_pct=drivers.da_pct,
         capex_pct=drivers.capex_pct,
@@ -78,7 +81,8 @@ def _print_assumptions(a: Assumptions):
     print()
     print(f"  Starting revenue    : {ccy} {a.start_revenue/1e9:.3f}B   (most recent fiscal year)")
     print(f"  Revenue growth yr 1 : {a.revenue_growth:.2%}   → fades linearly to {a.terminal_g:.2%} by yr {a.forecast_years}")
-    print(f"  EBIT margin         : {a.ebit_margin:.2%}")
+    print(f"  EBIT margin (start) : {a.ebit_margin:.2%}   → fades linearly to {a.target_margin:.2%} (target) by yr {a.forecast_years}")
+    print(f"  Target EBIT margin  : {a.target_margin:.2%}   [= max(best historical, {MATURE_MARGIN_DEFAULT:.0%} default)]")
     print(f"  Tax rate            : {a.tax_rate:.2%}")
     capex_end = a.da_pct if a.capex_pct > a.da_pct else a.capex_pct
     fade_note = f"→ fades to {capex_end:.2%} (= D&A%) by yr {a.forecast_years}" if a.capex_pct > a.da_pct else "no fade needed (≤ D&A%)"
@@ -108,7 +112,14 @@ def _print_forecast(a: Assumptions, r) -> None:
     else:
         print(f"\n  CapEx% held constant at {capex_start:.2%} (already ≤ D&A% {da_pct:.2%})")
 
-    hdr = (f"\n  {'Yr':>3}  {'Growth':>7}  {'Revenue':>9}  {'EBIT':>8}  "
+    margin_start = df['Margin%'].iloc[0]
+    margin_end   = df['Margin%'].iloc[-1]
+    if abs(margin_start - margin_end) > 0.001:
+        print(f"  EBIT margin fades {margin_start:.2%} → {margin_end:.2%} by yr {a.forecast_years}")
+    else:
+        print(f"  EBIT margin held constant at {margin_start:.2%}")
+
+    hdr = (f"\n  {'Yr':>3}  {'Growth':>7}  {'Marg%':>6}  {'Revenue':>9}  {'EBIT':>8}  "
            f"{'NOPAT':>8}  {'D&A':>7}  {'CapEx%':>7}  {'CapEx':>8}  {'ΔNWC':>7}  "
            f"{'FCFF':>8}  {'Disc.':>7}  {'PV(FCFF)':>9}")
     print(hdr)
@@ -118,6 +129,7 @@ def _print_forecast(a: Assumptions, r) -> None:
         print(
             f"  {yr:>3}  "
             f"{row['Growth']:>7.2%}  "
+            f"{row['Margin%']:>6.2%}  "
             f"{row['Revenue']/1e9:>9.3f}  "
             f"{row['EBIT']/1e9:>8.3f}  "
             f"{row['NOPAT']/1e9:>8.3f}  "

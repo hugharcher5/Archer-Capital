@@ -13,6 +13,7 @@ from dataclasses import dataclass
 # ── Module-level constants (referenced externally by run_dcf) ─────────────────
 TERMINAL_G: float            = 0.025   # 2.5% default terminal growth rate
 HIGH_GROWTH_THRESHOLD: float = 0.15    # use 10-year horizon if starting growth > this
+MATURE_MARGIN_DEFAULT: float = 0.20    # floor for target EBIT margin at maturity
 
 
 @dataclass
@@ -23,7 +24,8 @@ class Assumptions:
     # ── Core DCF inputs (the only things value() needs) ───────────────────────
     start_revenue: float        # most recent annual revenue in reporting currency
     revenue_growth: float       # starting growth rate (decimal, e.g. 0.12)
-    ebit_margin: float
+    ebit_margin: float          # starting EBIT margin (yr 1 of forecast)
+    target_margin: float        # mature EBIT margin (fades linearly to this by yr N)
     tax_rate: float
     da_pct: float               # D&A / Revenue
     capex_pct: float            # CapEx / Revenue
@@ -84,13 +86,16 @@ def _compute(a: Assumptions) -> DCFResult:
     else:
         capex_pcts = np.full(a.forecast_years, a.capex_pct)
 
+    # EBIT margin fades from starting margin to target (mature) margin.
+    margin_path = np.linspace(a.ebit_margin, a.target_margin, a.forecast_years)
+
     rows   = []
     prev_rev = a.start_revenue
     prev_nwc = a.start_revenue * a.nwc_pct   # NWC at t=0
 
-    for t, (g, cp) in enumerate(zip(growth_rates, capex_pcts), start=1):
+    for t, (g, cp, m) in enumerate(zip(growth_rates, capex_pcts, margin_path), start=1):
         rev   = prev_rev * (1 + g)
-        ebit  = rev * a.ebit_margin
+        ebit  = rev * m
         nopat = ebit * (1 - a.tax_rate)      # EBIT×(1−tax); SBC already in EBIT (Route 1)
         da    = rev * a.da_pct
         capex = rev * cp
@@ -103,6 +108,7 @@ def _compute(a: Assumptions) -> DCFResult:
         rows.append({
             'Year':      t,
             'Growth':    g,
+            'Margin%':   m,
             'Revenue':   rev,
             'EBIT':      ebit,
             'NOPAT':     nopat,
