@@ -16,7 +16,8 @@ import matplotlib.pyplot as plt
 from .data    import fetch_raw
 from .drivers import compute_drivers
 from .wacc    import compute_wacc
-from .dcf     import Assumptions, value, TERMINAL_G, HIGH_GROWTH_THRESHOLD, MATURE_MARGIN_DEFAULT
+from .dcf     import Assumptions, value, detailed_value, TERMINAL_G, HIGH_GROWTH_THRESHOLD, MATURE_MARGIN_DEFAULT
+from .result  import ValuationResult
 
 
 # ─────────────────────────── Editable constants ───────────────────────────────
@@ -270,31 +271,80 @@ def _save_histogram(ticker, results, price, n_valid, copula_label,
     return path
 
 
-# ──────────────────────────── Public entry point ──────────────────────────────
+# ─────────────────────────── Public functions ─────────────────────────────────
 
-def run_monte_carlo(ticker: str, n_sims: int = 10_000) -> None:
-    # ── 1. Fetch and build base case ──────────────────────────────────────────
+def run_valuation(ticker: str, n_sims: int = 10_000) -> ValuationResult:
+    """All computation, zero I/O.  n_sims=0 → skip Monte Carlo."""
     raw    = fetch_raw(ticker)
     drvrs  = compute_drivers(raw)
     wacc_r = compute_wacc(raw, drvrs)
     base   = _build_base(raw, drvrs, wacc_r)
-    det_val = value(base)
+    dcf_r  = detailed_value(base)
+
+    nan = float('nan')
+    if n_sims <= 0:
+        return ValuationResult(
+            ticker=ticker.upper(), currency=base.currency,
+            current_price_usd=base.current_price_usd,
+            drivers=drvrs, wacc_result=wacc_r,
+            assumptions=base, dcf=dcf_r,
+            sims=np.array([]), n_valid=0,
+            copula_label='', consistency_pass=False, cc_p50=nan,
+            p10=nan, p25=nan, p50=nan, p75=nan, p90=nan,
+            mean_val=nan, std_val=nan, pct_undervalued=nan,
+        )
 
     sg = drvrs.std_revenue_growth
     sm = drvrs.std_ebit_margin
     w  = base.wacc
 
-    # ── 2. Setup ──────────────────────────────────────────────────────────────
+    corr       = _ensure_psd(CORR.copy())
+    use_t      = sg > HIGH_VOL_THRESHOLD
+    copula_key = 'student-t' if use_t else 'gaussian'
+    copula_lbl = f'Student-t (df={STUDENT_T_DF})' if use_t else 'Gaussian'
+
+    # Consistency check
+    cc_sims = _run_sims(base, sg, sm, corr, 50, 0.0,
+                        np.random.default_rng(0), copula_key)
+    cc_p50  = float(np.median(cc_sims))
+    cc_ok   = abs(cc_p50 - dcf_r.value_per_share_usd) < 0.01
+
+    # Full simulation
+    sims = _run_sims(base, sg, sm, corr, n_sims, SPREAD_SIGMA,
+                     np.random.default_rng(seed=42), copula_key)
+    n_v  = len(sims)
+
+    # Stats computed on the full un-winsorized array
+    p10, p25, p50, p75, p90 = (float(x) for x in np.percentile(sims, [10, 25, 50, 75, 90]))
+    mean_v    = float(np.mean(sims))
+    std_v     = float(np.std(sims))
+    pct_under = float(np.mean(sims > base.current_price_usd)) * 100
+
+    return ValuationResult(
+        ticker=ticker.upper(), currency=base.currency,
+        current_price_usd=base.current_price_usd,
+        drivers=drvrs, wacc_result=wacc_r,
+        assumptions=base, dcf=dcf_r,
+        sims=sims, n_valid=n_v,
+        copula_label=copula_lbl, consistency_pass=cc_ok, cc_p50=cc_p50,
+        p10=p10, p25=p25, p50=p50, p75=p75, p90=p90,
+        mean_val=mean_v, std_val=std_v, pct_undervalued=pct_under,
+    )
+
+
+def print_valuation(result: ValuationResult) -> None:
+    """Terminal formatter — consumes a ValuationResult, produces the existing output + PNG."""
+    base  = result.assumptions
+    drvrs = result.drivers
+    sg    = drvrs.std_revenue_growth
+    sm    = drvrs.std_ebit_margin
+    w     = base.wacc
+    det   = result.dcf.value_per_share_usd
+
     print(f"\n{'='*60}")
-    print(f"  MONTE CARLO SETUP — {ticker.upper()}")
+    print(f"  MONTE CARLO SETUP — {result.ticker}")
     print(f"{'='*60}")
-
-    corr = _ensure_psd(CORR.copy())
-
-    use_t        = sg > HIGH_VOL_THRESHOLD
-    copula_key   = 'student-t' if use_t else 'gaussian'
-    copula_label = f'Student-t (df={STUDENT_T_DF})' if use_t else 'Gaussian'
-    print(f"\n  Copula : {copula_label}"
+    print(f"\n  Copula : {result.copula_label}"
           f"   (σ_growth = {sg:.2%},  threshold = {HIGH_VOL_THRESHOLD:.0%})")
 
     tg_hi = max(TERM_G_MIN + 1e-6, min(TERM_G_MAX_ABS, w - WACC_TG_GAP))
@@ -313,66 +363,52 @@ def run_monte_carlo(ticker: str, n_sims: int = 10_000) -> None:
           f" {TERM_G_MIN:>10.2%}  {TERM_G_MODE:>10.2%}  {tg_hi:>10.2%}")
     print(f"  {'WACC':<22}"
           f" {max(w - WACC_SPREAD_ABS, 0.04):>10.2%}"
-          f"  {w:>10.2%}"
-          f"  {w + WACC_SPREAD_ABS:>10.2%}")
-    tm_spread_disp = (UNPROFITABLE_MARGIN_SPREAD if base.ebit_margin < 0
-                      else PROFITABLE_MARGIN_SPREAD)
+          f"  {w:>10.2%}  {w + WACC_SPREAD_ABS:>10.2%}")
+    tm_sp = UNPROFITABLE_MARGIN_SPREAD if base.ebit_margin < 0 else PROFITABLE_MARGIN_SPREAD
     print(f"  {'Target margin':<22}"
-          f" {max(base.target_margin - tm_spread_disp, -0.10):>10.2%}"
+          f" {max(base.target_margin - tm_sp, -0.10):>10.2%}"
           f"  {base.target_margin:>10.2%}"
-          f"  {min(base.target_margin + tm_spread_disp, 0.60):>10.2%}")
+          f"  {min(base.target_margin + tm_sp, 0.60):>10.2%}")
     if base.currency != 'USD':
         fxv = FX_ANNUAL_VOL.get(base.currency, FX_ANNUAL_VOL['_default'])
         print(f"  {'FX (' + base.currency + '/USD)':<22}"
               f"  {'GBM (lognormal)':>10}  {base.fx_rate:>10.5f}  {'σ=' + f'{fxv:.0%}':>10}")
 
-    # ── 3. Consistency check: zero-variance run ───────────────────────────────
     print(f"\n  Consistency check (zero-variance run, n=50)...")
-    rng_cc  = np.random.default_rng(0)
-    cc_sims = _run_sims(base, sg, sm, corr, 50, 0.0, rng_cc, copula_key)
-    cc_p50  = float(np.median(cc_sims))
-    cc_ok   = abs(cc_p50 - det_val) < 0.01
-    print(f"  Deterministic value()  = ${det_val:.4f}")
-    print(f"  Zero-variance MC P50   = ${cc_p50:.4f}")
-    print(f"  {'✓  PASS' if cc_ok else '✗  FAIL — check simulation centring'}")
+    print(f"  Deterministic value()  = ${det:.4f}")
+    print(f"  Zero-variance MC P50   = ${result.cc_p50:.4f}")
+    print(f"  {'✓  PASS' if result.consistency_pass else '✗  FAIL — check simulation centring'}")
 
-    # ── 4. Full simulation ────────────────────────────────────────────────────
-    print(f"\n  Running {n_sims:,} simulations ({copula_label} copula)...")
-    rng  = np.random.default_rng(seed=42)
-    sims = _run_sims(base, sg, sm, corr, n_sims, SPREAD_SIGMA, rng, copula_key)
-    n_v  = len(sims)
-
-    # ── 5. Statistics ─────────────────────────────────────────────────────────
-    pcts         = np.percentile(sims, [10, 25, 50, 75, 90])
-    p10, p25, p50, p75, p90 = pcts
-    mean_v       = float(np.mean(sims))
-    std_v        = float(np.std(sims))
-    pct_under    = float(np.mean(sims > base.current_price_usd)) * 100
-    price        = base.current_price_usd
+    sims  = result.sims
+    n_v   = result.n_valid
+    price = base.current_price_usd
 
     print(f"\n{'#'*60}")
-    print(f"  MONTE CARLO RESULTS — {ticker.upper()}  ({n_v:,} valid simulations)")
+    print(f"  MONTE CARLO RESULTS — {result.ticker}  ({n_v:,} valid simulations)")
     print(f"{'#'*60}")
-    print(f"  Copula        : {copula_label}")
+    print(f"  Copula        : {result.copula_label}")
     print(f"  Current price : ${price:.2f}")
-    print(f"  Base case     : ${det_val:.2f}")
+    print(f"  Base case     : ${det:.2f}")
     print(f"\n  Intrinsic value per share (USD):")
     print(f"  {'─'*36}")
-    print(f"  P10   : ${p10:>9.2f}")
-    print(f"  P25   : ${p25:>9.2f}")
-    print(f"  P50   : ${p50:>9.2f}   ← median")
-    print(f"  P75   : ${p75:>9.2f}")
-    print(f"  P90   : ${p90:>9.2f}")
+    print(f"  P10   : ${result.p10:>9.2f}")
+    print(f"  P25   : ${result.p25:>9.2f}")
+    print(f"  P50   : ${result.p50:>9.2f}   ← median")
+    print(f"  P75   : ${result.p75:>9.2f}")
+    print(f"  P90   : ${result.p90:>9.2f}")
     print(f"  {'─'*36}")
-    print(f"  Mean  : ${mean_v:>9.2f}")
-    print(f"  Stdev : ${std_v:>9.2f}")
+    print(f"  Mean  : ${result.mean_val:>9.2f}")
+    print(f"  Stdev : ${result.std_val:>9.2f}")
     print(f"  Min   : ${np.min(sims):>9.2f}   Max : ${np.max(sims):.2f}")
-    print(f"\n  P(undervalued) : {pct_under:.1f}%"
+    print(f"\n  P(undervalued) : {result.pct_undervalued:.1f}%"
           f"   (draws where intrinsic > ${price:.2f})")
 
-    # ── 6. Histogram ──────────────────────────────────────────────────────────
     path = _save_histogram(
-        ticker, sims, price, n_v, copula_label,
-        det_val, float(p10), float(p50), float(p90),
+        result.ticker, sims, price, n_v, result.copula_label,
+        det, result.p10, result.p50, result.p90,
     )
     print(f"\n  Histogram → {path}")
+
+
+def run_monte_carlo(ticker: str, n_sims: int = 10_000) -> None:
+    print_valuation(run_valuation(ticker, n_sims))

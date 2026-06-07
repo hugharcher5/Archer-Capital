@@ -8,59 +8,9 @@ Usage:
 from __future__ import annotations
 import sys
 import math
-from valuation.data    import fetch_raw
-from valuation.drivers import compute_drivers
-from valuation.wacc    import compute_wacc
-from valuation.dcf     import (
-    Assumptions, detailed_value,
-    TERMINAL_G, HIGH_GROWTH_THRESHOLD, MATURE_MARGIN_DEFAULT,
-)
-
-
-# ── Assembly ──────────────────────────────────────────────────────────────────
-
-def _assemble(raw, drivers, wacc_r) -> Assumptions:
-    start_rev      = float(raw.revenue.iloc[-1])
-    net_debt       = raw.total_debt - raw.cash
-    forecast_years = 10 if drivers.revenue_growth > HIGH_GROWTH_THRESHOLD else 5
-
-    ebit_last  = float(raw.ebit.iloc[-1]) if not raw.ebit.empty else 0.0
-    da_last    = float(raw.da.iloc[-1])   if not raw.da.empty   else 0.0
-    cur_ebitda = ebit_last + da_last
-    market_ev  = raw.market_cap_local + (raw.total_debt - raw.cash)  # mktcap + net debt
-
-    target_margin = max(drivers.best_ebit_margin, MATURE_MARGIN_DEFAULT)
-
-    return Assumptions(
-        ticker=raw.ticker,
-        currency=raw.currency,
-        start_revenue=start_rev,
-        revenue_growth=drivers.revenue_growth,
-        ebit_margin=drivers.ebit_margin,
-        target_margin=target_margin,
-        tax_rate=drivers.tax_rate,
-        da_pct=drivers.da_pct,
-        capex_pct=drivers.capex_pct,
-        nwc_pct=drivers.nwc_pct,
-        terminal_g=TERMINAL_G,
-        wacc=wacc_r.wacc,
-        net_debt=net_debt,
-        diluted_shares=raw.diluted_shares,
-        fx_rate=raw.fx_rate,
-        forecast_years=forecast_years,
-        rf=wacc_r.rf,
-        erp=wacc_r.erp,
-        beta_adj=wacc_r.beta_adj,
-        cost_of_equity=wacc_r.cost_of_equity,
-        cost_of_debt_pretax=wacc_r.cost_of_debt_pretax,
-        cost_of_debt_aftertax=wacc_r.cost_of_debt_aftertax,
-        equity_weight=wacc_r.equity_weight,
-        debt_weight=wacc_r.debt_weight,
-        implied_rating=wacc_r.implied_rating,
-        current_price_usd=raw.current_price_usd,
-        current_ebitda=cur_ebitda,
-        market_ev_local=market_ev,
-    )
+from valuation.montecarlo import run_valuation
+from valuation.result     import ValuationResult
+from valuation.dcf        import TERMINAL_G, HIGH_GROWTH_THRESHOLD, MATURE_MARGIN_DEFAULT
 
 
 # ── Print helpers ─────────────────────────────────────────────────────────────
@@ -71,7 +21,8 @@ def _sec(title: str):
     print(f"{'='*60}")
 
 
-def _print_assumptions(a: Assumptions):
+def _print_assumptions(r: ValuationResult) -> None:
+    a = r.assumptions
     _sec(f"BASE-CASE ASSUMPTIONS — {a.ticker}")
     ccy = a.currency
     print(f"\n  Reporting currency  : {ccy}"
@@ -99,21 +50,23 @@ def _print_assumptions(a: Assumptions):
     print(f"                        Current diluted shares used; no future SBC dilution modelled.")
 
 
-def _print_forecast(a: Assumptions, r) -> None:
+def _print_forecast(r: ValuationResult) -> None:
+    a   = r.assumptions
+    res = r.dcf
     _sec(f"YEAR-BY-YEAR FCFF FORECAST  ({a.currency}B)")
-    df  = r.forecast
+    df  = res.forecast
     ccy = a.currency
 
-    capex_start = df['CapEx%'].iloc[0]
-    capex_end   = df['CapEx%'].iloc[-1]
-    da_pct      = a.da_pct
+    capex_start  = df['CapEx%'].iloc[0]
+    capex_end    = df['CapEx%'].iloc[-1]
+    margin_start = df['Margin%'].iloc[0]
+    margin_end   = df['Margin%'].iloc[-1]
+    da_pct       = a.da_pct
+
     if abs(capex_start - capex_end) > 0.001:
         print(f"\n  CapEx% fades {capex_start:.2%} → {capex_end:.2%} (= D&A% {da_pct:.2%}) — maintenance reinvestment in terminal year")
     else:
         print(f"\n  CapEx% held constant at {capex_start:.2%} (already ≤ D&A% {da_pct:.2%})")
-
-    margin_start = df['Margin%'].iloc[0]
-    margin_end   = df['Margin%'].iloc[-1]
     if abs(margin_start - margin_end) > 0.001:
         print(f"  EBIT margin fades {margin_start:.2%} → {margin_end:.2%} by yr {a.forecast_years}")
     else:
@@ -142,28 +95,30 @@ def _print_forecast(a: Assumptions, r) -> None:
             f"{row['PV(FCFF)']/1e9:>9.3f}"
         )
 
-    print(f"\n  PV of explicit FCFFs : {ccy} {r.pv_explicit/1e9:.3f}B")
+    print(f"\n  PV of explicit FCFFs : {ccy} {res.pv_explicit/1e9:.3f}B")
     print()
-    print(f"  Terminal FCFF (yr {a.forecast_years})  : {ccy} {r.forecast['FCFF'].iloc[-1]/1e9:.3f}B")
+    print(f"  Terminal FCFF (yr {a.forecast_years})  : {ccy} {res.forecast['FCFF'].iloc[-1]/1e9:.3f}B")
     print(f"  Terminal growth (g)  : {a.terminal_g:.2%}")
     print(f"  WACC                 : {a.wacc:.3%}")
-    print(f"  Terminal value (TV)  : {ccy} {r.terminal_value_local/1e9:.3f}B"
+    print(f"  Terminal value (TV)  : {ccy} {res.terminal_value_local/1e9:.3f}B"
           f"  [= FCFF_N × (1+g) / (WACC−g)]")
-    print(f"  PV of TV             : {ccy} {r.pv_tv/1e9:.3f}B"
-          f"  ({r.pv_tv / r.ev_local:.1%} of EV)")
+    print(f"  PV of TV             : {ccy} {res.pv_tv/1e9:.3f}B"
+          f"  ({res.pv_tv / res.ev_local:.1%} of EV)")
 
     if any(row['FCFF'] < 0 for _, row in df.iterrows()):
         print(f"\n  ⚠  One or more forecast years have negative FCFF — review assumptions.")
 
 
-def _print_crosscheck(a: Assumptions, r) -> None:
+def _print_crosscheck(r: ValuationResult) -> None:
+    a   = r.assumptions
+    res = r.dcf
     _sec("EV / EBITDA CROSS-CHECK")
-    ccy = a.currency
+    ccy    = a.currency
     ebitda = a.current_ebitda
 
     mkt_multiple = (a.market_ev_local / ebitda
                     if ebitda and ebitda > 0 else float('nan'))
-    dcf_multiple = r.implied_ev_ebitda
+    dcf_multiple = res.implied_ev_ebitda
 
     print(f"\n  Current EBITDA (last fiscal yr)  : {ccy} {ebitda/1e9:.3f}B")
     print()
@@ -173,7 +128,7 @@ def _print_crosscheck(a: Assumptions, r) -> None:
     else:
         print(f"  Market EV / EBITDA               : n/a")
     print()
-    print(f"  DCF implied EV                   : {ccy} {r.ev_local/1e9:.3f}B")
+    print(f"  DCF implied EV                   : {ccy} {res.ev_local/1e9:.3f}B")
     if not math.isnan(dcf_multiple):
         print(f"  DCF implied EV / EBITDA          : {dcf_multiple:.1f}×")
     else:
@@ -193,27 +148,31 @@ def _print_crosscheck(a: Assumptions, r) -> None:
             print(f"  ✓  Gap < 25% — DCF and market multiples broadly consistent.")
 
 
-def _print_bridge(a: Assumptions, r) -> None:
+def _print_bridge(r: ValuationResult) -> None:
+    a   = r.assumptions
+    res = r.dcf
     _sec("EV → EQUITY BRIDGE")
     ccy = a.currency
-    print(f"\n  Enterprise value (EV)     : {ccy} {r.ev_local/1e9:>10.3f}B")
+    print(f"\n  Enterprise value (EV)     : {ccy} {res.ev_local/1e9:>10.3f}B")
     nd_sign = "−" if a.net_debt >= 0 else "+"
     print(f"  {nd_sign} Net debt                : {ccy} {abs(a.net_debt)/1e9:>10.3f}B"
           + ("  [debt-free / net cash]" if a.net_debt < 0 else ""))
     print(f"  {'─'*44}")
-    print(f"  = Equity value            : {ccy} {r.equity_value_local/1e9:>10.3f}B")
+    print(f"  = Equity value            : {ccy} {res.equity_value_local/1e9:>10.3f}B")
     print(f"  ÷ Diluted shares          :     {a.diluted_shares/1e9:>10.3f}B")
     print(f"  {'─'*44}")
     if a.currency != 'USD':
-        print(f"  = Value / share ({ccy:3s})    : {ccy} {r.value_per_share_local:>10.2f}")
+        print(f"  = Value / share ({ccy:3s})    : {ccy} {res.value_per_share_local:>10.2f}")
         print(f"  × FX rate ({ccy}→USD)     :     {a.fx_rate:>10.6f}")
         print(f"  {'─'*44}")
-    print(f"  = Value / share (USD)     : USD {r.value_per_share_usd:>10.2f}")
+    print(f"  = Value / share (USD)     : USD {res.value_per_share_usd:>10.2f}")
 
 
-def _print_verdict(a: Assumptions, r) -> None:
+def _print_verdict(r: ValuationResult) -> None:
+    a        = r.assumptions
+    res      = r.dcf
     _sec(f"VALUATION VERDICT — {a.ticker}")
-    intrinsic = r.value_per_share_usd
+    intrinsic = res.value_per_share_usd
     market    = a.current_price_usd
     pct       = (intrinsic - market) / market * 100 if market > 0 else float('nan')
     direction = "UNDERVALUED" if intrinsic > market else "OVERVALUED"
@@ -233,19 +192,13 @@ def run_dcf(ticker: str) -> None:
     print(f"  DCF VALUATION — {ticker.upper()}")
     print(f"{'#'*60}")
 
-    raw      = fetch_raw(ticker)
-    drivers  = compute_drivers(raw)
-    wacc_r   = compute_wacc(raw, drivers)
-    assum    = _assemble(raw, drivers, wacc_r)
+    r = run_valuation(ticker, n_sims=0)
 
-    _print_assumptions(assum)
-
-    result = detailed_value(assum)
-
-    _print_forecast(assum, result)
-    _print_crosscheck(assum, result)
-    _print_bridge(assum, result)
-    _print_verdict(assum, result)
+    _print_assumptions(r)
+    _print_forecast(r)
+    _print_crosscheck(r)
+    _print_bridge(r)
+    _print_verdict(r)
 
 
 if __name__ == '__main__':

@@ -38,6 +38,9 @@ class Drivers:
 
     years_used: int
 
+    # Historical year-by-year DataFrame for display
+    hist_df: pd.DataFrame = None
+
 
 def compute_drivers(raw: RawData) -> Drivers:
     # ── Align all income-stmt + cashflow series ───────────────────────────────
@@ -135,6 +138,7 @@ def compute_drivers(raw: RawData) -> Drivers:
         std_revenue_growth=std_growth,
         std_ebit_margin=std_margin,
         years_used=years_used,
+        hist_df=df,
     )
 
     # ── Plausibility checks ───────────────────────────────────────────────────
