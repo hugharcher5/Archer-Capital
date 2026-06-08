@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
+import scipy.stats
 import streamlit as st
 
 from portfolio.data          import fetch_portfolio
@@ -114,22 +115,50 @@ def _fmt_pct(v: float, decimals: int = 1) -> str:
     return f"{v:+.{decimals}f}%" if not math.isnan(v) else "n/a"
 
 
-# ── Histogram ─────────────────────────────────────────────────────────────────
+# ── KDE density chart ────────────────────────────────────────────────────────
 
 def _render_histogram(r: ValuationResult) -> None:
     sims  = r.sims
     price = r.current_price_usd
 
-    # Winsorise x-axis for display only — stats were already computed on full array
+    # Evaluation grid: P1–P99 (same clipping as the old histogram display).
+    # KDE is fitted on the full array so the density is correct everywhere.
     p1, p99 = np.percentile(sims, [1, 99])
-    display  = sims[(sims >= p1) & (sims <= p99)]
+    x_grid  = np.linspace(p1, p99, 300)
+    kde     = scipy.stats.gaussian_kde(sims)
+    y_kde   = kde(x_grid)
 
     fig = go.Figure()
-    fig.add_trace(go.Histogram(
-        x=display, nbinsx=100,
-        marker_color="steelblue", opacity=0.75,
-        name="Simulations",
+
+    # ── Full distribution — steelblue filled KDE ──────────────────────────────
+    fig.add_trace(go.Scatter(
+        x=x_grid, y=y_kde,
+        mode="lines",
+        fill="tozeroy",
+        fillcolor="rgba(70, 130, 180, 0.25)",
+        line=dict(color="steelblue", width=2),
+        hovertemplate="$%{x:,.2f}<br>Density: %{y:.5f}<extra></extra>",
+        name="KDE",
     ))
+
+    # ── Undervalued region (x > market price) — green overlay ────────────────
+    # Shows the P(undervalued) area visually without obscuring the KDE line.
+    price_clipped = max(p1, min(p99, price))
+    mask   = x_grid >= price_clipped
+    if mask.any():
+        x_over = np.concatenate([[price_clipped], x_grid[mask]])
+        y_over = np.concatenate([kde([price_clipped]), y_kde[mask]])
+        fig.add_trace(go.Scatter(
+            x=x_over, y=y_over,
+            mode="lines",
+            fill="tozeroy",
+            fillcolor="rgba(46, 204, 113, 0.22)",
+            line=dict(width=0),
+            hoverinfo="skip",
+            showlegend=False,
+        ))
+
+    # ── Reference lines (unchanged) ───────────────────────────────────────────
     fig.add_vline(x=price,  line_color="crimson",    line_width=2,
                   annotation_text=f"Market  ${price:.2f}",
                   annotation_position="top right")
@@ -142,10 +171,11 @@ def _render_histogram(r: ValuationResult) -> None:
     fig.add_vline(x=r.p90,  line_color="darkorange", line_width=1.5, line_dash="dot",
                   annotation_text=f"P90  ${r.p90:.2f}",
                   annotation_position="top right")
+
     fig.update_layout(
         title=f"{r.ticker} — Monte Carlo DCF  ({r.n_valid:,} simulations, {r.copula_label} copula)",
         xaxis_title="Intrinsic value per share (USD)",
-        yaxis_title="Frequency",
+        yaxis_title="Probability density",
         showlegend=False,
         height=420,
         margin=dict(t=50, b=40),
