@@ -612,9 +612,14 @@ with tab_valuation:
     if run_btn:
         ticker = ticker_input.upper().strip()
         if ticker:
-            with st.spinner(f"Running Monte Carlo DCF for {ticker} — fetching data and running 10,000 simulations…"):
-                result = _cached_valuation(ticker)
-            st.session_state["val_result"] = result
+            try:
+                with st.spinner(f"Running Monte Carlo DCF for {ticker} — fetching data and running 10,000 simulations…"):
+                    result = _cached_valuation(ticker)
+                st.session_state["val_result"] = result
+            except Exception as exc:
+                st.error(f"**Valuation failed for {ticker}**: {exc}")
+                # Clear any stale result so the old ticker's output isn't shown
+                st.session_state.pop("val_result", None)
         else:
             st.warning("Enter a ticker symbol first.")
 

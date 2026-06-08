@@ -88,9 +88,15 @@ def _pert_ppf(u: np.ndarray, lo: float, mode: float, hi: float) -> np.ndarray:
     Inverse PERT CDF at uniform quantiles u ∈ (0,1).
     PERT is a scaled Beta: α = 1 + 4(mode−lo)/(hi−lo), β = 1 + 4(hi−mode)/(hi−lo).
     Degenerates to a point mass at mode when lo == hi.
+
+    Defensive: mode is clamped to [lo, hi] so that the Beta parameters α and β
+    are always ≥ 1.  A caller that passes mode outside [lo, hi] (e.g. because a
+    hard cap clips hi below the base-case value) would otherwise get β < 0, which
+    causes scipy to return NaN for every draw and silently kills all simulations.
     """
     if abs(hi - lo) < 1e-12:
         return np.full(len(u), mode, dtype=float)
+    mode = min(max(mode, lo), hi)   # guarantee lo ≤ mode ≤ hi
     r = hi - lo
     a = 1.0 + 4.0 * (mode - lo) / r
     b = 1.0 + 4.0 * (hi - mode) / r
@@ -196,7 +202,10 @@ def _run_sims(
         tm_spread = (UNPROFITABLE_MARGIN_SPREAD if base.ebit_margin < 0
                      else PROFITABLE_MARGIN_SPREAD)
         tm_lo = max(base.target_margin - tm_spread, -0.10)
-        tm_hi = min(base.target_margin + tm_spread,  0.60)
+        # Cap at 0.75 (matches em_hi) so that high-margin companies such as NVDA
+        # (target_margin ≈ 66%) don't produce tm_hi < mode, which would give a
+        # negative Beta parameter and silently NaN-out every simulation draw.
+        tm_hi = min(base.target_margin + tm_spread,  0.75)
 
     # Correlated uniform draws
     if copula == 'student-t':
@@ -243,8 +252,8 @@ def _run_sims(
         nd_s = np.full(n, base.net_debt)
 
     # Inner loop: one copy, mutate per draw, call pure value()
-    results = np.empty(n)
-    skipped = 0
+    results  = np.empty(n)
+    n_except = 0
     a = copy.copy(base)
 
     for i in range(n):
@@ -260,11 +269,16 @@ def _run_sims(
             results[i] = value(a)
         except Exception:
             results[i] = float('nan')
-            skipped    += 1
+            n_except   += 1
 
-    if skipped:
-        print(f"  ⚠  {skipped}/{n} draws skipped (unexpected error); excluded from results.")
-    return results[~np.isnan(results)]
+    valid     = results[~np.isnan(results)]
+    n_nan     = n - len(valid)
+    if n_nan:
+        # n_nan covers both exception-thrown draws and draws where value() returned
+        # NaN (e.g. from invalid PERT parameters producing NaN sampled inputs).
+        print(f"  ⚠  {n_nan}/{n} draws discarded ({n_except} exceptions, "
+              f"{n_nan - n_except} silent NaN); excluded from results.")
+    return valid
 
 
 # ───────────────────────────── Histogram ──────────────────────────────────────
@@ -414,6 +428,14 @@ def run_valuation(
     )
     n_v  = len(sims)
 
+    if n_v == 0:
+        raise ValueError(
+            f"{ticker.upper()}: all {n_sims:,} Monte Carlo draws produced NaN — "
+            "simulation aborted.  This usually means a PERT parameter was invalid "
+            "(mode outside [lo, hi]) or every DCF evaluation overflowed.  "
+            "Check that WACC > terminal_g and that all driver assumptions are finite."
+        )
+
     # Stats computed on the full un-winsorized array
     p10, p25, p50, p75, p90 = (float(x) for x in np.percentile(sims, [10, 25, 50, 75, 90]))
     mean_v    = float(np.mean(sims))
@@ -482,7 +504,7 @@ def print_valuation(result: ValuationResult) -> None:
     print(f"  {'Target margin':<22}"
           f" {max(base.target_margin - tm_sp, -0.10):>10.2%}"
           f"  {base.target_margin:>10.2%}"
-          f"  {min(base.target_margin + tm_sp, 0.60):>10.2%}")
+          f"  {min(base.target_margin + tm_sp, 0.75):>10.2%}")
     if sc.get("diluted_shares", 0) / max(base.diluted_shares, 1) > 0.02:
         sc_abs = sc["diluted_shares"]
         print(f"  {'Diluted shares*':<22}"
