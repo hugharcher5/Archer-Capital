@@ -3,7 +3,9 @@ Multi-source data reconciliation.
 
 Usage:
     venv/bin/python run_reconcile.py MSFT
-    venv/bin/python run_reconcile.py MSFT --no-fmp    # skip FMP (for testing)
+    venv/bin/python run_reconcile.py MSFT --no-fmp      # skip FMP
+    venv/bin/python run_reconcile.py MSFT --no-edgar    # skip EDGAR
+    venv/bin/python run_reconcile.py MSFT --no-fmp --no-edgar
 """
 
 from __future__ import annotations
@@ -14,8 +16,8 @@ from rich.console import Console
 from rich.table   import Table
 from rich         import box
 
-from valuation.sources   import SourceData, fetch_yahoo, fetch_fmp
-from valuation.reconcile import reconcile, ALL_FIELDS, SERIES_FIELDS, SCALAR_FIELDS
+from valuation.sources   import SourceData, fetch_yahoo, fetch_fmp, fetch_edgar
+from valuation.reconcile import reconcile, ALL_FIELDS, SERIES_FIELDS, SCALAR_FIELDS, FIELD_TYPE
 
 
 # ── Formatting helpers ────────────────────────────────────────────────────────
@@ -43,11 +45,14 @@ def _fmt_scalar(field: str, val: float, ccy: str) -> str:
     return f"{ccy} {val/1e9:.3f}B"
 
 
-def _fmt_disagree(d: float) -> tuple[str, str]:
+def _fmt_disagree(d: float, ftype: str) -> tuple[str, str]:
     """Return (text, rich_style) for the disagreement column."""
     if math.isnan(d):
         return "n/a", "dim"
     pct = d * 100
+    if ftype == "DEFINITIONAL":
+        # Definitional differences are resolved by convention — shown dim, never flagged
+        return f"[dim]{pct:.1f}% conv[/dim]", ""
     if pct > 2.0:
         return f"[bold red]{pct:.1f}% ⚠[/bold red]", ""
     return f"{pct:.1f}%", "green"
@@ -69,7 +74,7 @@ _LABELS = {
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
-def run_reconcile(ticker: str, skip_fmp: bool = False) -> None:
+def run_reconcile(ticker: str, skip_fmp: bool = False, skip_edgar: bool = False) -> None:
     console = Console()
     ticker  = ticker.upper()
 
@@ -96,15 +101,26 @@ def run_reconcile(ticker: str, skip_fmp: bool = False) -> None:
         except RuntimeError as e:
             console.print(f"  [yellow]FMP skipped: {e}[/yellow]")
 
+    if not skip_edgar:
+        console.print("\n[bold cyan]▶ SEC EDGAR[/bold cyan]")
+        try:
+            edgar = fetch_edgar(ticker)
+            sources.append(edgar)
+            if edgar.missing_fields:
+                console.print(f"  [yellow]EDGAR missing fields: {', '.join(edgar.missing_fields)}[/yellow]")
+        except RuntimeError as e:
+            console.print(f"  [yellow]EDGAR skipped: {e}[/yellow]")
+
     if not sources:
         console.print("[red]No sources available — aborting.[/red]")
         return
 
     # ── 2. Reconcile ─────────────────────────────────────────────────────────
     result  = reconcile(sources)
+    # Only DATA fields count as genuine disagreement flags
     n_flags = sum(
-        1 for d in result.disagreement.values()
-        if math.isfinite(d) and d * 100 > 2.0
+        1 for f, d in result.disagreement.items()
+        if FIELD_TYPE.get(f) == "DATA" and math.isfinite(d) and d * 100 > 2.0
     )
 
     # ── 3. Build table ────────────────────────────────────────────────────────
@@ -119,37 +135,46 @@ def run_reconcile(ticker: str, skip_fmp: bool = False) -> None:
         title_style="bold white",
     )
 
-    tbl.add_column("Field",      style="cyan",  no_wrap=True, min_width=18)
+    tbl.add_column("Field",  style="cyan",  no_wrap=True, min_width=18)
+    tbl.add_column("Type",   style="dim",   no_wrap=True, min_width=12)
     for name in source_names:
         tbl.add_column(name, justify="right", min_width=18)
     if len(sources) > 1:
-        tbl.add_column("Disagree", justify="right", min_width=10)
+        tbl.add_column("Disagree", justify="right", min_width=14)
+
+    n_extra = 1 + len(sources) + (1 if len(sources) > 1 else 0)  # Type col + source cols + disagree
 
     # ── Series fields ─────────────────────────────────────────────────────────
     tbl.add_row(*["[bold dim]── Annual series (most recent FY) ──[/bold dim]"]
-                 + [""] * (len(sources) + (1 if len(sources) > 1 else 0)))
+                 + [""] * n_extra)
 
     for f in SERIES_FIELDS:
+        ftype = FIELD_TYPE.get(f, "DATA")
+        type_label = ("[dim]CONV[/dim]" if ftype == "DEFINITIONAL"
+                      else "[green]DATA[/green]")
         cols = []
         for s in sources:
             val_str, year = _fmt_series_last(getattr(s, f), s.currency)
             label = f"{val_str}  [dim]{year}[/dim]" if year else val_str
             cols.append(label)
 
-        d_txt, d_style = _fmt_disagree(result.disagreement[f])
-        row = [_LABELS[f]] + cols
+        d_txt, _ = _fmt_disagree(result.disagreement[f], ftype)
+        row = [_LABELS[f], type_label] + cols
         if len(sources) > 1:
             row.append(d_txt)
         tbl.add_row(*row)
 
     # ── Scalar fields ─────────────────────────────────────────────────────────
     tbl.add_row(*["[bold dim]── Balance sheet / derived scalars ──[/bold dim]"]
-                 + [""] * (len(sources) + (1 if len(sources) > 1 else 0)))
+                 + [""] * n_extra)
 
     for f in SCALAR_FIELDS:
+        ftype = FIELD_TYPE.get(f, "DATA")
+        type_label = ("[dim]CONV[/dim]" if ftype == "DEFINITIONAL"
+                      else "[green]DATA[/green]")
         cols = [_fmt_scalar(f, getattr(s, f), s.currency) for s in sources]
-        d_txt, _ = _fmt_disagree(result.disagreement[f])
-        row = [_LABELS[f]] + cols
+        d_txt, _ = _fmt_disagree(result.disagreement[f], ftype)
+        row = [_LABELS[f], type_label] + cols
         if len(sources) > 1:
             row.append(d_txt)
         tbl.add_row(*row)
@@ -165,18 +190,24 @@ def run_reconcile(ticker: str, skip_fmp: bool = False) -> None:
         )
     elif n_flags:
         console.print(
-            f"  [bold red]⚠  {n_flags} field(s) disagree by >2% — review before running DCF.[/bold red]"
+            f"  [bold red]⚠  {n_flags} DATA field(s) disagree by >2% — review before running DCF.[/bold red]"
         )
     else:
         console.print(
-            "  [green]✓  All fields agree within 2% across sources.[/green]"
+            "  [green]✓  All DATA fields agree within 2% across sources.[/green]"
         )
+
+    if result.sigma_cross:
+        console.print("\n  [bold]σ_cross (DATA fields → MC widening):[/bold]")
+        for var, sig in sorted(result.sigma_cross.items()):
+            console.print(f"    {var:<20}  σ = {sig:.4f}")
     console.print()
 
 
 if __name__ == "__main__":
-    args      = [a for a in sys.argv[1:] if not a.startswith("--")]
-    flags     = [a for a in sys.argv[1:] if a.startswith("--")]
-    ticker    = args[0] if args else "MSFT"
-    skip_fmp  = "--no-fmp" in flags
-    run_reconcile(ticker, skip_fmp=skip_fmp)
+    args        = [a for a in sys.argv[1:] if not a.startswith("--")]
+    flags       = [a for a in sys.argv[1:] if a.startswith("--")]
+    ticker      = args[0] if args else "MSFT"
+    skip_fmp    = "--no-fmp"    in flags
+    skip_edgar  = "--no-edgar"  in flags
+    run_reconcile(ticker, skip_fmp=skip_fmp, skip_edgar=skip_edgar)

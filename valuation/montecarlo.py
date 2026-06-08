@@ -156,17 +156,23 @@ def _build_base(raw, drivers, wacc_r) -> Assumptions:
 
 def _run_sims(
     base: Assumptions,
-    sg: float,              # drivers.std_revenue_growth
-    sm: float,              # drivers.std_ebit_margin
+    sg: float,              # σ_eff for revenue growth (historical + cross-source in quadrature)
+    sm: float,              # σ_eff for ebit margin (historical + cross-source in quadrature)
     corr: np.ndarray,
     n: int,
     spread_sigma: float,
     rng: np.random.Generator,
-    copula: str,            # 'gaussian' | 'student-t'
+    copula: str,                 # 'gaussian' | 'student-t'
+    shares_cross: float = 0.0,  # absolute σ_cross for diluted_shares (0 = not promoted)
+    shares_promoted: bool = False,
+    nd_cross: float = 0.0,      # absolute σ_cross for net_debt (0 = not promoted)
+    nd_promoted: bool = False,
 ) -> np.ndarray:
     """
     Draw n per-share intrinsic values (USD).
     spread_sigma=0 → all inputs pinned at base-case mode (consistency check).
+    When spread_sigma=0 the promoted-variable flags are also ignored, so the
+    zero-variance run exactly reproduces the deterministic value().
     """
     w = base.wacc
 
@@ -216,6 +222,25 @@ def _run_sims(
     else:
         fx_s = np.full(n, base.fx_rate)
 
+    # Promoted balance-sheet variables: diluted_shares and net_debt.
+    # Sampled independently (not through the copula — balance-sheet uncertainty
+    # is orthogonal to operating-driver forecast uncertainty).
+    # Narrow PERT centred on preferred-source value, half-width = σ_cross.
+    # Only active when spread_sigma > 0 (not in the consistency-check run).
+    if shares_promoted and spread_sigma > 1e-9:
+        sh_lo = max(0.0, base.diluted_shares - shares_cross)
+        sh_hi = base.diluted_shares + shares_cross
+        sh_s  = _pert_ppf(rng.uniform(0.0, 1.0, n), sh_lo, base.diluted_shares, sh_hi)
+    else:
+        sh_s = np.full(n, base.diluted_shares)
+
+    if nd_promoted and spread_sigma > 1e-9:
+        nd_lo = base.net_debt - nd_cross
+        nd_hi = base.net_debt + nd_cross
+        nd_s  = _pert_ppf(rng.uniform(0.0, 1.0, n), nd_lo, base.net_debt, nd_hi)
+    else:
+        nd_s = np.full(n, base.net_debt)
+
     # Inner loop: one copy, mutate per draw, call pure value()
     results = np.empty(n)
     skipped = 0
@@ -228,6 +253,8 @@ def _run_sims(
         a.terminal_g     = float(tg_s[i])
         a.wacc           = float(wa_s[i])
         a.fx_rate        = float(fx_s[i])
+        a.diluted_shares = float(sh_s[i])
+        a.net_debt       = float(nd_s[i])
         try:
             results[i] = value(a)
         except Exception:
@@ -273,8 +300,24 @@ def _save_histogram(ticker, results, price, n_valid, copula_label,
 
 # ─────────────────────────── Public functions ─────────────────────────────────
 
-def run_valuation(ticker: str, n_sims: int = 10_000) -> ValuationResult:
-    """All computation, zero I/O.  n_sims=0 → skip Monte Carlo."""
+def run_valuation(
+    ticker: str,
+    n_sims: int = 10_000,
+    sigma_cross: dict[str, float] | None = None,
+) -> ValuationResult:
+    """
+    All computation, zero I/O.  n_sims=0 → skip Monte Carlo.
+
+    sigma_cross: dict from ReconcileResult.sigma_cross.  When provided, the
+    effective per-variable σ is combined with the historical σ in quadrature:
+        σ_eff = sqrt(σ_hist² + σ_cross²)
+    Only DATA-classified fields appear in sigma_cross; DEFINITIONAL fields do
+    not widen anything.  Share count and net debt are promoted to sampled
+    variables if their relative disagreement exceeds 2%.
+    """
+    if sigma_cross is None:
+        sigma_cross = {}
+
     raw    = fetch_raw(ticker)
     drvrs  = compute_drivers(raw)
     wacc_r = compute_wacc(raw, drvrs)
@@ -292,26 +335,50 @@ def run_valuation(ticker: str, n_sims: int = 10_000) -> ValuationResult:
             copula_label='', consistency_pass=False, cc_p50=nan,
             p10=nan, p25=nan, p50=nan, p75=nan, p90=nan,
             mean_val=nan, std_val=nan, pct_undervalued=nan,
+            sigma_cross=sigma_cross,
         )
 
-    sg = drvrs.std_revenue_growth
-    sm = drvrs.std_ebit_margin
-    w  = base.wacc
+    sg_hist = drvrs.std_revenue_growth
+    sm_hist = drvrs.std_ebit_margin
+
+    # Effective σ: combine historical spread with cross-source uncertainty in quadrature.
+    # σ_eff can only grow, never shrink — adding a zero σ_cross leaves σ_hist unchanged.
+    sg = math.sqrt(sg_hist**2 + sigma_cross.get("revenue_growth", 0.0)**2)
+    sm = math.sqrt(sm_hist**2 + sigma_cross.get("ebit_margin",    0.0)**2)
+
+    # Promoted balance-sheet variables.
+    # A DATA variable is promoted when its relative cross-source spread > 2%.
+    # This captures uncertainty about the current balance-sheet figure without
+    # reintroducing the Route-1 SBC double-count concern (which was about future
+    # dilution, not current share-count measurement uncertainty).
+    sc_abs = sigma_cross.get("diluted_shares", 0.0)
+    shares_promoted = (base.diluted_shares > 0 and
+                       sc_abs / base.diluted_shares > 0.02)
+
+    nd_abs = sigma_cross.get("net_debt", 0.0)
+    nd_promoted = (abs(base.net_debt) > 1e-9 and
+                   nd_abs / abs(base.net_debt) > 0.02)
 
     corr       = _ensure_psd(CORR.copy())
     use_t      = sg > HIGH_VOL_THRESHOLD
     copula_key = 'student-t' if use_t else 'gaussian'
     copula_lbl = f'Student-t (df={STUDENT_T_DF})' if use_t else 'Gaussian'
 
-    # Consistency check
+    # Consistency check: zero spread_sigma pins all variables to mode.
+    # Pass sg/sm (with any σ_cross baked in) but spread_sigma=0 overrides bounds to
+    # point masses, so σ_eff doesn't matter — output must equal deterministic value().
     cc_sims = _run_sims(base, sg, sm, corr, 50, 0.0,
                         np.random.default_rng(0), copula_key)
     cc_p50  = float(np.median(cc_sims))
     cc_ok   = abs(cc_p50 - dcf_r.value_per_share_usd) < 0.01
 
     # Full simulation
-    sims = _run_sims(base, sg, sm, corr, n_sims, SPREAD_SIGMA,
-                     np.random.default_rng(seed=42), copula_key)
+    sims = _run_sims(
+        base, sg, sm, corr, n_sims, SPREAD_SIGMA,
+        np.random.default_rng(seed=42), copula_key,
+        shares_cross=sc_abs,   shares_promoted=shares_promoted,
+        nd_cross=nd_abs,       nd_promoted=nd_promoted,
+    )
     n_v  = len(sims)
 
     # Stats computed on the full un-winsorized array
@@ -329,6 +396,7 @@ def run_valuation(ticker: str, n_sims: int = 10_000) -> ValuationResult:
         copula_label=copula_lbl, consistency_pass=cc_ok, cc_p50=cc_p50,
         p10=p10, p25=p25, p50=p50, p75=p75, p90=p90,
         mean_val=mean_v, std_val=std_v, pct_undervalued=pct_under,
+        sigma_cross=sigma_cross,
     )
 
 
@@ -336,29 +404,41 @@ def print_valuation(result: ValuationResult) -> None:
     """Terminal formatter — consumes a ValuationResult, produces the existing output + PNG."""
     base  = result.assumptions
     drvrs = result.drivers
-    sg    = drvrs.std_revenue_growth
-    sm    = drvrs.std_ebit_margin
+    sc    = result.sigma_cross
+    sg_hist = drvrs.std_revenue_growth
+    sm_hist = drvrs.std_ebit_margin
+    sg    = math.sqrt(sg_hist**2 + sc.get("revenue_growth", 0.0)**2)  # σ_eff
+    sm    = math.sqrt(sm_hist**2 + sc.get("ebit_margin",    0.0)**2)  # σ_eff
     w     = base.wacc
     det   = result.dcf.value_per_share_usd
 
     print(f"\n{'='*60}")
     print(f"  MONTE CARLO SETUP — {result.ticker}")
     print(f"{'='*60}")
+    cross_note = ""
+    if sc:
+        parts = [f"σ_cross({k})={v:.2%}" for k, v in sc.items()
+                 if k in ("revenue_growth", "ebit_margin")]
+        if parts:
+            cross_note = "  cross-source: " + ", ".join(parts)
     print(f"\n  Copula : {result.copula_label}"
-          f"   (σ_growth = {sg:.2%},  threshold = {HIGH_VOL_THRESHOLD:.0%})")
+          f"   (σ_growth_eff = {sg:.2%},  threshold = {HIGH_VOL_THRESHOLD:.0%})"
+          + cross_note)
 
     tg_hi = max(TERM_G_MIN + 1e-6, min(TERM_G_MAX_ABS, w - WACC_TG_GAP))
-    print(f"\n  PERT bounds (±{SPREAD_SIGMA:.0f}σ):")
-    print(f"  {'Input':<22} {'Min':>10}  {'Mode':>10}  {'Max':>10}")
-    print(f"  {'─'*56}")
+    print(f"\n  PERT bounds (±{SPREAD_SIGMA:.0f}σ_eff):")
+    print(f"  {'Input':<22} {'Min':>10}  {'Mode':>10}  {'Max':>10}  {'σ_eff':>8}")
+    print(f"  {'─'*65}")
     print(f"  {'Revenue growth':<22}"
           f" {max(base.revenue_growth - SPREAD_SIGMA*sg, -0.30):>10.2%}"
           f"  {base.revenue_growth:>10.2%}"
-          f"  {min(base.revenue_growth + SPREAD_SIGMA*sg, 1.50):>10.2%}")
+          f"  {min(base.revenue_growth + SPREAD_SIGMA*sg, 1.50):>10.2%}"
+          f"  {sg:>7.2%}")
     print(f"  {'EBIT margin':<22}"
           f" {max(base.ebit_margin - SPREAD_SIGMA*sm, -0.20):>10.2%}"
           f"  {base.ebit_margin:>10.2%}"
-          f"  {min(base.ebit_margin + SPREAD_SIGMA*sm, 0.75):>10.2%}")
+          f"  {min(base.ebit_margin + SPREAD_SIGMA*sm, 0.75):>10.2%}"
+          f"  {sm:>7.2%}")
     print(f"  {'Terminal g':<22}"
           f" {TERM_G_MIN:>10.2%}  {TERM_G_MODE:>10.2%}  {tg_hi:>10.2%}")
     print(f"  {'WACC':<22}"
@@ -369,6 +449,18 @@ def print_valuation(result: ValuationResult) -> None:
           f" {max(base.target_margin - tm_sp, -0.10):>10.2%}"
           f"  {base.target_margin:>10.2%}"
           f"  {min(base.target_margin + tm_sp, 0.60):>10.2%}")
+    if sc.get("diluted_shares", 0) / max(base.diluted_shares, 1) > 0.02:
+        sc_abs = sc["diluted_shares"]
+        print(f"  {'Diluted shares*':<22}"
+              f" {(base.diluted_shares-sc_abs)/1e9:>10.3f}B"
+              f"  {base.diluted_shares/1e9:>9.3f}B"
+              f"  {(base.diluted_shares+sc_abs)/1e9:>9.3f}B  [promoted]")
+    if sc.get("net_debt", 0) / max(abs(base.net_debt), 1e-9) > 0.02:
+        nd_abs = sc["net_debt"]
+        print(f"  {'Net debt*':<22}"
+              f" {(base.net_debt-nd_abs)/1e9:>10.3f}B"
+              f"  {base.net_debt/1e9:>9.3f}B"
+              f"  {(base.net_debt+nd_abs)/1e9:>9.3f}B  [promoted]")
     if base.currency != 'USD':
         fxv = FX_ANNUAL_VOL.get(base.currency, FX_ANNUAL_VOL['_default'])
         print(f"  {'FX (' + base.currency + '/USD)':<22}"

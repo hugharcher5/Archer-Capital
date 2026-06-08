@@ -37,6 +37,11 @@ class RawData:
     current_liabilities: float
     current_debt: float         # current portion of debt (excluded from operating NWC)
 
+    # Operating lease liabilities carried separately for debt normalisation in sources.py.
+    # yfinance labels these "Capital Lease Obligations" (new-standard on-balance-sheet leases).
+    # data.py stores raw total_debt (unchanged); sources.py subtracts op_lease_liab as needed.
+    op_lease_liab: float = 0.0
+
     missing_fields: list = field(default_factory=list)
 
 
@@ -184,6 +189,13 @@ def fetch_raw(ticker: str, years: int = 5) -> RawData:
     curr_debt   = _bs_latest(bs, ['Current Debt', 'Short Term Debt',
                                   'Current Debt And Capital Lease Obligation'],              [],      'current_debt')
 
+    # Operating lease liabilities: yfinance labels these "Capital Lease Obligations".
+    # Stored raw here; sources.py uses them to normalize debt to bonds + finance leases only.
+    _op_lt  = _bs_latest(bs, ['Long Term Capital Lease Obligation', 'Long Term Leases'], [], '_op_lt')
+    _cur_dcl = _bs_latest(bs, ['Current Debt And Capital Lease Obligation'],             [], '_cur_dcl')
+    _cur_d   = _bs_latest(bs, ['Current Debt', 'Short Term Debt'],                      [], '_cur_d')
+    op_lease_liab = _op_lt + max(0.0, _cur_dcl - _cur_d)
+
     # ── Summary print ─────────────────────────────────────────────────────────
     uniq_missing = sorted(set(missing))
     print(f"\n{'='*60}")
@@ -227,5 +239,6 @@ def fetch_raw(ticker: str, years: int = 5) -> RawData:
         current_assets=curr_assets,
         current_liabilities=curr_liab,
         current_debt=curr_debt,
+        op_lease_liab=op_lease_liab,
         missing_fields=uniq_missing,
     )

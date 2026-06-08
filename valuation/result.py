@@ -38,3 +38,8 @@ class ValuationResult:
     mean_val:        float
     std_val:         float
     pct_undervalued: float        # percentage of draws > current price
+
+    # ── Cross-source uncertainty (empty dict when no reconciliation supplied) ──
+    # Maps MC variable name → σ_cross (absolute, same units as the variable).
+    # Populated by run_valuation(sigma_cross=...) from ReconcileResult.sigma_cross.
+    sigma_cross: dict = field(default_factory=dict)

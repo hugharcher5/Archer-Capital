@@ -51,6 +51,14 @@ def fetch_yahoo(ticker: str) -> SourceData:
     raw     = fetch_raw(ticker)
     missing = list(raw.missing_fields)
 
+    # Normalize total_debt: subtract operating lease liabilities.
+    # Convention: net debt = bonds/notes + finance-lease liabilities only.
+    # Rent expense is already in EBIT, so operating leases must not also be
+    # counted as debt (that would double-count the cost).
+    # yfinance bundles operating leases into Total Debt as "Capital Lease
+    # Obligations"; raw.op_lease_liab holds that amount so we can strip it.
+    total_debt_normalized = max(0.0, raw.total_debt - raw.op_lease_liab)
+
     # Effective tax rate from historical series (same logic as drivers.py)
     tax_rate = float('nan')
     if not raw.tax_provision.empty and not raw.pretax_income.empty:
@@ -69,7 +77,7 @@ def fetch_yahoo(ticker: str) -> SourceData:
         dep_amort=raw.da,
         capex=raw.capex,
         diluted_shares=raw.diluted_shares,
-        total_debt=raw.total_debt,
+        total_debt=total_debt_normalized,
         cash=raw.cash,
         tax_rate=tax_rate,
         missing_fields=missing,
@@ -130,6 +138,200 @@ def _scalar_first(rows: list[dict], *keys: str) -> float:
                 except (TypeError, ValueError):
                     pass
     return float('nan')
+
+
+def fetch_edgar(ticker: str) -> SourceData:
+    """
+    Fetch annual (10-K / FY) financial data from SEC EDGAR XBRL company facts.
+    Requires no API key.  Raises RuntimeError with a clear message on failure.
+    """
+    HEADERS = {"User-Agent": "Archer Capital research@archercapital.dev"}
+
+    def _get(url: str):
+        import gzip as _gzip
+        req = urllib.request.Request(url, headers=HEADERS)
+        try:
+            with urllib.request.urlopen(req, timeout=20) as r:
+                raw = r.read()
+                enc = r.headers.get("Content-Encoding", "")
+                if enc == "gzip" or raw[:2] == b"\x1f\x8b":
+                    raw = _gzip.decompress(raw)
+                return json.loads(raw.decode())
+        except urllib.error.HTTPError as e:
+            raise RuntimeError(f"EDGAR HTTP {e.code} for {url}") from e
+        except Exception as e:
+            raise RuntimeError(f"EDGAR request failed: {e}") from e
+
+    # ── 1. CIK lookup ─────────────────────────────────────────────────────────
+    tickers_url = "https://www.sec.gov/files/company_tickers.json"
+    tickers_map = _get(tickers_url)
+    cik = None
+    ticker_upper = ticker.upper()
+    for entry in tickers_map.values():
+        if entry.get("ticker", "").upper() == ticker_upper:
+            cik = str(entry["cik_str"]).zfill(10)
+            break
+    if cik is None:
+        raise RuntimeError(f"EDGAR: ticker '{ticker}' not found in company_tickers.json")
+
+    print(f"  [EDGAR] CIK for {ticker_upper}: {cik}", end=" ", flush=True)
+
+    # ── 2. Company facts ──────────────────────────────────────────────────────
+    facts_url = f"https://data.sec.gov/api/xbrl/companyfacts/CIK{cik}.json"
+    facts = _get(facts_url)
+    us_gaap = facts.get("facts", {}).get("us-gaap", {})
+    print("✓")
+
+    def _annual_series(tag_candidates: list[str], abs_val: bool = False) -> tuple[pd.Series, list[str]]:
+        """Try each tag in order; return first non-empty annual Series + list of tried tags."""
+        tried: list[str] = []
+        for tag in tag_candidates:
+            tried.append(tag)
+            node = us_gaap.get(tag, {})
+            units = node.get("units", {})
+            rows = units.get("USD") or units.get("shares") or []
+            if not rows:
+                continue
+            # 10-K form guarantees annual; fp filter unnecessary and sometimes absent
+            fy_rows = [r for r in rows if r.get("form") == "10-K"]
+            if not fy_rows:
+                continue
+            pts: dict[pd.Timestamp, float] = {}
+            for row in fy_rows:
+                end = row.get("end")
+                val = row.get("val")
+                if end is None or val is None:
+                    continue
+                try:
+                    v = abs(float(val)) if abs_val else float(val)
+                    pts[pd.Timestamp(end)] = v
+                except (ValueError, TypeError):
+                    pass
+            if not pts:
+                continue
+            s = pd.Series(pts).sort_index()
+            # deduplicate: keep most recent filing per fiscal-year-end
+            s = s[~s.index.duplicated(keep="last")]
+            return s, tried
+        return pd.Series(dtype=float), tried
+
+    def _annual_scalar(tag_candidates: list[str]) -> tuple[float, list[str]]:
+        """Most recent FY 10-K value for the first tag that has data."""
+        s, tried = _annual_series(tag_candidates)
+        if s.empty:
+            return float("nan"), tried
+        return float(s.iloc[-1]), tried
+
+    missing: list[str] = []
+
+    # ── Series fields ─────────────────────────────────────────────────────────
+    revenue, t = _annual_series([
+        "RevenueFromContractWithCustomerExcludingAssessedTax",
+        "Revenues",
+        "SalesRevenueNet",
+    ])
+    if revenue.empty:
+        missing.append("revenue")
+        print(f"  [EDGAR] revenue: no data (tried {t})")
+
+    ebit, t = _annual_series(["OperatingIncomeLoss"])
+    if ebit.empty:
+        missing.append("ebit")
+        print(f"  [EDGAR] ebit: no data (tried {t})")
+
+    # D&A strategy:
+    # 1. Comprehensive tag (ideal — covers all depreciation + amortization)
+    # 2. Sum of dep component + intangible amortization (handles MSFT-style split filers)
+    # 3. Dep-only fallback
+    dep_amort, t = _annual_series([
+        "DepreciationDepletionAndAmortization",
+        "DepreciationAmortizationAndAccretionNet",
+    ], abs_val=True)
+
+    if dep_amort.empty:
+        dep_part,  _ = _annual_series(["DepreciationAndAmortization",
+                                        "OtherDepreciationAndAmortization",
+                                        "Depreciation"], abs_val=True)
+        amort_part, _ = _annual_series(["AmortizationOfIntangibleAssets",
+                                         "AmortizationOfAcquiredIntangibles"],
+                                        abs_val=True)
+        lease_amort, _ = _annual_series(["FinanceLeaseRightOfUseAssetAmortization",
+                                          "OperatingLeaseRightOfUseAssetAmortization"],
+                                         abs_val=True)
+        if not dep_part.empty:
+            combined = dep_part.copy()
+            if not amort_part.empty:
+                idx = combined.index.intersection(amort_part.index)
+                if len(idx):
+                    combined = combined.reindex(idx) + amort_part.reindex(idx)
+            if not lease_amort.empty:
+                idx = combined.index.intersection(lease_amort.index)
+                if len(idx):
+                    combined = combined.reindex(idx) + lease_amort.reindex(idx)
+            dep_amort = combined.sort_index()
+            t.append("components-summed")
+
+    if dep_amort.empty:
+        missing.append("dep_amort")
+        print(f"  [EDGAR] dep_amort: no data (tried {t})")
+
+    capex, t = _annual_series(
+        ["PaymentsToAcquirePropertyPlantAndEquipment"], abs_val=True
+    )
+    if capex.empty:
+        missing.append("capex")
+        print(f"  [EDGAR] capex: no data (tried {t})")
+
+    # ── Scalar fields ─────────────────────────────────────────────────────────
+    diluted_shares, t = _annual_scalar(["WeightedAverageNumberOfDilutedSharesOutstanding"])
+    if math.isnan(diluted_shares):
+        missing.append("diluted_shares")
+        print(f"  [EDGAR] diluted_shares: no data (tried {t})")
+
+    cash, t = _annual_scalar(["CashAndCashEquivalentsAtCarryingValue"])
+    if math.isnan(cash):
+        missing.append("cash")
+        print(f"  [EDGAR] cash: no data (tried {t})")
+
+    # Total debt = long-term + current debt + finance lease obligations
+    ltd, t1    = _annual_scalar(["LongTermDebtNoncurrent", "LongTermDebt"])
+    cur, t2    = _annual_scalar(["LongTermDebtCurrent", "ShortTermBorrowings",
+                                  "DebtCurrent"])
+    fl_lt, t3  = _annual_scalar(["FinanceLeaseLiabilityNoncurrent"])
+    fl_cur, t4 = _annual_scalar(["FinanceLeaseLiabilityCurrent"])
+    components = [x for x in [ltd, cur, fl_lt, fl_cur] if not math.isnan(x)]
+    total_debt = sum(components) if components else float("nan")
+    if math.isnan(total_debt):
+        missing.append("total_debt")
+        print(f"  [EDGAR] total_debt: no data (tried {t1 + t2 + t3 + t4})")
+
+    # Effective tax rate: IncomeTaxExpenseBenefit / IncomeLossFromContinuingOps...
+    tax_series, _  = _annual_series(["IncomeTaxExpenseBenefit"])
+    pretax_series, _ = _annual_series([
+        "IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest"
+    ])
+    tax_rate = float("nan")
+    if not tax_series.empty and not pretax_series.empty:
+        pt   = pretax_series.reindex(tax_series.index)
+        mask = (pt > 0) & tax_series.notna()
+        if mask.any():
+            tax_rate = float((tax_series[mask] / pt[mask]).clip(0.0, 0.6).mean())
+    if math.isnan(tax_rate):
+        missing.append("tax_rate")
+
+    return SourceData(
+        source_name="EDGAR",
+        currency="USD",
+        revenue=revenue,
+        ebit=ebit,
+        dep_amort=dep_amort,
+        capex=capex,
+        diluted_shares=diluted_shares,
+        total_debt=total_debt,
+        cash=cash,
+        tax_rate=tax_rate,
+        missing_fields=missing,
+    )
 
 
 def fetch_fmp(ticker: str) -> SourceData:
