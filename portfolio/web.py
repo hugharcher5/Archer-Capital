@@ -13,6 +13,8 @@ from portfolio.data          import fetch_portfolio
 from valuation.montecarlo    import run_valuation
 from valuation.result        import ValuationResult
 from valuation.dcf           import MATURE_MARGIN_DEFAULT
+from valuation.sources       import fetch_yahoo, fetch_fmp, fetch_edgar
+from valuation.reconcile     import reconcile
 
 st.set_page_config(page_title="Archer Capital", layout="wide")
 st.title("Archer Capital")
@@ -94,6 +96,17 @@ with tab_portfolio:
 
 @st.cache_data(show_spinner=False, ttl=3600)
 def _cached_valuation(ticker: str) -> ValuationResult:
+    sources = []
+    for fetcher in (fetch_yahoo, fetch_fmp, fetch_edgar):
+        try:
+            sources.append(fetcher(ticker))
+        except Exception:
+            pass
+    if len(sources) >= 2:
+        recon = reconcile(sources)
+        return run_valuation(ticker, n_sims=10_000,
+                             sigma_cross=recon.sigma_cross,
+                             reconcile_result=recon)
     return run_valuation(ticker, n_sims=10_000)
 
 
@@ -142,8 +155,24 @@ def _render_histogram(r: ValuationResult) -> None:
 
 # ── Expanders ─────────────────────────────────────────────────────────────────
 
+def _recon_source_disagree(recon_fields: dict, field_key: str) -> tuple[str, str]:
+    """Return (source_name, disagree_str) for a reconcile field, or ('—', '—') if absent."""
+    if not recon_fields or field_key not in recon_fields:
+        return "—", "—"
+    info  = recon_fields[field_key]
+    src   = info["source"]
+    dpct  = info["disagree_pct"]
+    ftype = info["field_type"]
+    if dpct is None:
+        return src, "n/a"
+    if ftype == "DEFINITIONAL":
+        return src, f"{dpct:.1f}% (conv)"
+    return src, (f"⚠ {dpct:.1f}%" if dpct > 2.0 else f"{dpct:.1f}%")
+
+
 def _render_expander_drivers(r: ValuationResult) -> None:
-    d = r.drivers
+    d  = r.drivers
+    rf = r.recon_fields
     with st.expander("Historical Drivers", expanded=False):
         st.markdown(
             "The model averages the last few years of reported financials to anchor "
@@ -153,7 +182,6 @@ def _render_expander_drivers(r: ValuationResult) -> None:
             disp_cols = [c for c in
                          ["revenue_growth", "ebit_margin", "tax_rate", "da_pct", "capex_pct", "sbc_pct"]
                          if c in d.hist_df.columns]
-            fmt_map = {c: "{:.1%}".format for c in disp_cols}
             hist_display = d.hist_df[disp_cols].copy()
             hist_display.index = [str(i.year) for i in hist_display.index]
             hist_display.columns = ["Rev Growth", "EBIT Margin", "Tax Rate",
@@ -163,7 +191,15 @@ def _render_expander_drivers(r: ValuationResult) -> None:
                 use_container_width=True,
             )
 
-        rows = [
+        # Map driver label → reconcile field key for source/disagree annotation
+        _DRIVER_FIELD = {
+            "Revenue growth":  "revenue",
+            "EBIT margin":     "ebit",
+            "Tax rate":        "tax_rate",
+            "D&A / Revenue":   "dep_amort",
+            "CapEx / Revenue": "capex",
+        }
+        base_rows = [
             ("Revenue growth",   f"{d.revenue_growth:.2%}",   f"σ = {d.std_revenue_growth:.2%}"),
             ("EBIT margin",      f"{d.ebit_margin:.2%}",      f"σ = {d.std_ebit_margin:.2%}  (best: {d.best_ebit_margin:.2%})"),
             ("Tax rate",         f"{d.tax_rate:.2%}",         ""),
@@ -172,15 +208,26 @@ def _render_expander_drivers(r: ValuationResult) -> None:
             ("NWC / Revenue",    f"{d.nwc_pct:.2%}",          "most recent balance sheet"),
             ("SBC / Revenue",    f"{d.sbc_pct:.2%}",          "Route 1: already in EBIT"),
         ]
-        st.dataframe(
-            pd.DataFrame(rows, columns=["Driver", "Mean", "Note"]),
-            use_container_width=True, hide_index=True,
-        )
+        if rf:
+            table_rows = []
+            for driver, mean, note in base_rows:
+                src, dis = _recon_source_disagree(rf, _DRIVER_FIELD.get(driver, ""))
+                table_rows.append((driver, mean, note, src, dis))
+            st.dataframe(
+                pd.DataFrame(table_rows, columns=["Driver", "Mean", "Note", "Source", "Disagree"]),
+                use_container_width=True, hide_index=True,
+            )
+        else:
+            st.dataframe(
+                pd.DataFrame(base_rows, columns=["Driver", "Mean", "Note"]),
+                use_container_width=True, hide_index=True,
+            )
 
 
 def _render_expander_wacc(r: ValuationResult) -> None:
     w   = r.wacc_result
     ccy = r.currency
+    rf  = r.recon_fields
     with st.expander("WACC", expanded=False):
         st.markdown(
             "WACC is the discount rate applied to each year's free cash flow.  "
@@ -188,11 +235,20 @@ def _render_expander_wacc(r: ValuationResult) -> None:
             "based on the interest-coverage ratio."
         )
         st.latex(r"\text{WACC} = w_E \cdot K_E + w_D \cdot K_D (1-t)")
+
+        sh_src, _ = _recon_source_disagree(rf, "diluted_shares")
+        td_src, td_dis = _recon_source_disagree(rf, "total_debt")
+        eq_note   = f"{ccy} {w.equity_value/1e9:.1f}B market cap"
+        debt_note = f"{ccy} {w.debt_value/1e9:.1f}B total debt"
+        if rf:
+            eq_note   += f"  |  shares: {sh_src}"
+            debt_note += f"  |  {td_src}, {td_dis}"
+
         rows = [
             ("Risk-free rate",         f"{w.rf:.3%}",                   w.rf_source),
             ("Beta (raw / Blume adj)", f"{w.beta_raw:.3f} / {w.beta_adj:.3f}", "0.67×raw + 0.33"),
             ("ERP",                    f"{w.erp:.2%}",                  "Damodaran implied"),
-            ("Cost of equity (Kₑ)",    f"{w.cost_of_equity:.3%}",      f"Rf + β×ERP"),
+            ("Cost of equity (Kₑ)",    f"{w.cost_of_equity:.3%}",      "Rf + β×ERP"),
             ("Interest coverage",
              f"{w.coverage_ratio:.2f}×" if w.coverage_ratio != float('inf') else "∞",
              "EBIT / |interest expense|"),
@@ -200,8 +256,8 @@ def _render_expander_wacc(r: ValuationResult) -> None:
             ("Credit spread",          f"{w.credit_spread:.3%}",       ""),
             ("Cost of debt pre-tax",   f"{w.cost_of_debt_pretax:.3%}", "Rf + spread"),
             ("Cost of debt post-tax",  f"{w.cost_of_debt_aftertax:.3%}", "pre × (1−tax)"),
-            ("Equity weight",          f"{w.equity_weight:.2%}",       f"{ccy} {w.equity_value/1e9:.1f}B market cap"),
-            ("Debt weight",            f"{w.debt_weight:.2%}",         f"{ccy} {w.debt_value/1e9:.1f}B total debt"),
+            ("Equity weight",          f"{w.equity_weight:.2%}",       eq_note),
+            ("Debt weight",            f"{w.debt_weight:.2%}",         debt_note),
             ("WACC",                   f"{w.wacc:.3%}",                "weighted blend"),
         ]
         st.dataframe(
@@ -332,6 +388,7 @@ def _render_expander_bridge(r: ValuationResult) -> None:
     a   = r.assumptions
     res = r.dcf
     ccy = a.currency
+    rf  = r.recon_fields
     with st.expander("EV → Equity Bridge", expanded=False):
         st.markdown(
             "Enterprise value belongs to all capital providers.  "
@@ -341,13 +398,24 @@ def _render_expander_bridge(r: ValuationResult) -> None:
         st.latex(r"\text{Equity value} = EV - \text{Net debt} \quad\Rightarrow\quad "
                  r"V/\text{share} = \frac{\text{Equity value}}{\text{Diluted shares}}")
 
+        # Annotate net-debt and shares rows with source/disagree when available.
+        # Net debt = total_debt (DEFINITIONAL) − cash (DATA); show both.
+        td_src, td_dis = _recon_source_disagree(rf, "total_debt")
+        ca_src, ca_dis = _recon_source_disagree(rf, "cash")
+        sh_src, sh_dis = _recon_source_disagree(rf, "diluted_shares")
+        nd_note = ""
+        sh_note = ""
+        if rf:
+            nd_note = f"debt: {td_src}, {td_dis}  |  cash: {ca_src}, {ca_dis}"
+            sh_note = f"{sh_src}, {sh_dis}"
+
         nd_label = "Net debt (debt − cash)" if a.net_debt >= 0 else "Net cash (cash − debt)"
         bridge_rows = [
             ("Enterprise value (EV)",   f"{ccy} {res.ev_local/1e9:.3f}B",         ""),
             (f"{'−' if a.net_debt >= 0 else '+'} {nd_label}",
-             f"{ccy} {abs(a.net_debt)/1e9:.3f}B", ""),
+             f"{ccy} {abs(a.net_debt)/1e9:.3f}B", nd_note),
             ("= Equity value",          f"{ccy} {res.equity_value_local/1e9:.3f}B", ""),
-            ("÷ Diluted shares",        f"{a.diluted_shares/1e9:.3f}B",            ""),
+            ("÷ Diluted shares",        f"{a.diluted_shares/1e9:.3f}B",            sh_note),
         ]
         if a.currency != "USD":
             bridge_rows += [
@@ -359,6 +427,87 @@ def _render_expander_bridge(r: ValuationResult) -> None:
             pd.DataFrame(bridge_rows, columns=["Step", "Value", "Note"]),
             use_container_width=True, hide_index=True,
         )
+
+
+# ── Reconciliation expander ───────────────────────────────────────────────────
+
+def _render_expander_reconciliation(r: ValuationResult) -> None:
+    rf = r.recon_fields
+    rs = r.recon_sigma
+    if not rf and not rs:
+        return
+    with st.expander("Data Reconciliation & Distribution Widening", expanded=False):
+        st.markdown(
+            "When multiple data sources (Yahoo Finance, FMP, SEC EDGAR) are available, "
+            "their disagreement on **DATA** fields widens the Monte Carlo input distributions. "
+            "**DEFINITIONAL** fields (D&A, total debt, tax rate) differ by reporting convention "
+            "and are resolved by normalisation — they do not add uncertainty."
+        )
+        st.latex(
+            r"\sigma_{\text{eff}} = \sqrt{\,\sigma_{\text{hist}}^2 + \sigma_{\text{cross}}^2\,}"
+        )
+
+        if rf:
+            st.markdown("**Per-field: source used and cross-source disagreement**")
+            _FIELD_LABELS = {
+                "revenue":        "Revenue",
+                "ebit":           "EBIT",
+                "dep_amort":      "D&A",
+                "capex":          "CapEx",
+                "diluted_shares": "Diluted Shares",
+                "total_debt":     "Total Debt",
+                "cash":           "Cash",
+                "tax_rate":       "Tax Rate",
+            }
+            field_rows = []
+            for f, info in rf.items():
+                label  = _FIELD_LABELS.get(f, f)
+                src    = info["source"]
+                dpct   = info["disagree_pct"]
+                ftype  = info["field_type"]
+                if ftype == "DEFINITIONAL":
+                    type_str = "DEFINITIONAL (conv)"
+                    dis_str  = f"{dpct:.1f}% — resolved by convention" if dpct is not None else "n/a"
+                elif dpct is None:
+                    type_str = "DATA"
+                    dis_str  = "n/a (single source)"
+                else:
+                    type_str = "DATA"
+                    dis_str  = f"⚠ {dpct:.1f}%" if dpct > 2.0 else f"{dpct:.1f}%"
+                field_rows.append((label, src, dis_str, type_str))
+            st.dataframe(
+                pd.DataFrame(field_rows, columns=["Field", "Source Used", "Disagreement", "Type"]),
+                use_container_width=True, hide_index=True,
+            )
+
+        if rs:
+            st.markdown("**MC distribution widening: σ decomposition per sampled variable**")
+            _VAR_LABELS = {
+                "revenue_growth": "Revenue Growth",
+                "ebit_margin":    "EBIT Margin",
+                "diluted_shares": "Diluted Shares (abs)",
+                "net_debt":       "Net Debt (abs)",
+            }
+            sigma_rows = []
+            for var, info in rs.items():
+                label = _VAR_LABELS.get(var, var)
+                sh, sc, se = info["sigma_hist"], info["sigma_cross"], info["sigma_eff"]
+                if var in ("diluted_shares", "net_debt"):
+                    sigma_rows.append((label, f"{sh/1e9:.3f}B", f"{sc/1e9:.3f}B", f"{se/1e9:.3f}B",
+                                       "promoted to sampled" if sc > 0 else "fixed"))
+                else:
+                    sigma_rows.append((label, f"{sh:.2%}", f"{sc:.2%}", f"{se:.2%}",
+                                       "widened" if sc > 0 else "hist only"))
+            st.dataframe(
+                pd.DataFrame(sigma_rows,
+                             columns=["Variable", "σ_hist", "σ_cross", "σ_eff", "Effect"]),
+                use_container_width=True, hide_index=True,
+            )
+            st.caption(
+                "σ_hist = historical std of the annual figure.  "
+                "σ_cross = std of the derived rate / level across sources.  "
+                "σ_eff = √(σ_hist² + σ_cross²) — combined uncertainty fed into the PERT bounds."
+            )
 
 
 # ── Main render ───────────────────────────────────────────────────────────────
@@ -421,6 +570,7 @@ def _render_valuation(r: ValuationResult) -> None:
     _render_expander_forecast(r)
     _render_expander_terminal(r)
     _render_expander_bridge(r)
+    _render_expander_reconciliation(r)
 
 
 # ── Valuation tab layout ──────────────────────────────────────────────────────

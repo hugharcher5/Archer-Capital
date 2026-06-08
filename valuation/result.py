@@ -43,3 +43,10 @@ class ValuationResult:
     # Maps MC variable name → σ_cross (absolute, same units as the variable).
     # Populated by run_valuation(sigma_cross=...) from ReconcileResult.sigma_cross.
     sigma_cross: dict = field(default_factory=dict)
+
+    # ── Reconciliation detail for UI display ──────────────────────────────────
+    # recon_fields: field → {source, disagree_pct, field_type}
+    # recon_sigma:  variable → {sigma_hist, sigma_cross, sigma_eff}
+    # Both empty when run_valuation() is called without a reconcile_result.
+    recon_fields: dict = field(default_factory=dict)
+    recon_sigma:  dict = field(default_factory=dict)

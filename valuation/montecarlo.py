@@ -13,11 +13,12 @@ import matplotlib
 matplotlib.use('Agg')   # non-interactive; must precede pyplot
 import matplotlib.pyplot as plt
 
-from .data    import fetch_raw
-from .drivers import compute_drivers
-from .wacc    import compute_wacc
-from .dcf     import Assumptions, value, detailed_value, TERMINAL_G, HIGH_GROWTH_THRESHOLD, MATURE_MARGIN_DEFAULT
-from .result  import ValuationResult
+from .data      import fetch_raw
+from .drivers   import compute_drivers
+from .wacc      import compute_wacc
+from .dcf       import Assumptions, value, detailed_value, TERMINAL_G, HIGH_GROWTH_THRESHOLD, MATURE_MARGIN_DEFAULT
+from .result    import ValuationResult
+from .reconcile import FIELD_TYPE, ALL_FIELDS
 
 
 # ─────────────────────────── Editable constants ───────────────────────────────
@@ -304,6 +305,7 @@ def run_valuation(
     ticker: str,
     n_sims: int = 10_000,
     sigma_cross: dict[str, float] | None = None,
+    reconcile_result=None,
 ) -> ValuationResult:
     """
     All computation, zero I/O.  n_sims=0 → skip Monte Carlo.
@@ -314,6 +316,9 @@ def run_valuation(
     Only DATA-classified fields appear in sigma_cross; DEFINITIONAL fields do
     not widen anything.  Share count and net debt are promoted to sampled
     variables if their relative disagreement exceeds 2%.
+
+    reconcile_result: ReconcileResult from reconcile().  When provided, recon_fields
+    and recon_sigma are populated on the returned ValuationResult for UI display.
     """
     if sigma_cross is None:
         sigma_cross = {}
@@ -323,6 +328,54 @@ def run_valuation(
     wacc_r = compute_wacc(raw, drvrs)
     base   = _build_base(raw, drvrs, wacc_r)
     dcf_r  = detailed_value(base)
+
+    sg_hist = drvrs.std_revenue_growth
+    sm_hist = drvrs.std_ebit_margin
+
+    # Effective σ: combine historical spread with cross-source uncertainty in quadrature.
+    # σ_eff can only grow, never shrink — adding a zero σ_cross leaves σ_hist unchanged.
+    sg = math.sqrt(sg_hist**2 + sigma_cross.get("revenue_growth", 0.0)**2)
+    sm = math.sqrt(sm_hist**2 + sigma_cross.get("ebit_margin",    0.0)**2)
+
+    # Promoted balance-sheet variables.
+    # A DATA variable is promoted when its relative cross-source spread > 2%.
+    sc_abs = sigma_cross.get("diluted_shares", 0.0)
+    shares_promoted = (base.diluted_shares > 0 and
+                       sc_abs / base.diluted_shares > 0.02)
+
+    nd_abs = sigma_cross.get("net_debt", 0.0)
+    nd_promoted = (abs(base.net_debt) > 1e-9 and
+                   nd_abs / abs(base.net_debt) > 0.02)
+
+    # ── Reconciliation metadata for UI display ────────────────────────────────
+    recon_fields: dict = {}
+    recon_sigma:  dict = {}
+    if reconcile_result is not None:
+        for f in ALL_FIELDS:
+            d = reconcile_result.disagreement.get(f, float('nan'))
+            recon_fields[f] = {
+                "source":       reconcile_result.field_sources.get(f, "Yahoo"),
+                "disagree_pct": d * 100 if math.isfinite(d) else None,
+                "field_type":   FIELD_TYPE.get(f, "DATA"),
+            }
+        recon_sigma["revenue_growth"] = {
+            "sigma_hist":  sg_hist,
+            "sigma_cross": sigma_cross.get("revenue_growth", 0.0),
+            "sigma_eff":   sg,
+        }
+        recon_sigma["ebit_margin"] = {
+            "sigma_hist":  sm_hist,
+            "sigma_cross": sigma_cross.get("ebit_margin", 0.0),
+            "sigma_eff":   sm,
+        }
+        if shares_promoted:
+            recon_sigma["diluted_shares"] = {
+                "sigma_hist": 0.0, "sigma_cross": sc_abs, "sigma_eff": sc_abs,
+            }
+        if nd_promoted:
+            recon_sigma["net_debt"] = {
+                "sigma_hist": 0.0, "sigma_cross": nd_abs, "sigma_eff": nd_abs,
+            }
 
     nan = float('nan')
     if n_sims <= 0:
@@ -336,28 +389,8 @@ def run_valuation(
             p10=nan, p25=nan, p50=nan, p75=nan, p90=nan,
             mean_val=nan, std_val=nan, pct_undervalued=nan,
             sigma_cross=sigma_cross,
+            recon_fields=recon_fields, recon_sigma=recon_sigma,
         )
-
-    sg_hist = drvrs.std_revenue_growth
-    sm_hist = drvrs.std_ebit_margin
-
-    # Effective σ: combine historical spread with cross-source uncertainty in quadrature.
-    # σ_eff can only grow, never shrink — adding a zero σ_cross leaves σ_hist unchanged.
-    sg = math.sqrt(sg_hist**2 + sigma_cross.get("revenue_growth", 0.0)**2)
-    sm = math.sqrt(sm_hist**2 + sigma_cross.get("ebit_margin",    0.0)**2)
-
-    # Promoted balance-sheet variables.
-    # A DATA variable is promoted when its relative cross-source spread > 2%.
-    # This captures uncertainty about the current balance-sheet figure without
-    # reintroducing the Route-1 SBC double-count concern (which was about future
-    # dilution, not current share-count measurement uncertainty).
-    sc_abs = sigma_cross.get("diluted_shares", 0.0)
-    shares_promoted = (base.diluted_shares > 0 and
-                       sc_abs / base.diluted_shares > 0.02)
-
-    nd_abs = sigma_cross.get("net_debt", 0.0)
-    nd_promoted = (abs(base.net_debt) > 1e-9 and
-                   nd_abs / abs(base.net_debt) > 0.02)
 
     corr       = _ensure_psd(CORR.copy())
     use_t      = sg > HIGH_VOL_THRESHOLD
@@ -397,6 +430,7 @@ def run_valuation(
         p10=p10, p25=p25, p50=p50, p75=p75, p90=p90,
         mean_val=mean_v, std_val=std_v, pct_undervalued=pct_under,
         sigma_cross=sigma_cross,
+        recon_fields=recon_fields, recon_sigma=recon_sigma,
     )
 
 

@@ -53,6 +53,9 @@ class ReconcileResult:
     # σ_cross for DATA MC-driver variables (std of per-source derived estimate).
     # Only DATA fields appear here; DEFINITIONAL fields are absent.
     sigma_cross:  dict[str, float] = field(default_factory=dict)
+    # Which source won for each field. dep_amort may differ from preferred.source_name
+    # due to the D&A override (EDGAR preferred, but cash-flow total from FMP/Yahoo used).
+    field_sources: dict[str, str] = field(default_factory=dict)
 
 
 def _relative_spread(values: list[float]) -> float:
@@ -106,6 +109,7 @@ def reconcile(sources: list[SourceData]) -> ReconcileResult:
     # of EDGAR's tag reconstruction, which omits untagged amortisation items.
     # This override only applies when EDGAR is preferred; if Yahoo/FMP is already
     # preferred, no change is needed.
+    da_source_name = preferred.source_name  # default: same as preferred
     if preferred.source_name == "EDGAR":
         cf_source = next(
             (s for name in ("FMP", "Yahoo") for s in sources if s.source_name == name),
@@ -113,6 +117,11 @@ def reconcile(sources: list[SourceData]) -> ReconcileResult:
         )
         if cf_source is not None and not cf_source.dep_amort.empty:
             preferred = dataclasses.replace(preferred, dep_amort=cf_source.dep_amort)
+            da_source_name = cf_source.source_name
+
+    # ── field_sources: track winning source per field ─────────────────────────
+    field_sources: dict[str, str] = {f: preferred.source_name for f in ALL_FIELDS}
+    field_sources["dep_amort"] = da_source_name  # may differ when D&A override applied
 
     # ── σ_cross for DATA fields ───────────────────────────────────────────────
     # Only DATA-classified fields produce σ_cross entries; DEFINITIONAL fields
@@ -163,4 +172,5 @@ def reconcile(sources: list[SourceData]) -> ReconcileResult:
         disagreement=disagreement,
         sources=sources,
         sigma_cross=sigma_cross,
+        field_sources=field_sources,
     )
