@@ -33,6 +33,8 @@ TERM_G_MODE: float             = TERMINAL_G          # 2.5%
 WACC_TG_GAP: float             = 0.010   # minimum enforced gap: WACC − terminal_g
 PROFITABLE_MARGIN_SPREAD: float   = 0.08  # target_margin PERT half-width for profitable cos
 UNPROFITABLE_MARGIN_SPREAD: float = 0.15  # wider spread for currently-unprofitable cos
+TARGET_MARGIN_SPREAD_MIN: float = 0.03   # 3pp floor: prevents degenerate zero-width PERT
+TARGET_MARGIN_SPREAD_MAX: float = 0.20   # 20pp cap: avoids absurd ranges for tiny samples
 
 # Annual FX volatility by reporting currency (GBM σ)
 FX_ANNUAL_VOL: dict[str, float] = {
@@ -171,6 +173,7 @@ def _run_sims(
     rng: np.random.Generator,
     copula: str,                 # 'gaussian' | 'student-t'
     sw: float = WACC_SPREAD_ABS,    # σ_eff for WACC PERT half-width
+    stm: float = 0.08,   # σ_eff for target-margin PERT half-width (company hist; 8pp fallback)
     shares_cross: float = 0.0,  # absolute σ_cross for diluted_shares (0 = not promoted)
     shares_promoted: bool = False,
     nd_cross: float = 0.0,      # absolute σ_cross for net_debt (0 = not promoted)
@@ -200,13 +203,11 @@ def _run_sims(
         tg_hi = max(TERM_G_MIN + 1e-6, min(TERM_G_MAX_ABS, w - WACC_TG_GAP))
         wa_lo = max(w - spread_sigma * sw, 0.04)
         wa_hi = w + spread_sigma * sw
-        tm_spread = (UNPROFITABLE_MARGIN_SPREAD if base.ebit_margin < 0
-                     else PROFITABLE_MARGIN_SPREAD)
-        tm_lo = max(base.target_margin - tm_spread, -0.10)
-        # Cap at 0.75 (matches em_hi) so that high-margin companies such as NVDA
-        # (target_margin ≈ 66%) don't produce tm_hi < mode, which would give a
-        # negative Beta parameter and silently NaN-out every simulation draw.
-        tm_hi = min(base.target_margin + tm_spread,  0.75)
+        # target_margin PERT: spread driven by company historical EBIT-margin σ.
+        # Clamped so small samples don't produce zero or absurdly wide ranges.
+        tm_half = float(np.clip(spread_sigma * stm, TARGET_MARGIN_SPREAD_MIN, TARGET_MARGIN_SPREAD_MAX))
+        tm_lo = max(base.target_margin - tm_half, -0.10)
+        tm_hi = min(base.target_margin + tm_half,  0.75)
 
     # Correlated uniform draws
     if copula == 'student-t':
@@ -342,6 +343,7 @@ def run_valuation(
     drvrs  = compute_drivers(raw)
     wacc_r = compute_wacc(raw, drvrs)
     sw = wacc_r.std_wacc   # historical WACC σ (or fallback)
+    stm = drvrs.std_target_margin   # historical margin σ drives target-margin PERT
     base   = _build_base(raw, drvrs, wacc_r)
     dcf_r  = detailed_value(base)
 
@@ -406,7 +408,7 @@ def run_valuation(
             mean_val=nan, std_val=nan, pct_undervalued=nan,
             sigma_cross=sigma_cross,
             recon_fields=recon_fields, recon_sigma=recon_sigma,
-            sw=sw,
+            sw=sw, stm=stm,
         )
 
     corr       = _ensure_psd(CORR.copy())
@@ -418,7 +420,7 @@ def run_valuation(
     # Pass sg/sm (with any σ_cross baked in) but spread_sigma=0 overrides bounds to
     # point masses, so σ_eff doesn't matter — output must equal deterministic value().
     cc_sims = _run_sims(base, sg, sm, corr, 50, 0.0,
-                        np.random.default_rng(0), copula_key, sw=sw)
+                        np.random.default_rng(0), copula_key, sw=sw, stm=stm)
     cc_p50  = float(np.median(cc_sims))
     cc_ok   = abs(cc_p50 - dcf_r.value_per_share_usd) < 0.01
 
@@ -426,7 +428,7 @@ def run_valuation(
     sims = _run_sims(
         base, sg, sm, corr, n_sims, SPREAD_SIGMA,
         np.random.default_rng(seed=42), copula_key,
-        sw=sw,
+        sw=sw, stm=stm,
         shares_cross=sc_abs,   shares_promoted=shares_promoted,
         nd_cross=nd_abs,       nd_promoted=nd_promoted,
     )
@@ -457,7 +459,7 @@ def run_valuation(
         mean_val=mean_v, std_val=std_v, pct_undervalued=pct_under,
         sigma_cross=sigma_cross,
         recon_fields=recon_fields, recon_sigma=recon_sigma,
-        sw=sw,
+        sw=sw, stm=stm,
     )
 
 
@@ -507,11 +509,13 @@ def print_valuation(result: ValuationResult) -> None:
           f" {max(w - SPREAD_SIGMA*sw, 0.04):>10.2%}"
           f"  {w:>10.2%}  {w + SPREAD_SIGMA*sw:>10.2%}"
           f"  {sw:>7.2%}")
-    tm_sp = UNPROFITABLE_MARGIN_SPREAD if base.ebit_margin < 0 else PROFITABLE_MARGIN_SPREAD
+    stm  = result.stm
+    tm_h = float(np.clip(SPREAD_SIGMA * stm, TARGET_MARGIN_SPREAD_MIN, TARGET_MARGIN_SPREAD_MAX))
     print(f"  {'Target margin':<22}"
-          f" {max(base.target_margin - tm_sp, -0.10):>10.2%}"
+          f" {max(base.target_margin - tm_h, -0.10):>10.2%}"
           f"  {base.target_margin:>10.2%}"
-          f"  {min(base.target_margin + tm_sp, 0.75):>10.2%}")
+          f"  {min(base.target_margin + tm_h, 0.75):>10.2%}"
+          f"  {stm:>7.2%}")
     if sc.get("diluted_shares", 0) / max(base.diluted_shares, 1) > 0.02:
         sc_abs = sc["diluted_shares"]
         print(f"  {'Diluted shares*':<22}"

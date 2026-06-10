@@ -52,3 +52,4 @@ class ValuationResult:
     recon_sigma:  dict = field(default_factory=dict)
 
     sw:  float = 0.015   # σ_eff for WACC PERT spread (historical or fallback)
+    stm: float = 0.08    # σ_eff for target-margin PERT spread (historical or fallback)

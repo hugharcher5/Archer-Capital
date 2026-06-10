@@ -35,6 +35,7 @@ class Drivers:
     # Standard deviations — for Monte Carlo later
     std_revenue_growth: float
     std_ebit_margin: float
+    std_target_margin: float
 
     years_used: int
 
@@ -120,6 +121,7 @@ def compute_drivers(raw: RawData) -> Drivers:
     print(f"  {'─'*42}")
     print(f"  Revenue growth  : {rev_growth:>7.2%}   σ = {std_growth:.2%}")
     print(f"  EBIT margin     : {ebit_margin:>7.2%}   σ = {std_margin:.2%}   (best historical: {best_margin:.2%})")
+    print(f"  Target margin σ : {std_margin:>7.2%}   (= EBIT margin σ; drives target-margin PERT)")
     print(f"  Tax rate        : {tax_rate:>7.2%}")
     print(f"  D&A / Revenue   : {da_pct:>7.2%}")
     print(f"  CapEx / Revenue : {capex_pct:>7.2%}")
@@ -137,6 +139,7 @@ def compute_drivers(raw: RawData) -> Drivers:
         sbc_pct=sbc_pct,
         std_revenue_growth=std_growth,
         std_ebit_margin=std_margin,
+        std_target_margin=std_margin,
         years_used=years_used,
         hist_df=df,
     )
