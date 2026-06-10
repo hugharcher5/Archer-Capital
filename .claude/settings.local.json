@@ -4,7 +4,12 @@
       "Bash(gh auth *)",
       "Bash(python3 -m venv venv)",
       "Bash(venv/bin/pip install *)",
-      "Bash(venv/bin/python *)"
+      "Bash(venv/bin/python *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(WACC_DEBUG=1 venv/bin/python run_dcf.py MSFT)",
+      "Bash(grep -v \"^$\")",
+      "Bash(WACC_DEBUG=1 venv/bin/python run_dcf.py ORCL)"
     ]
   }
 }

@@ -1,0 +1,11 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          { "type": "command", "command": "powershell.exe -c \"[console]::beep(1000,400)\"" }
+        ]
+      }
+    ]
+  }
+}

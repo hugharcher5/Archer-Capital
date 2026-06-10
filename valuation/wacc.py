@@ -103,9 +103,14 @@ def _get_rf_annual_series():
 def _reconstruct_wacc_history(raw, drivers, beta_adj, eq_w, dt_w, rf_annual):
     """Reconstruct WACC for each year with available EBIT + interest expense.
     Beta (Blume-adjusted), ERP, and D/E weights are held fixed at current values;
-    only the risk-free rate and coverage-derived credit spread vary year-to-year."""
+    only the risk-free rate and coverage-derived credit spread vary year-to-year.
+
+    Returns (wacc_list, detail_rows) where detail_rows is a list of dicts for
+    the WACC_DEBUG diagnostic table.
+    """
     common_idx = raw.ebit.index.intersection(raw.interest_expense.index)
     reconstructed = []
+    details = []
     for ts in common_idx:
         ebit_val = float(raw.ebit[ts])
         int_val  = float(raw.interest_expense[ts])
@@ -113,18 +118,31 @@ def _reconstruct_wacc_history(raw, drivers, beta_adj, eq_w, dt_w, rf_annual):
             continue   # skip loss years; negative coverage distorts reconstruction
         yr = ts.year
         if yr in rf_annual.index:
-            rf_yr = float(rf_annual[yr])
+            rf_yr     = float(rf_annual[yr])
+            rf_source = f"DGS10[{yr}]"
         elif not rf_annual.empty:
-            nearest = min(rf_annual.index, key=lambda y: abs(y - yr))
-            rf_yr = float(rf_annual[nearest])
+            nearest   = min(rf_annual.index, key=lambda y: abs(y - yr))
+            rf_yr     = float(rf_annual[nearest])
+            rf_source = f"DGS10[{nearest}] (nearest to {yr})"
         else:
             continue
-        cov_yr = ebit_val / int_val if int_val > 0 else float('inf')
-        _, spread_yr = _synthetic_rating(cov_yr)
+        cov_yr         = ebit_val / int_val if int_val > 0 else float('inf')
+        rating_yr, spread_yr = _synthetic_rating(cov_yr)
         coe_yr  = rf_yr + beta_adj * ERP
         cod_yr  = (rf_yr + spread_yr) * (1.0 - drivers.tax_rate)
-        reconstructed.append(eq_w * coe_yr + dt_w * cod_yr)
-    return reconstructed
+        wacc_yr = eq_w * coe_yr + dt_w * cod_yr
+        reconstructed.append(wacc_yr)
+        details.append({
+            'date':     ts,
+            'yr':       yr,
+            'rf_yr':    rf_yr,
+            'rf_src':   rf_source,
+            'cov':      cov_yr,
+            'rating':   rating_yr,
+            'spread':   spread_yr,
+            'wacc':     wacc_yr,
+        })
+    return reconstructed, details
 
 
 def compute_wacc(raw: RawData, drivers: Drivers) -> WACCResult:
@@ -157,8 +175,8 @@ def compute_wacc(raw: RawData, drivers: Drivers) -> WACCResult:
     wacc = eq_w * cost_of_equity + dt_w * cost_of_debt_aftertax
 
     # ── Historical WACC sigma ─────────────────────────────────────────────────
-    rf_annual   = _get_rf_annual_series()
-    hist_waccs  = _reconstruct_wacc_history(raw, drivers, beta_adj, eq_w, dt_w, rf_annual)
+    rf_annual              = _get_rf_annual_series()
+    hist_waccs, _wdet      = _reconstruct_wacc_history(raw, drivers, beta_adj, eq_w, dt_w, rf_annual)
     if len(hist_waccs) >= 3:
         sigma_w    = float(np.std(hist_waccs))
         w_fallback = False
@@ -169,6 +187,33 @@ def compute_wacc(raw: RawData, drivers: Drivers) -> WACCResult:
         w_fallback = True
         print(f"  WACC historical σ  : {_WACC_SIGMA_FALLBACK:.3%}  "
               f"[FALLBACK — only {len(hist_waccs)} reconstructable year(s)]")
+
+    # ── Debug table — set WACC_DEBUG=1 to print per-year reconstruction ───────
+    if os.getenv('WACC_DEBUG') and _wdet:
+        _waccs_arr = np.array([d['wacc'] for d in _wdet])
+        _rfs_arr   = np.array([d['rf_yr'] for d in _wdet])
+        print(f"\n  {'─'*82}")
+        print(f"  WACC RECONSTRUCTION DEBUG — {raw.ticker}")
+        print(f"  {'─'*82}")
+        print(f"  {'Date':<14} {'RF used':>10} {'RF src note':<26} "
+              f"{'Coverage':>10} {'Rating':<12} {'Spread':>8} {'Recon WACC':>11}")
+        print(f"  {'─'*82}")
+        for d in _wdet:
+            cov_str = f"{d['cov']:.2f}×" if d['cov'] != float('inf') else "∞"
+            print(f"  {str(d['date'].date()):<14} {d['rf_yr']:>9.3%} "
+                  f"  {d['rf_src']:<26} {cov_str:>10} "
+                  f"{d['rating']:<12} {d['spread']:>7.3%} {d['wacc']:>10.3%}")
+        print(f"  {'─'*82}")
+        rf_std  = float(np.std(_rfs_arr))
+        rf_min, rf_max   = float(_rfs_arr.min()), float(_rfs_arr.max())
+        w_min,  w_max    = float(_waccs_arr.min()), float(_waccs_arr.max())
+        sensitivity = (w_max - w_min) / (rf_max - rf_min) if rf_max > rf_min else float('nan')
+        expected_sens = eq_w + dt_w * (1.0 - drivers.tax_rate)
+        print(f"  RF series:   min={rf_min:.3%}  max={rf_max:.3%}  std={rf_std:.3%}")
+        print(f"  WACC series: min={w_min:.3%}  max={w_max:.3%}  std={sigma_w:.3%}")
+        print(f"  Implied sensitivity (ΔWACC/ΔRF): {sensitivity:.3f}")
+        print(f"  Expected sensitivity (eq_w + dt_w×(1−t)): {expected_sens:.3f}")
+        print(f"  {'─'*82}")
 
     result = WACCResult(
         rf=rf,
