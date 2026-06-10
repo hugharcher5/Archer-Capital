@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 import os
+import numpy as np
 import yfinance as yf
 from dataclasses import dataclass
 from dotenv import load_dotenv
@@ -9,6 +10,8 @@ from .data import RawData
 from .drivers import Drivers
 
 load_dotenv()
+
+_WACC_SIGMA_FALLBACK: float = 0.015
 
 # ── Damodaran implied ERP — easily editable constant ─────────────────────────
 ERP: float = 0.045   # 4.5% (Damodaran current implied ERP)
@@ -52,6 +55,8 @@ class WACCResult:
     equity_weight: float
     debt_weight: float
     wacc: float
+    std_wacc:            float   # historical σ; equals _WACC_SIGMA_FALLBACK when < 3 years
+    wacc_sigma_fallback: bool    # True when insufficient history for reconstruction
 
 
 def _get_rf() -> tuple[float, str]:
@@ -76,6 +81,50 @@ def _synthetic_rating(coverage: float) -> tuple[str, float]:
         if lo <= coverage < hi:
             return rating, spread
     return 'D2/D', 0.1413
+
+
+def _get_rf_annual_series():
+    """Annual-average FRED DGS10 yield (decimal), index = int year.
+    Returns empty pandas Series when FRED is unavailable."""
+    import pandas as pd
+    api_key = os.getenv('FRED_API_KEY', '').strip()
+    if not api_key or api_key == 'your_api_key_here':
+        return pd.Series(dtype=float)
+    try:
+        from fredapi import Fred
+        daily = Fred(api_key=api_key).get_series('DGS10').dropna()
+        return daily.groupby(daily.index.year).mean() / 100.0
+    except Exception as e:
+        print(f"  [WACC] FRED historical fetch failed ({e}); WACC-sigma fallback used.")
+        import pandas as pd
+        return pd.Series(dtype=float)
+
+
+def _reconstruct_wacc_history(raw, drivers, beta_adj, eq_w, dt_w, rf_annual):
+    """Reconstruct WACC for each year with available EBIT + interest expense.
+    Beta (Blume-adjusted), ERP, and D/E weights are held fixed at current values;
+    only the risk-free rate and coverage-derived credit spread vary year-to-year."""
+    common_idx = raw.ebit.index.intersection(raw.interest_expense.index)
+    reconstructed = []
+    for ts in common_idx:
+        ebit_val = float(raw.ebit[ts])
+        int_val  = float(raw.interest_expense[ts])
+        if ebit_val <= 0:
+            continue   # skip loss years; negative coverage distorts reconstruction
+        yr = ts.year
+        if yr in rf_annual.index:
+            rf_yr = float(rf_annual[yr])
+        elif not rf_annual.empty:
+            nearest = min(rf_annual.index, key=lambda y: abs(y - yr))
+            rf_yr = float(rf_annual[nearest])
+        else:
+            continue
+        cov_yr = ebit_val / int_val if int_val > 0 else float('inf')
+        _, spread_yr = _synthetic_rating(cov_yr)
+        coe_yr  = rf_yr + beta_adj * ERP
+        cod_yr  = (rf_yr + spread_yr) * (1.0 - drivers.tax_rate)
+        reconstructed.append(eq_w * coe_yr + dt_w * cod_yr)
+    return reconstructed
 
 
 def compute_wacc(raw: RawData, drivers: Drivers) -> WACCResult:
@@ -107,6 +156,20 @@ def compute_wacc(raw: RawData, drivers: Drivers) -> WACCResult:
 
     wacc = eq_w * cost_of_equity + dt_w * cost_of_debt_aftertax
 
+    # ── Historical WACC sigma ─────────────────────────────────────────────────
+    rf_annual   = _get_rf_annual_series()
+    hist_waccs  = _reconstruct_wacc_history(raw, drivers, beta_adj, eq_w, dt_w, rf_annual)
+    if len(hist_waccs) >= 3:
+        sigma_w    = float(np.std(hist_waccs))
+        w_fallback = False
+        print(f"  WACC historical σ  : {sigma_w:.3%}  "
+              f"({len(hist_waccs)} yr reconstructed; Blume β & D/E held fixed)")
+    else:
+        sigma_w    = _WACC_SIGMA_FALLBACK
+        w_fallback = True
+        print(f"  WACC historical σ  : {_WACC_SIGMA_FALLBACK:.3%}  "
+              f"[FALLBACK — only {len(hist_waccs)} reconstructable year(s)]")
+
     result = WACCResult(
         rf=rf,
         rf_source=rf_source,
@@ -124,6 +187,8 @@ def compute_wacc(raw: RawData, drivers: Drivers) -> WACCResult:
         equity_weight=eq_w,
         debt_weight=dt_w,
         wacc=wacc,
+        std_wacc=sigma_w,
+        wacc_sigma_fallback=w_fallback,
     )
 
     # ── Print ─────────────────────────────────────────────────────────────────

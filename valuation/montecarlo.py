@@ -170,6 +170,7 @@ def _run_sims(
     spread_sigma: float,
     rng: np.random.Generator,
     copula: str,                 # 'gaussian' | 'student-t'
+    sw: float = WACC_SPREAD_ABS,    # σ_eff for WACC PERT half-width
     shares_cross: float = 0.0,  # absolute σ_cross for diluted_shares (0 = not promoted)
     shares_promoted: bool = False,
     nd_cross: float = 0.0,      # absolute σ_cross for net_debt (0 = not promoted)
@@ -197,8 +198,8 @@ def _run_sims(
         em_hi = min(base.ebit_margin    + spread_sigma * sm,  0.75)
         tg_lo = TERM_G_MIN
         tg_hi = max(TERM_G_MIN + 1e-6, min(TERM_G_MAX_ABS, w - WACC_TG_GAP))
-        wa_lo = max(w - WACC_SPREAD_ABS, 0.04)
-        wa_hi = w + WACC_SPREAD_ABS
+        wa_lo = max(w - spread_sigma * sw, 0.04)
+        wa_hi = w + spread_sigma * sw
         tm_spread = (UNPROFITABLE_MARGIN_SPREAD if base.ebit_margin < 0
                      else PROFITABLE_MARGIN_SPREAD)
         tm_lo = max(base.target_margin - tm_spread, -0.10)
@@ -340,6 +341,7 @@ def run_valuation(
     raw    = fetch_raw(ticker)
     drvrs  = compute_drivers(raw)
     wacc_r = compute_wacc(raw, drvrs)
+    sw = wacc_r.std_wacc   # historical WACC σ (or fallback)
     base   = _build_base(raw, drvrs, wacc_r)
     dcf_r  = detailed_value(base)
 
@@ -404,6 +406,7 @@ def run_valuation(
             mean_val=nan, std_val=nan, pct_undervalued=nan,
             sigma_cross=sigma_cross,
             recon_fields=recon_fields, recon_sigma=recon_sigma,
+            sw=sw,
         )
 
     corr       = _ensure_psd(CORR.copy())
@@ -415,7 +418,7 @@ def run_valuation(
     # Pass sg/sm (with any σ_cross baked in) but spread_sigma=0 overrides bounds to
     # point masses, so σ_eff doesn't matter — output must equal deterministic value().
     cc_sims = _run_sims(base, sg, sm, corr, 50, 0.0,
-                        np.random.default_rng(0), copula_key)
+                        np.random.default_rng(0), copula_key, sw=sw)
     cc_p50  = float(np.median(cc_sims))
     cc_ok   = abs(cc_p50 - dcf_r.value_per_share_usd) < 0.01
 
@@ -423,6 +426,7 @@ def run_valuation(
     sims = _run_sims(
         base, sg, sm, corr, n_sims, SPREAD_SIGMA,
         np.random.default_rng(seed=42), copula_key,
+        sw=sw,
         shares_cross=sc_abs,   shares_promoted=shares_promoted,
         nd_cross=nd_abs,       nd_promoted=nd_promoted,
     )
@@ -453,6 +457,7 @@ def run_valuation(
         mean_val=mean_v, std_val=std_v, pct_undervalued=pct_under,
         sigma_cross=sigma_cross,
         recon_fields=recon_fields, recon_sigma=recon_sigma,
+        sw=sw,
     )
 
 
@@ -497,9 +502,11 @@ def print_valuation(result: ValuationResult) -> None:
           f"  {sm:>7.2%}")
     print(f"  {'Terminal g':<22}"
           f" {TERM_G_MIN:>10.2%}  {TERM_G_MODE:>10.2%}  {tg_hi:>10.2%}")
+    sw  = result.sw
     print(f"  {'WACC':<22}"
-          f" {max(w - WACC_SPREAD_ABS, 0.04):>10.2%}"
-          f"  {w:>10.2%}  {w + WACC_SPREAD_ABS:>10.2%}")
+          f" {max(w - SPREAD_SIGMA*sw, 0.04):>10.2%}"
+          f"  {w:>10.2%}  {w + SPREAD_SIGMA*sw:>10.2%}"
+          f"  {sw:>7.2%}")
     tm_sp = UNPROFITABLE_MARGIN_SPREAD if base.ebit_margin < 0 else PROFITABLE_MARGIN_SPREAD
     print(f"  {'Target margin':<22}"
           f" {max(base.target_margin - tm_sp, -0.10):>10.2%}"

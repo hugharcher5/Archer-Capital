@@ -50,3 +50,5 @@ class ValuationResult:
     # Both empty when run_valuation() is called without a reconcile_result.
     recon_fields: dict = field(default_factory=dict)
     recon_sigma:  dict = field(default_factory=dict)
+
+    sw:  float = 0.015   # σ_eff for WACC PERT spread (historical or fallback)
