@@ -83,6 +83,53 @@ def _ensure_psd(C: np.ndarray, eps: float = 1e-8) -> np.ndarray:
     return C2 / np.outer(d, d)
 
 
+_TERM_G_SIGMA_CACHE: float | None = None   # computed once per process
+
+
+def _get_term_g_sigma() -> tuple[float, bool]:
+    """
+    Return (sigma, used_fallback).
+
+    Terminal growth is a convergence-to-long-run-GDP assumption, not a
+    company-specific forecast, so its uncertainty is derived from MACRO history:
+    the historical volatility of US annual nominal GDP growth (FRED series 'GDPA').
+    The same sigma is therefore used for every company by design.
+
+    Optional refinement: sigma is modestly widened for companies whose revenue
+    growth has been highly volatile, reflecting greater uncertainty about when
+    (and at what rate) they reach steady state.  The adjustment is bounded so it
+    cannot dominate the macro base.
+
+    Falls back to 2pp (consistent with observed US nominal GDP volatility) when
+    FRED data is unavailable.
+    """
+    global _TERM_G_SIGMA_CACHE
+    if _TERM_G_SIGMA_CACHE is not None:
+        return _TERM_G_SIGMA_CACHE, False
+
+    _FALLBACK = 0.020   # ~2pp — conservative estimate of US nominal GDP growth volatility
+
+    api_key = os.getenv('FRED_API_KEY', '').strip()
+    if not api_key or api_key == 'your_api_key_here':
+        _TERM_G_SIGMA_CACHE = _FALLBACK
+        return _FALLBACK, True
+
+    try:
+        from fredapi import Fred
+        # Annual nominal GDP levels (billions USD, current prices, SAAR)
+        gdp = Fred(api_key=api_key).get_series('GDPA').dropna()
+        g   = gdp.pct_change().dropna()
+        if len(g) >= 10:
+            sigma = float(g.std())
+            _TERM_G_SIGMA_CACHE = sigma
+            return sigma, False
+    except Exception as e:
+        print(f"  [MC] FRED GDPA fetch failed ({e}); terminal-g sigma using fallback.")
+
+    _TERM_G_SIGMA_CACHE = _FALLBACK
+    return _FALLBACK, True
+
+
 # ──────────────────────── PERT inverse CDF ────────────────────────────────────
 
 def _pert_ppf(u: np.ndarray, lo: float, mode: float, hi: float) -> np.ndarray:
@@ -174,6 +221,7 @@ def _run_sims(
     copula: str,                 # 'gaussian' | 'student-t'
     sw: float = WACC_SPREAD_ABS,    # σ_eff for WACC PERT half-width
     stm: float = 0.08,   # σ_eff for target-margin PERT half-width (company hist; 8pp fallback)
+    stg: float = 0.020,  # σ for terminal-g PERT; macro-derived (GDP history), same for all companies
     shares_cross: float = 0.0,  # absolute σ_cross for diluted_shares (0 = not promoted)
     shares_promoted: bool = False,
     nd_cross: float = 0.0,      # absolute σ_cross for net_debt (0 = not promoted)
@@ -199,8 +247,11 @@ def _run_sims(
         rg_hi = min(base.revenue_growth + spread_sigma * sg,  1.50)
         em_lo = max(base.ebit_margin    - spread_sigma * sm, -0.20)
         em_hi = min(base.ebit_margin    + spread_sigma * sm,  0.75)
-        tg_lo = TERM_G_MIN
-        tg_hi = max(TERM_G_MIN + 1e-6, min(TERM_G_MAX_ABS, w - WACC_TG_GAP))
+        # terminal_g PERT: spread from macro GDP history (same for all companies).
+        # Hard floor/cap preserve economic sense; WACC_TG_GAP guards against TV blowup.
+        tg_half = spread_sigma * stg
+        tg_lo   = max(TERM_G_MODE - tg_half, TERM_G_MIN)
+        tg_hi   = max(tg_lo + 1e-6, min(TERM_G_MODE + tg_half, TERM_G_MAX_ABS, w - WACC_TG_GAP))
         wa_lo = max(w - spread_sigma * sw, 0.04)
         wa_hi = w + spread_sigma * sw
         # target_margin PERT: spread driven by company historical EBIT-margin σ.
@@ -395,6 +446,10 @@ def run_valuation(
                 "sigma_hist": 0.0, "sigma_cross": nd_abs, "sigma_eff": nd_abs,
             }
 
+    stg, tg_fallback = _get_term_g_sigma()
+    if tg_fallback:
+        print("  [MC] Terminal-g spread: FRED unavailable — using fixed 2pp fallback.")
+
     nan = float('nan')
     if n_sims <= 0:
         return ValuationResult(
@@ -408,7 +463,7 @@ def run_valuation(
             mean_val=nan, std_val=nan, pct_undervalued=nan,
             sigma_cross=sigma_cross,
             recon_fields=recon_fields, recon_sigma=recon_sigma,
-            sw=sw, stm=stm,
+            sw=sw, stm=stm, stg=stg,
         )
 
     corr       = _ensure_psd(CORR.copy())
@@ -420,7 +475,7 @@ def run_valuation(
     # Pass sg/sm (with any σ_cross baked in) but spread_sigma=0 overrides bounds to
     # point masses, so σ_eff doesn't matter — output must equal deterministic value().
     cc_sims = _run_sims(base, sg, sm, corr, 50, 0.0,
-                        np.random.default_rng(0), copula_key, sw=sw, stm=stm)
+                        np.random.default_rng(0), copula_key, sw=sw, stm=stm, stg=stg)
     cc_p50  = float(np.median(cc_sims))
     cc_ok   = abs(cc_p50 - dcf_r.value_per_share_usd) < 0.01
 
@@ -428,7 +483,7 @@ def run_valuation(
     sims = _run_sims(
         base, sg, sm, corr, n_sims, SPREAD_SIGMA,
         np.random.default_rng(seed=42), copula_key,
-        sw=sw, stm=stm,
+        sw=sw, stm=stm, stg=stg,
         shares_cross=sc_abs,   shares_promoted=shares_promoted,
         nd_cross=nd_abs,       nd_promoted=nd_promoted,
     )
@@ -459,7 +514,7 @@ def run_valuation(
         mean_val=mean_v, std_val=std_v, pct_undervalued=pct_under,
         sigma_cross=sigma_cross,
         recon_fields=recon_fields, recon_sigma=recon_sigma,
-        sw=sw, stm=stm,
+        sw=sw, stm=stm, stg=stg,
     )
 
 
@@ -488,7 +543,11 @@ def print_valuation(result: ValuationResult) -> None:
           f"   (σ_growth_eff = {sg:.2%},  threshold = {HIGH_VOL_THRESHOLD:.0%})"
           + cross_note)
 
-    tg_hi = max(TERM_G_MIN + 1e-6, min(TERM_G_MAX_ABS, w - WACC_TG_GAP))
+    stg   = result.stg
+    spread_sigma = SPREAD_SIGMA
+    tg_h  = spread_sigma * stg
+    tg_lo = max(TERM_G_MODE - tg_h, TERM_G_MIN)
+    tg_hi = max(tg_lo + 1e-6, min(TERM_G_MODE + tg_h, TERM_G_MAX_ABS, w - WACC_TG_GAP))
     print(f"\n  PERT bounds (±{SPREAD_SIGMA:.0f}σ_eff):")
     print(f"  {'Input':<22} {'Min':>10}  {'Mode':>10}  {'Max':>10}  {'σ_eff':>8}")
     print(f"  {'─'*65}")
@@ -503,7 +562,8 @@ def print_valuation(result: ValuationResult) -> None:
           f"  {min(base.ebit_margin + SPREAD_SIGMA*sm, 0.75):>10.2%}"
           f"  {sm:>7.2%}")
     print(f"  {'Terminal g':<22}"
-          f" {TERM_G_MIN:>10.2%}  {TERM_G_MODE:>10.2%}  {tg_hi:>10.2%}")
+          f" {tg_lo:>10.2%}  {TERM_G_MODE:>10.2%}  {tg_hi:>10.2%}"
+          f"  {stg:>7.2%}")
     sw  = result.sw
     print(f"  {'WACC':<22}"
           f" {max(w - SPREAD_SIGMA*sw, 0.04):>10.2%}"

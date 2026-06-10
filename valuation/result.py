@@ -53,3 +53,4 @@ class ValuationResult:
 
     sw:  float = 0.015   # σ_eff for WACC PERT spread (historical or fallback)
     stm: float = 0.08    # σ_eff for target-margin PERT spread (historical or fallback)
+    stg: float = 0.020   # σ for terminal-g PERT spread (macro GDP history or fallback)
