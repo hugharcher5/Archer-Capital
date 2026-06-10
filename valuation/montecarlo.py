@@ -83,6 +83,27 @@ def _ensure_psd(C: np.ndarray, eps: float = 1e-8) -> np.ndarray:
     return C2 / np.outer(d, d)
 
 
+def _terminal_g_params(revenue_growth: float, wacc: float) -> tuple[float, float, float]:
+    """Company-specific terminal growth (tg_mode, tg_floor, tg_cap).
+
+    avg_g = mean of linspace(revenue_growth, TERM_G_MODE, N)
+          = (revenue_growth + TERM_G_MODE) / 2  [analytically, any N]
+
+    tg_floor = max(-2%, 0.3 × avg_g)         — allow decline, not below 30% of avg
+    tg_mode  = min(avg_g, 2.5%)              — anchor at forecast avg, cap at long-run GDP
+    tg_cap   = min(4%, WACC-1%, avg_g+1pp)  — can't exceed GDP ceiling or WACC gap
+
+    Safety clamps guarantee floor < mode < cap so PERT construction never fails.
+    """
+    avg_g    = (revenue_growth + TERM_G_MODE) / 2.0
+    tg_mode  = min(avg_g, TERM_G_MODE)
+    tg_cap   = min(TERM_G_MAX_ABS, wacc - WACC_TG_GAP, avg_g + 0.01)
+    tg_floor = max(-0.02, 0.30 * avg_g)
+    tg_floor = min(tg_floor, tg_mode - 1e-4)   # safety: floor must sit below mode
+    tg_cap   = max(tg_cap,   tg_mode + 1e-4)   # safety: cap must sit above mode
+    return float(tg_mode), float(tg_floor), float(tg_cap)
+
+
 _TERM_G_SIGMA_CACHE: float | None = None   # computed once per process
 
 
@@ -190,7 +211,7 @@ def _build_base(raw, drivers, wacc_r) -> Assumptions:
         da_pct=drivers.da_pct,
         capex_pct=drivers.capex_pct,
         nwc_pct=drivers.nwc_pct,
-        terminal_g=TERM_G_MODE,
+        terminal_g=_terminal_g_params(drivers.revenue_growth, wacc_r.wacc)[0],
         wacc=wacc_r.wacc,
         net_debt=net_debt,
         diluted_shares=raw.diluted_shares,
@@ -239,7 +260,7 @@ def _run_sims(
         # Degenerate distributions: point masses at the base-case modes
         rg_lo = rg_hi = base.revenue_growth
         em_lo = em_hi = base.ebit_margin
-        tg_lo = tg_hi = TERM_G_MODE
+        tg_lo = tg_hi = base.terminal_g
         wa_lo = wa_hi = base.wacc
         tm_lo = tm_hi = base.target_margin
     else:
@@ -247,11 +268,11 @@ def _run_sims(
         rg_hi = min(base.revenue_growth + spread_sigma * sg,  1.50)
         em_lo = max(base.ebit_margin    - spread_sigma * sm, -0.20)
         em_hi = min(base.ebit_margin    + spread_sigma * sm,  0.75)
-        # terminal_g PERT: spread from macro GDP history (same for all companies).
-        # Hard floor/cap preserve economic sense; WACC_TG_GAP guards against TV blowup.
+        # terminal_g PERT: spread from macro GDP history, bounded by company-specific floor/cap.
+        _, tg_floor_p, tg_cap_p = _terminal_g_params(base.revenue_growth, w)
         tg_half = spread_sigma * stg
-        tg_lo   = max(TERM_G_MODE - tg_half, TERM_G_MIN)
-        tg_hi   = max(tg_lo + 1e-6, min(TERM_G_MODE + tg_half, TERM_G_MAX_ABS, w - WACC_TG_GAP))
+        tg_lo   = max(base.terminal_g - tg_half, tg_floor_p)
+        tg_hi   = max(tg_lo + 1e-6, min(base.terminal_g + tg_half, tg_cap_p, w - WACC_TG_GAP))
         wa_lo = max(w - spread_sigma * sw, 0.04)
         wa_hi = w + spread_sigma * sw
         # target_margin PERT: spread driven by company historical EBIT-margin σ.
@@ -269,7 +290,7 @@ def _run_sims(
     # Map uniforms → PERT marginals
     rg_s = _pert_ppf(U[:, 0], rg_lo, base.revenue_growth, rg_hi)
     em_s = _pert_ppf(U[:, 1], em_lo, base.ebit_margin,    em_hi)
-    tg_s = _pert_ppf(U[:, 2], tg_lo, TERM_G_MODE,         tg_hi)
+    tg_s = _pert_ppf(U[:, 2], tg_lo, base.terminal_g,      tg_hi)
     wa_s = _pert_ppf(U[:, 3], wa_lo, base.wacc,           wa_hi)
     tm_s = _pert_ppf(U[:, 4], tm_lo, base.target_margin,  tm_hi)
 
@@ -543,11 +564,12 @@ def print_valuation(result: ValuationResult) -> None:
           f"   (σ_growth_eff = {sg:.2%},  threshold = {HIGH_VOL_THRESHOLD:.0%})"
           + cross_note)
 
-    stg   = result.stg
+    stg          = result.stg
     spread_sigma = SPREAD_SIGMA
+    _, tg_floor_p, tg_cap_p = _terminal_g_params(base.revenue_growth, w)
     tg_h  = spread_sigma * stg
-    tg_lo = max(TERM_G_MODE - tg_h, TERM_G_MIN)
-    tg_hi = max(tg_lo + 1e-6, min(TERM_G_MODE + tg_h, TERM_G_MAX_ABS, w - WACC_TG_GAP))
+    tg_lo = max(base.terminal_g - tg_h, tg_floor_p)
+    tg_hi = max(tg_lo + 1e-6, min(base.terminal_g + tg_h, tg_cap_p, w - WACC_TG_GAP))
     print(f"\n  PERT bounds (±{SPREAD_SIGMA:.0f}σ_eff):")
     print(f"  {'Input':<22} {'Min':>10}  {'Mode':>10}  {'Max':>10}  {'σ_eff':>8}")
     print(f"  {'─'*65}")
@@ -562,7 +584,7 @@ def print_valuation(result: ValuationResult) -> None:
           f"  {min(base.ebit_margin + SPREAD_SIGMA*sm, 0.75):>10.2%}"
           f"  {sm:>7.2%}")
     print(f"  {'Terminal g':<22}"
-          f" {tg_lo:>10.2%}  {TERM_G_MODE:>10.2%}  {tg_hi:>10.2%}"
+          f" {tg_lo:>10.2%}  {base.terminal_g:>10.2%}  {tg_hi:>10.2%}"
           f"  {stg:>7.2%}")
     sw  = result.sw
     print(f"  {'WACC':<22}"
