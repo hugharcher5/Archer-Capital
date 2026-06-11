@@ -173,7 +173,7 @@ def _render_histogram(r: ValuationResult) -> None:
                   annotation_position="top right")
 
     fig.update_layout(
-        title=f"{r.ticker} — Monte Carlo DCF  ({r.n_valid:,} simulations, {r.copula_label} copula)",
+        title=f"{r.ticker}: Monte Carlo DCF ({r.n_valid:,} simulations, {r.copula_label} copula)",
         xaxis_title="Intrinsic value per share (USD)",
         yaxis_title="Probability density",
         showlegend=False,
@@ -205,8 +205,13 @@ def _render_expander_drivers(r: ValuationResult) -> None:
     rf = r.recon_fields
     with st.expander("Historical Drivers", expanded=False):
         st.markdown(
-            "The model averages the last few years of reported financials to anchor "
-            "the base-case assumptions.  Standard deviations set the Monte Carlo spread width."
+            "The model starts by pulling several years of the company's actual reported "
+            "financials and computing the key ratios for each year. I average across years "
+            "rather than just using the most recent year to make the base-case inputs more "
+            "stable and less sensitive to one-off events. The standard deviations of each "
+            "annual figure feed directly into the Monte Carlo: a company that has been "
+            "consistently predictable gets narrower distributions, and a company with erratic "
+            "history gets wider ones."
         )
         if d.hist_df is not None:
             disp_cols = [c for c in
@@ -260,9 +265,14 @@ def _render_expander_wacc(r: ValuationResult) -> None:
     rf  = r.recon_fields
     with st.expander("WACC", expanded=False):
         st.markdown(
-            "WACC is the discount rate applied to each year's free cash flow.  "
-            "Cost of equity comes from CAPM; cost of debt from a Damodaran synthetic rating "
-            "based on the interest-coverage ratio."
+            "WACC is the rate used to discount all future cash flows back to today. "
+            "The intuition is that a dollar of free cash flow in year 5 is worth less than "
+            "a dollar today because of the time value of money and the risk that it may not "
+            "materialise. Cost of equity comes from CAPM with a Blume-adjusted beta and "
+            "reflects the return equity investors require for bearing the company's risk. "
+            "Cost of debt is derived from the Damodaran synthetic rating methodology using "
+            "the EBIT to interest-coverage ratio, and is reduced by the tax shield on "
+            "interest expense."
         )
         st.latex(r"\text{WACC} = w_E \cdot K_E + w_D \cdot K_D (1-t)")
 
@@ -301,9 +311,14 @@ def _render_expander_assumptions(r: ValuationResult) -> None:
     ccy = a.currency
     with st.expander("Base-case Assumptions", expanded=False):
         st.markdown(
-            "These are the inputs fed into every year of the forecast.  "
-            "Revenue growth and EBIT margin fade linearly toward their terminal values; "
-            "CapEx fades to D&A% so that steady-state net reinvestment approaches zero."
+            "These are the inputs that drive every year of the explicit forecast. "
+            "Revenue growth and EBIT margin are not held constant: they start at the "
+            "historically averaged base-case values and fade linearly toward their terminal "
+            "values over the forecast horizon. I chose linear fading because growth and "
+            "margins always evolve gradually rather than jumping overnight. CapEx fades to "
+            "match D&A by the final year so that the model's steady-state reinvestment "
+            "assumption is consistent with the Gordon Growth terminal value, which assumes "
+            "the company is no longer growing faster than the economy."
         )
         capex_end = a.da_pct if a.capex_pct > a.da_pct else a.capex_pct
         rows = [
@@ -333,10 +348,14 @@ def _render_expander_forecast(r: ValuationResult) -> None:
     df = r.dcf.forecast.copy()
     with st.expander("Year-by-Year FCFF Forecast", expanded=False):
         st.markdown(
-            "FCFF (Free Cash Flow to the Firm) = NOPAT + D&A − CapEx − ΔNWC.  "
-            "Each year's FCFF is discounted back to today using WACC.  "
-            "The margin column shows the fade from the starting EBIT margin toward the "
-            "target mature margin."
+            "FCFF (Free Cash Flow to the Firm) is the cash the business generates for all "
+            "capital providers after operating expenses, taxes, and reinvestment needs are "
+            "accounted for. It equals NOPAT (net operating profit after tax) plus D&A "
+            "(added back because it is non-cash) minus CapEx (real cash spent on assets) "
+            "minus the change in net working capital (cash consumed or released by the "
+            "business growing or contracting). Each year's FCFF is discounted back to today "
+            "at WACC to get its present value. The margin column shows the year-by-year "
+            "fade from the starting EBIT margin toward the target mature margin."
         )
         st.latex(r"\text{FCFF}_t = \text{NOPAT}_t + \text{D\&A}_t - \text{CapEx}_t - \Delta\text{NWC}_t")
 
@@ -369,11 +388,15 @@ def _render_expander_terminal(r: ValuationResult) -> None:
     ccy = a.currency
     with st.expander("Terminal Value & EV/EBITDA Cross-check", expanded=False):
         st.markdown(
-            "The terminal value (TV) captures all cash flows beyond the explicit forecast "
-            "using the Gordon Growth Model.  It is then discounted back to today and added "
-            "to the PV of explicit FCFFs to get the total enterprise value.  "
-            "The EV/EBITDA cross-check compares the DCF-implied multiple to the market's "
-            "current multiple as a sanity check."
+            "The explicit forecast covers a finite number of years. Everything beyond that "
+            "window is captured by the terminal value, which assumes the business has reached "
+            "a steady state and grows at a constant rate forever. The Gordon Growth Model "
+            "formula converts that perpetual cash flow stream into a single lump sum that is "
+            "discounted back to today and added to the PV of explicit FCFFs to get the total "
+            "enterprise value. The EV/EBITDA cross-check compares the multiple implied by "
+            "the DCF against the market's current multiple. If the DCF-implied multiple is "
+            "wildly different from where the market trades, it is usually a signal that one "
+            "of the assumptions is out of range and worth revisiting."
         )
         st.latex(r"TV = \frac{FCFF_N \times (1+g)}{WACC - g}")
 
@@ -420,11 +443,14 @@ def _render_expander_bridge(r: ValuationResult) -> None:
     res = r.dcf
     ccy = a.currency
     rf  = r.recon_fields
-    with st.expander("EV → Equity Bridge", expanded=False):
+    with st.expander("EV to Equity Bridge", expanded=False):
         st.markdown(
-            "Enterprise value belongs to all capital providers.  "
-            "Subtracting net debt (total debt minus cash) isolates the equity value, "
-            "which divided by diluted shares gives intrinsic value per share."
+            "Enterprise value represents the total value of the business to all capital "
+            "providers combined, both debt holders and equity shareholders. To isolate what "
+            "belongs to equity shareholders specifically, net debt (total financial borrowings "
+            "minus cash on hand) is subtracted. Dividing by the diluted share count then "
+            "converts the total equity value into a per-share figure that can be directly "
+            "compared to the current market price."
         )
         st.latex(r"\text{Equity value} = EV - \text{Net debt} \quad\Rightarrow\quad "
                  r"V/\text{share} = \frac{\text{Equity value}}{\text{Diluted shares}}")
@@ -463,179 +489,375 @@ def _render_expander_bridge(r: ValuationResult) -> None:
 # ── Methodology expander (rendered first in the expander list) ───────────────
 
 def _render_expander_methodology(r: ValuationResult) -> None:
-    with st.expander('Methodology — Full Model Specification', expanded=False):
+    with st.expander('Methodology: Full Model Specification', expanded=False):
         st.markdown(r"""
 ### Overview
-This is a Discounted Cash Flow (DCF) model with a Monte Carlo uncertainty layer.
-The deterministic base-case answers "what is the company worth under the most
-likely set of assumptions?"; the Monte Carlo answers "how wide is the credible
-range given genuine uncertainty in those assumptions?"  The two are run from the
-same engine — the simulation is centred exactly on the base case.
+
+I built this tool because I wanted a proper way to evaluate the stocks in my own portfolio
+and understand what was actually being priced into them beneath all the numbers and
+fundamentals. Why was a stock trading at 30 times earnings when its balance sheet said
+something completely different? What assumptions would an investor need to believe for the
+current price to make sense? Those were the questions I wanted to answer, and I could not
+find an existing tool that answered them the way I wanted.
+
+The model is a Discounted Cash Flow (DCF) analysis with a Monte Carlo simulation layer
+built on top. The DCF produces a single intrinsic value estimate based on a specific set
+of assumptions. The Monte Carlo gives you a full probability distribution of estimates by
+running that same DCF tens of thousands of times, varying the inputs slightly on each run.
+I added the Monte Carlo because the future is genuinely unpredictable, and presenting a
+single number as the answer to what a company is worth always felt dishonest to me.
+A distribution of outcomes is more truthful.
+
+The full valuation equation and every modelling assumption are my own independent research.
+Every design decision, from how I treat operating leases to how I set the terminal growth
+rate, was made by me based on first principles and independent reading of valuation theory.
+The code was written using Claude Code across the full stack, covering data ingestion,
+financial computation, the Monte Carlo simulation engine, and this web interface. The model
+design, the reasoning behind every specification, and all the financial judgement calls are
+entirely mine.
 
 ---
 
-### 1 · Data sourcing and reconciliation
-Financial data is fetched from up to three sources: Yahoo Finance, Financial
-Modelling Prep (FMP), and SEC EDGAR.  When multiple sources are available their
-values are compared field-by-field:
+### 1. Data Sourcing and Reconciliation
 
-- **DATA fields** (revenue, EBIT, CapEx, diluted shares, cash) — disagreement
-  widens the Monte Carlo input distribution via σ_eff = √(σ_hist² + σ_cross²).
-  Fields with > 2 % relative disagreement are flagged; diluted shares and net
-  debt are *promoted* to sampled variables (independent narrow PERT) when their
-  relative cross-source spread exceeds 2 %.
-- **DEFINITIONAL fields** (D&A, total debt, tax rate) — differ by accounting
-  convention (e.g. operating vs finance leases, gross vs net tax); normalised
-  by a fixed convention and excluded from uncertainty widening.
+Financial data is fetched from up to three independent sources: Yahoo Finance, Financial
+Modelling Prep (FMP), and SEC EDGAR. I pull from multiple sources rather than relying on
+just one because no single provider is perfectly reliable across all companies. Yahoo Finance
+is fast and generally accurate for US reporters. FMP has well-structured financial statement
+data. EDGAR is the original source filing, which makes it authoritative but harder to parse
+consistently. By comparing all three, I can identify where they disagree and treat that
+disagreement as useful information in its own right.
 
-Source hierarchy when values conflict: SEC EDGAR ▶ FMP ▶ Yahoo Finance.
+**How specific fields are defined:**
+
+For total debt, I include only bonds payable and finance lease obligations. Operating leases
+are deliberately excluded. Under modern accounting standards (IFRS 16 and ASC 842), the cost
+of operating leases is already recognised as an operating expense within EBIT on the income
+statement. If I also included the operating lease liability in the balance sheet net debt
+figure, I would be counting the same obligation twice: once through its impact on operating
+margins and again as a deduction from enterprise value. Finance leases represent genuine
+borrowed capital and belong in net debt. Operating leases are committed rental contracts
+whose cost is already captured inside the margins.
+
+For depreciation and amortisation, I use Yahoo Finance's figure, which is pulled directly
+as a single reported line item from the cash flow statement. I tested building D&A from
+SEC EDGAR's structured data, but EDGAR constructs the figure by summing separate XML tags
+for depreciation, amortisation of intangibles, and lease amortisation independently. This
+approach frequently misses components, particularly for companies with complex capital
+structures or international operations, and produces a figure that does not match what the
+company actually reported. The Yahoo cash flow statement number is the line the company
+itself presented to shareholders, which is exactly what I want.
+
+For the tax rate, I calculate it as income tax expense divided by income before tax, both
+taken directly from the income statement. I chose this over using the statutory corporate
+rate because the effective rate already reflects everything the company actually does in
+practice: tax credits, deferred tax balances, R&D incentives, and international structuring.
+What matters to a DCF is not the rate the law prescribes but the rate the company actually
+pays on its earnings.
+
+**Why disagreements make this model more honest:**
+
+When two data sources report different numbers for the same field, I do not simply pick one
+and discard the other. I calculate the relative gap between them. If that gap exceeds 2%, I
+treat it as evidence of genuine data uncertainty rather than a rounding difference, and I
+widen the Monte Carlo input distribution for that variable accordingly using:
+""")
+        st.latex(
+            r"\sigma_{\text{eff}} = \sqrt{\,\sigma_{\text{hist}}^2 + \sigma_{\text{cross}}^2\,}"
+        )
+        st.markdown(r"""
+This is one of the features I am most deliberately proud of in this model. Most DCF tools
+either pick a data source and trust it completely, or ask the user to enter numbers manually.
+Mine acknowledges that the data itself carries uncertainty and folds that uncertainty directly
+into the output range. When sources disagree substantially, the model's probability
+distribution widens to reflect that. A model that is honest about the quality of its own
+inputs produces more meaningful output than one that presents false precision.
+
+For fields where cross-source disagreement exceeds 2%, the affected variable is also promoted
+to a directly sampled input in the Monte Carlo, meaning its value is independently drawn in
+each simulation rather than held fixed. Balance-sheet data uncertainty feeds directly into
+the distribution of intrinsic value estimates.
+
+Source priority when values conflict: SEC EDGAR takes precedence, then FMP, then Yahoo Finance.
 
 ---
 
-### 2 · Financial history
-Three to five fiscal years of annual income-statement and cash-flow data are used.
-Year-over-year drivers (revenue growth, EBIT margin, D&A%, CapEx%, SBC%,
-tax rate) are averaged to form base-case inputs; their standard deviations
-become the historical component of σ_eff.  NWC is taken from the most recent
-balance sheet only (no time series available).
+### 2. Financial History
 
-**Forecast horizon rule:** 10 years when trailing revenue growth exceeds 15 %;
-5 years otherwise.  High-growth companies need a longer explicit period before
-growth fades to the terminal rate.
+I use three to five fiscal years of annual income statement and cash flow data. For each year
+I calculate the key financial ratios: revenue growth, EBIT margin, D&A as a percentage of
+revenue, CapEx as a percentage of revenue, stock-based compensation as a percentage of
+revenue, and the effective tax rate. These annual figures are averaged to form the base-case
+inputs for the DCF, and their standard deviations become the historical uncertainty component
+fed into the Monte Carlo distributions.
 
-**SBC treatment:** Stock-based compensation is already expensed in reported EBIT
-(Route 1 — no add-back).  This approach is internally consistent but produces
-lower margins than cash-EPS-based peers; the same convention is applied to the
-terminal year.
+Stock-based compensation is already expensed in reported EBIT and is not added back anywhere
+in the model. This is an intentional choice. It means my operating margins are lower than the
+cash-adjusted or non-GAAP margins you commonly see in sell-side analyst reports, but they are
+internally consistent across every year of the forecast and through to the terminal value.
+I chose not to treat SBC as a non-cash add-back because doing so while also treating diluted
+share count as fixed systematically understates the true cost of equity compensation.
+
+**Forecast horizon:** I use a 10-year explicit forecast when trailing revenue growth exceeds
+15%, and a 5-year forecast otherwise. High-growth companies need a longer explicit window
+before their growth rate can credibly fade down to a terminal rate near nominal GDP. Forcing
+a company growing at 35% into a 5-year window and immediately applying a 2.5% terminal rate
+would shortchange years 6 through 10 where substantial value is still being created. The
+longer window gives those companies the runway their growth profile justifies.
+
+NWC is taken from the most recent balance sheet rather than averaged across years because
+year-over-year net working capital changes derived from cash flow statements are calculated
+inconsistently across data providers. Using the most recent balance sheet ratio is
+conservative and avoids compounding data noise.
 
 ---
 
-### 3 · DCF mechanics
+### 3. DCF Mechanics
 
-**Revenue forecast:** grows from the base-case rate, fading linearly to the
-terminal growth rate over the forecast horizon.
+The model forecasts free cash flow to the firm (FCFF) for each year of the explicit horizon,
+then adds a terminal value to capture all cash flows beyond that point. FCFF is the cash the
+business generates for all capital providers (both debt and equity holders) after operating
+expenses, taxes, and reinvestment needs are accounted for. It is the cleanest measure of a
+business's ability to generate value for its owners without being distorted by capital
+structure choices.
 
-**EBIT margin:** fades linearly from the starting (average historical) margin to
-the target (mature) margin.  Target margin = max(best historical EBIT margin,
-20 % floor) — the company should reach at least 20 % operating margin at
-maturity unless its own track record implies higher.
+**Revenue forecast:** starts at the base-case growth rate and fades linearly to the terminal
+growth rate over the forecast horizon. I chose a linear fade rather than holding growth
+constant because revenue growth always decelerates as a business matures and scales. Linear
+fading is a simple and defensible approximation of that natural deceleration and avoids the
+artificial cliff-edge that comes from holding growth constant and then abruptly switching to
+a terminal rate.
 
-**CapEx:** fades linearly from the historical average to D&A% by the final
-forecast year, so that steady-state net reinvestment (CapEx − D&A) → 0.  This
-is consistent with a Gordon Growth terminal value that assumes no net investment
-above the depreciation charge.
+**EBIT margin:** fades linearly from the starting historically-averaged margin to the target
+mature margin. I set the target as the higher of the company's best historical EBIT margin
+and a 20% floor. The reasoning is that a business should be capable of reaching at least
+20% operating margins at full maturity unless its own history demonstrates it cannot sustain
+margins anywhere near that level, in which case the best year it has achieved is the right
+anchor.
 
-**FCFF per year:**
+**CapEx:** fades linearly from the historical average to the D&A percentage by the final
+forecast year, so that steady-state net reinvestment (CapEx minus D&A) approaches zero.
+This is consistent with the Gordon Growth terminal value assumption that in perpetuity the
+company reinvests only enough capital to replace depreciating assets. Without this fade, the
+terminal value would implicitly assume the company keeps investing heavily forever, which
+significantly overstates value.
+
+**Free cash flow to the firm each year:**
 """)
         st.latex(
             r"\text{FCFF}_t = \underbrace{\text{EBIT}_t \cdot (1-t)}_{\text{NOPAT}}"
             r"+ \text{D\&A}_t - \text{CapEx}_t - \Delta\text{NWC}_t"
         )
         st.markdown(r"""
-**Terminal value** (Gordon Growth on the final forecast year's FCFF):
+NOPAT is the net operating profit after tax, representing what the business earns from
+operations after paying tax but before any financing costs. D&A is added back because it is
+a non-cash charge that reduced EBIT but consumed no actual cash. CapEx is subtracted because
+it is real cash spent on assets. The change in NWC is subtracted when positive (cash consumed
+by growth) and added back when negative (cash released as the business becomes more efficient).
+
+**Terminal value (Gordon Growth applied to the final forecast year's FCFF):**
 """)
         st.latex(
             r"TV = \frac{\text{FCFF}_N \cdot (1+g_\infty)}{\text{WACC} - g_\infty}"
         )
         st.markdown(r"""
-**Terminal growth rate (g∞):** anchored to the company's own growth trajectory.
-avg_g = (starting revenue growth + 2.5 %) ÷ 2 — the average of the fade path
-from current growth to nominal-GDP rate.  Capped at 2.5 % so it never exceeds
-long-run nominal GDP.  Lower bound: max(−2 %, 0.3 × avg_g); upper bound:
-min(4 %, WACC − 1 %, avg_g + 1 pp).  The WACC − 1 % cap prevents the terminal
-value denominator from approaching zero.
+The terminal value represents the present value of all cash flows from year N+1 to infinity,
+assuming they grow at a constant rate forever. The denominator (WACC minus g) is why the
+terminal growth rate must always remain below WACC. If g were equal to or above WACC, the
+denominator would approach zero and the terminal value would become infinitely large, which
+is economically nonsensical.
 
-**Enterprise value → equity value:**
+**Terminal growth rate:** rather than applying a single fixed rate to every company, I anchor
+the terminal rate to each company's own growth trajectory. The formula is avg_g = (starting
+revenue growth + 2.5%) divided by 2, taking the arithmetic midpoint between where growth is
+today and where nominal GDP sits. The rate is then capped at 2.5% so it can never exceed
+long-run nominal GDP growth regardless of how fast the company is currently growing. The
+lower bound is the maximum of negative 2% and 30% of avg_g, allowing for modest contraction
+scenarios. The upper cap is the minimum of 4%, WACC minus 1%, and avg_g plus 1 percentage
+point. The WACC minus 1% constraint is the most important one: it keeps the Gordon Growth
+denominator well away from zero and prevents the terminal value from becoming unreasonably
+large for high-growth companies.
+
+**Enterprise value to equity value:**
 """)
         st.latex(
             r"V_{\text{equity}} = EV - D_{\text{net}}, \quad"
             r"V/\text{share} = \frac{V_{\text{equity}}}{\text{diluted shares}}"
         )
         st.markdown(r"""
+The DCF produces an enterprise value, which belongs to all capital providers. Subtracting
+net debt (total financial debt minus cash) isolates the equity value attributable to
+shareholders. Dividing by diluted share count gives intrinsic value per share in local
+reporting currency. For non-USD reporters, this is converted to USD using the spot exchange
+rate in the base case, or a simulated per-year FX path in Monte Carlo mode.
+
 ---
 
-### 4 · WACC
+### 4. WACC
 
-**Cost of equity** via CAPM with Blume-adjusted beta:
+The weighted average cost of capital is the discount rate applied to every year's FCFF. It
+represents the blended required return that both equity holders and debt holders need to be
+compensated for their investment. I chose to compute WACC from first principles rather than
+using a consensus analyst estimate because I wanted the discount rate to be fully internally
+consistent with the data already being pulled for the DCF inputs.
+
+**Cost of equity via CAPM with Blume-adjusted beta:**
 """)
         st.latex(
             r"K_E = R_f + \beta_{\text{adj}} \cdot \text{ERP}, \quad"
             r"\beta_{\text{adj}} = 0.67 \cdot \beta_{\text{raw}} + 0.33"
         )
         st.markdown(r"""
-The Blume adjustment mean-reverts beta toward 1, reflecting the empirical
-tendency of extreme betas to moderate over time.  Risk-free rate from FRED
-DGS10 (10-year Treasury); ERP = 4.5 % (Damodaran implied ERP).
+The Blume adjustment mean-reverts beta toward 1. The empirical justification is that extreme
+betas tend to moderate over time as companies mature. A beta of 1.5 today is unlikely to
+remain at 1.5 for the next 5 to 10 years across a full DCF horizon. Multiplying the raw beta
+by 0.67 and adding 0.33 shifts it partway toward the market average of 1, which I believe is
+more appropriate for a long-duration valuation than using the historical point estimate
+directly. The risk-free rate is taken from the FRED DGS10 series (the 10-year US Treasury
+yield) and the equity risk premium is 4.5%, which is Damodaran's implied ERP.
 
-**Cost of debt** via Damodaran synthetic rating: the EBIT/interest-coverage
-ratio maps to an implied credit rating and default spread.
+**Cost of debt** is derived using the Damodaran synthetic rating methodology. The EBIT to
+interest-coverage ratio maps to an implied credit rating, which then maps to a default
+spread. Adding that spread to the risk-free rate gives the pre-tax cost of debt. The
+after-tax cost applies the interest tax shield: because interest is tax-deductible, the
+effective cost of debt is reduced proportionally by the tax rate. I chose this approach
+because it derives cost of debt purely from the income statement without requiring actively
+traded debt securities, which makes the model work equally well for small and large companies.
 
-**WACC σ:** reconstructed historically by re-running the WACC formula for each
-year of available data, using that year's DGS10 yield and coverage-implied
-spread, with beta and capital structure held fixed.  Fallback of 1.5 pp is used
-when fewer than 3 profitable years are available (coverage ratio undefined for
-loss-making companies).
+**WACC historical uncertainty:** I reconstruct the WACC for each available historical year
+by re-running the formula with that year's DGS10 rate and coverage-implied spread, holding
+beta and capital structure weights fixed. The standard deviation of these annual WACC
+estimates becomes the historical uncertainty input for the Monte Carlo. When fewer than
+three profitable years are available (which occurs for pre-profitability growth companies
+where coverage ratios are negative or undefined), I apply a fallback sigma of 1.5 percentage
+points, which is consistent with observed WACC variation for investment-grade companies.
 
 ---
 
-### 5 · Monte Carlo — uncertainty quantification
+### 5. Monte Carlo Uncertainty Quantification
 
-Five variables are sampled jointly: revenue growth, EBIT margin, target margin,
-terminal growth, and WACC.
+Five variables are sampled jointly in each simulation: revenue growth, EBIT margin, target
+margin, terminal growth rate, and WACC. Running 10,000 simulations produces a distribution
+of 10,000 independent intrinsic value estimates from which I read off percentiles to
+characterise the full range of outcomes.
 
-**Marginal distributions:** PERT (scaled Beta), parameterised by
-[min, mode, max] = [mode − 3σ_eff, base-case, mode + 3σ_eff], subject to
-plausibility clamps.  σ_eff = √(σ_hist² + σ_cross²) combines historical
-volatility with cross-source disagreement.
+**Why PERT distributions:**
 
-**Dependence structure:** Gaussian or Student-t copula via Cholesky decomposition
-of a hand-specified 5 × 5 target correlation matrix.  Student-t (ν = 5) is used
-when any of four fundamental triggers fires:
+Each variable is drawn from a PERT distribution, also called a scaled Beta distribution.
+A PERT is defined by three numbers: a minimum (worst case), a most likely value (the mode),
+and a maximum (best case). I chose PERT over a Normal distribution for two reasons. A Normal
+distribution technically extends to negative and positive infinity, meaning it could in theory
+draw a revenue growth rate of negative 300% or a margin of 500%. PERT stays within its
+defined range. Additionally, PERT is flexible: shifting the mode toward one end creates an
+asymmetric distribution that can reflect cases where the downside risk is larger than the
+upside potential, or vice versa.
 
-| Trigger | Threshold | Rationale |
+The mode is always the base-case value from the historical average. The minimum and maximum
+are set at mode minus 3 times sigma_eff and mode plus 3 times sigma_eff respectively. The
+combined uncertainty measure is:
+""")
+        st.latex(
+            r"\sigma_{\text{eff}} = \sqrt{\,\sigma_{\text{hist}}^2 + \sigma_{\text{cross}}^2\,}"
+        )
+        st.markdown(r"""
+The PERT shape parameters are derived from the three bounds as follows:
+""")
+        st.latex(
+            r"\alpha = 1 + \frac{4(\text{mode} - \text{min})}{\text{max} - \text{min}}, \quad"
+            r"\beta  = 1 + \frac{4(\text{max}  - \text{mode})}{\text{max} - \text{min}}"
+        )
+        st.markdown(r"""
+**How the model preserves relationships between variables (the copula):**
+
+If I sampled each variable independently, I would occasionally draw unrealistic combinations
+such as very high revenue growth paired with very low WACC, which would produce an
+unreasonably optimistic scenario. Real financial variables have natural relationships. Faster-
+growing companies tend to carry higher risk profiles and therefore higher discount rates.
+Compressed margins tend to occur at the same time as weaker cash conversion. A copula allows
+me to preserve these relationships across all five variables simultaneously while still
+drawing each one from its own PERT marginal distribution.
+
+I use a Gaussian copula by default, which captures linear correlations between variables
+through a hand-specified 5x5 target correlation matrix. For instance, revenue growth and
+WACC carry a positive correlation of 0.20 because faster-growing companies are generally
+riskier.
+
+When any of four fundamental uncertainty triggers fire, I switch to a Student-t copula with
+5 degrees of freedom. A Student-t copula has heavier tails than Gaussian, which means it
+generates more extreme simultaneous adverse scenarios: growth is low AND margins are
+compressed AND WACC is elevated, all at the same time. This reflects the well-documented
+phenomenon that in stress environments, asset correlations that are normally modest tend to
+spike, making bad outcomes more coincident than normal times would suggest.
+
+The four triggers are:
+
+| Trigger | Threshold | Why I chose it |
 |---|---|---|
-| σ_eff revenue growth | > 20 % | Structurally erratic revenue |
-| σ_eff EBIT margin | > 5 pp | High operating leverage / volatility |
-| σ FCF/Revenue | > 8 % | Cash conversion unpredictability |
-| max σ_cross | > 15 pp | Large cross-source disagreement |
+| Revenue growth volatility | above 20% | Structurally erratic revenue makes extreme joint scenarios more likely |
+| EBIT margin volatility | above 5 percentage points | High operating leverage amplifies the severity of joint downturns |
+| FCF margin volatility | above 8% | Unpredictable cash conversion justifies heavier tails in the joint distribution |
+| Maximum cross-source disagreement | above 15 percentage points | Severe data uncertainty warrants a more conservative joint distribution |
 
-Stock-price volatility is deliberately excluded — it measures market sentiment,
-not valuation-input uncertainty, and would conflate the two.
-
----
-
-### 6 · FX translation
-
-USD reporters: a single fx_rate = 1.0, no simulation.
-
-Foreign reporters: a driftless Geometric Brownian Motion path with one rate per
-forecast year.  Year-t FCFs are translated at the year-t simulated rate;
-terminal value at the final-year rate.  The −½σ² Itô correction keeps the
-expected path flat (uncertainty, not directional prediction).
+Stock-price volatility is deliberately excluded from these triggers. Stock price moves
+reflect market sentiment and investor positioning, not the fundamental uncertainty of the
+business inputs themselves. Using price volatility to widen a fundamental DCF model would
+conflate two completely different things and does not produce a more honest output.
 
 ---
 
-### 7 · Model biases and known limitations
+### 6. FX Translation
 
-This model is **deliberately conservative** in several respects:
+For companies that report in USD, there is no FX simulation. The exchange rate is fixed at
+1.0 throughout all simulations.
 
-- **CapEx fades to D&A%** — steady-state net reinvestment collapses to zero.
-  Asset-light businesses with genuinely low reinvestment needs are fairly
-  treated; asset-heavy businesses requiring continued net investment are
-  *overvalued* by the model.
-- **SBC expensed in EBIT** — operating margins are lower than cash-based
-  metrics.  High-SBC companies (cloud software, early-stage tech) appear less
-  profitable than they are on a cash basis.
-- **Terminal growth capped at 2.5 %** — secular-tailwind businesses that will
-  plausibly outgrow nominal GDP for longer than the explicit horizon are
-  conservatively valued.
-- **Consequence:** mature, large-cap technology companies with high multiples
-  frequently appear overvalued against the model's intrinsic estimate — not
-  because the model is wrong, but because the market is pricing in a longer
-  high-growth runway and/or a cash-earnings premium that the model does not
-  capture.  The designed edge is in under-covered or misunderstood companies
-  where a simple FCFF framework surfaces undervaluation the market has missed,
-  not in arguing that MSFT or AAPL are 30 % overvalued.
+For foreign-currency reporters, I simulate the exchange rate path over the forecast horizon
+using a driftless Geometric Brownian Motion, drawing one simulated rate per forecast year.
+Each year's discounted FCF is translated at that year's simulated rate rather than a single
+fixed rate applied to the whole forecast. This means FX uncertainty compounds over time:
+year-1 cash flows carry less currency risk than year-5 cash flows, which carry less than the
+terminal value. The terminal value is translated at the final-year simulated rate.
+
+The process is deliberately driftless. I am not predicting that any currency will appreciate
+or depreciate. The negative one-half sigma-squared term in the exponent is the Ito drift
+correction and its job is to keep the expected value of the exchange rate equal to today's
+spot rate at every point in the simulation. Uncertainty compounds around that anchor, but
+the centre of the distribution stays pinned to the current exchange rate.
+
+---
+
+### 7. Model Biases and Known Limitations
+
+I think it is important to be transparent about where this model is deliberately conservative
+and where those choices have consequences.
+
+CapEx fading to D&A means that in the terminal year, the model assumes net reinvestment
+(CapEx minus D&A) is essentially zero. This is a reasonable assumption for asset-light
+businesses like software companies whose growth is not constrained by physical capital. For
+asset-heavy businesses such as energy infrastructure or manufacturing, this assumption is
+wrong: they need to keep spending more than they depreciate just to sustain operations. The
+model will treat asset-light companies fairly and may overvalue asset-heavy ones by assuming
+an unrealistic reinvestment holiday in perpetuity.
+
+SBC being expensed in EBIT depresses margins relative to cash-based metrics. High-SBC
+companies, particularly cloud software and early-stage technology businesses, will appear
+less profitable under this model than they look on an adjusted earnings basis. I accept this
+trade-off deliberately. If stock-based compensation were truly immaterial, companies would
+not go to such lengths to exclude it from their headline numbers.
+
+Terminal growth is capped at 2.5%, which means the model never awards a company more than
+nominal GDP growth in perpetuity. For companies with genuine secular tailwinds who will
+plausibly outgrow the broader economy for longer than the explicit forecast horizon, this cap
+undervalues them. I accept that constraint because the alternative, allowing company-specific
+terminal rates above GDP, opens the door to circular reasoning where the terminal rate is
+simply tuned to justify a target price.
+
+The consequence of these three choices taken together is that mature, large-cap technology
+companies with high multiples will frequently appear overvalued under this model. That is not
+always because the market is wrong. It is because the market is pricing in a longer
+high-growth runway and a cash-earnings premium that this model does not grant. The designed
+purpose of this tool is to find genuine undervaluation in under-covered or misunderstood
+companies where a rigorous FCFF framework surfaces something the market has missed, not to
+argue that Microsoft or Apple are 30% overvalued on a technical basis.
 """)
 
 
@@ -692,33 +914,40 @@ def _render_expander_corr_copula(r: ValuationResult) -> None:
         if copula_type == 'student-t':
             fired_names = ', '.join(tr['name'] for tr in fired)
             st.info(
-                f'**Student-t copula (df={copula_df})** — fat-tailed joint distribution.  '
-                f'Triggered by: **{fired_names}**.  '
-                'Produces more extreme simultaneous scenarios than a Gaussian copula, '
-                'reflecting higher fundamental unpredictability.'
+                f'**Student-t copula (df={copula_df})** used for this run. '
+                f'This produces a fat-tailed joint distribution, meaning the simulation generates '
+                f'more extreme simultaneous adverse scenarios than a standard Gaussian copula would. '
+                f'Triggered by: **{fired_names}**. '
+                'The Student-t copula is selected when fundamental uncertainty indicators suggest '
+                'the inputs are volatile enough to justify heavier joint tails.'
             )
         else:
             st.success(
-                '**Gaussian copula** — no fat-tail triggers fired.  '
-                'The joint distribution of sampled inputs is multivariate-normal on the probability scale.'
+                '**Gaussian copula** used for this run. '
+                'None of the four fundamental unpredictability triggers fired, so the joint '
+                'distribution of sampled inputs follows a standard multivariate normal structure '
+                'on the probability scale.'
             )
 
         # ── Trigger table (always shown, both copula types) ───────────────────
-        st.markdown('**Trigger evaluation** — Student-t is selected if ANY trigger fires:')
+        st.markdown('**Trigger evaluation:** the model switches to Student-t if any one of these fires:')
         trig_rows = []
         for tr in triggers:
             trig_rows.append({
                 'Trigger':   tr['name'],
                 'Actual':    f'{tr["actual_value"]:.2%}',
                 'Threshold': f'{tr["threshold"]:.0%}',
-                'Fired':     '✅' if tr['fired'] else '—',
+                'Fired':     '✅' if tr['fired'] else 'No',
             })
         st.dataframe(pd.DataFrame(trig_rows), use_container_width=False, hide_index=True)
         st.caption(
-            'Triggers measure **fundamental unpredictability** (revenue-growth vol, EBIT-margin vol, '
-            'FCF vol, cross-source disagreement).  '
-            'Stock-price volatility is deliberately excluded: it measures market sentiment, '
-            'not valuation-input uncertainty.'
+            'These triggers measure fundamental unpredictability in the business inputs: '
+            'revenue growth volatility, EBIT margin volatility, FCF volatility, and '
+            'cross-source data disagreement. '
+            'Stock-price volatility is deliberately excluded because it reflects market '
+            'sentiment, not the uncertainty of the underlying valuation inputs. '
+            'Using price volatility to widen a fundamental DCF would conflate two entirely '
+            'different concepts.'
         )
 
         st.divider()
@@ -733,12 +962,13 @@ def _render_expander_corr_copula(r: ValuationResult) -> None:
                 )
             with c2:
                 st.plotly_chart(
-                    _make_corr_heatmap(corr_realized, 'Realized correlation — 10,000 draws'),
+                    _make_corr_heatmap(corr_realized, 'Realized correlation (10,000 draws)'),
                     use_container_width=True,
                 )
             st.caption(
-                'Realized ≈ target: confirms the Gaussian/t copula → Cholesky → inverse-CDF '
-                'pipeline is correctly implemented end-to-end.'
+                'Realized values should be close to target values. '
+                'This confirms the Gaussian/t copula, Cholesky decomposition, and PERT '
+                'inverse-CDF pipeline is working correctly end-to-end.'
             )
 
             # Scatter popover: rev growth vs WACC
@@ -775,15 +1005,15 @@ def _render_expander_corr_copula(r: ValuationResult) -> None:
         st.divider()
 
         # ── Sampling pipeline ─────────────────────────────────────────────────
-        st.markdown('**Sampling pipeline**')
+        st.markdown('**Sampling pipeline: how the correlated draws are generated**')
         st.markdown(
             r"""
-1. Draw **Z** ∈ ℝ^(n×k) of independent standard-normal variates (n = simulations, k = 5 variables).
-2. Cholesky-decompose the target correlation matrix: **L** = chol(**Σ**), such that **L** · **Lᵀ** = **Σ**.
-3. Correlate: **Z_C** = **Z** · **Lᵀ** → each row of **Z_C** is drawn from N(**0**, **Σ**).
-4. *(Student-t only)* draw χ²_ν scalars **w** ~ χ²(ν); divide: **T** = **Z_C** / √(**w**/ν) → correlated t-variates with ν degrees of freedom, preserving the correlation structure **Σ**.
-5. Apply marginal CDF column-wise: **U** = Φ(**Z_C**) *or* F_{t,ν}(**T**) → correlated uniform percentiles on (0, 1).
-6. Map each column through the PERT inverse-CDF: x_i = PERT⁻¹(U_i ; min_i, mode_i, max_i).
+1. Draw **Z**, a matrix of shape (n simulations x 5 variables) of independent standard-normal variates, where every entry is completely random and uncorrelated.
+2. Cholesky-decompose the target correlation matrix: find **L** such that **L** multiplied by its own transpose equals **Σ**. This produces a lower-triangular matrix that encodes the desired correlations.
+3. Correlate the draws: **Z_C** = **Z** multiplied by **L** transposed. Each row of **Z_C** is now drawn from a multivariate normal distribution with correlation structure **Σ**.
+4. *(Student-t only)* draw chi-squared scalars **w** from a chi-squared distribution with ν degrees of freedom, then divide: **T** = **Z_C** divided by the square root of (**w** divided by ν). This produces correlated t-variates with ν degrees of freedom that preserve the same correlation structure but with heavier joint tails.
+5. Apply the marginal CDF column-by-column: **U** = Φ(**Z_C**) for Gaussian, or F_{t,ν}(**T**) for Student-t. This converts each column into correlated uniform percentiles on the interval (0, 1).
+6. Map each column through the PERT inverse-CDF: x_i = PERT⁻¹(U_i ; min_i, mode_i, max_i). This produces draws from each variable's own PERT distribution while preserving the correlation structure introduced in step 3.
 
 **PERT parameterisation** (scaled Beta):
 """
@@ -793,9 +1023,9 @@ def _render_expander_corr_copula(r: ValuationResult) -> None:
             r"\beta  = 1 + \frac{4(\text{max}  - \text{mode})}{\text{max} - \text{min}}"
         )
         st.markdown(
-            'Agreement between the theoretical PERT pdf and the KDE of realized draws '
-            '(visible in the *Monte Carlo Input Distributions* expander) '
-            'is the end-to-end correctness check for steps 5 → 6.'
+            'When the theoretical PERT curve and the KDE of realized draws agree closely '
+            '(visible in the Monte Carlo Input Distributions expander), it confirms '
+            'the sampler is correctly centred and that steps 5 and 6 are working as intended.'
         )
 
 
@@ -813,50 +1043,58 @@ _MC_VAR_META: dict = {
 
 _MC_RATIONALE: dict = {
     'historical_mean_growth': (
-        "**Spread source:** standard deviation of the company's annual revenue growth rate "
-        "over the available history. Combined with cross-source disagreement in quadrature: "
-        "σ_eff = √(σ_hist² + σ_cross²). "
-        "PERT bounds = mode ± 3σ_eff, clamped to [−30 %, +150 %] for plausibility.  "
-        "A σ_cross of zero means only one data source is available or all sources agree."
+        "**Spread source:** the standard deviation of the company's annual revenue growth rate "
+        "over the available historical years. This is combined with any cross-source data "
+        "disagreement in quadrature to produce sigma_eff = the square root of (sigma_hist "
+        "squared plus sigma_cross squared). The PERT bounds are set at the mode plus or minus "
+        "3 times sigma_eff, then clamped to a plausibility range of negative 30% to positive "
+        "150%. A sigma_cross of zero simply means only one data source was available or all "
+        "sources agreed exactly on this field."
     ),
     'historical_mean_ebit_margin': (
-        "**Spread source:** standard deviation of annual EBIT margins over the available history. "
-        "Combined with cross-source uncertainty in quadrature. "
-        "Bounds clamped to [−20 %, +75 %]. "
-        "A negative margin is allowed — the model can handle operating-loss years."
+        "**Spread source:** the standard deviation of annual EBIT margins over the available "
+        "history, combined with cross-source uncertainty using the same quadrature formula. "
+        "Bounds are clamped to the range from negative 20% to positive 75%. Negative margins "
+        "are permitted because the model needs to handle companies that have been loss-making "
+        "in some historical years without breaking the simulation."
     ),
     'best_historical_ebit_margin': (
-        "**Mode:** max(best historical EBIT margin, 20 % floor) — the company should converge "
-        "toward at least 20 % mature margin unless its best reported year was higher. "
-        "**Spread source:** reuses the same σ as the current EBIT margin (both are derived from "
-        "the same reported income statement data). "
-        "The PERT half-width is clamped to [3 pp, 20 pp] so that short histories don't produce "
-        "a degenerate zero-width PERT, and small companies with erratic margins don't get "
-        "absurdly wide ranges."
+        "**Mode:** the higher of the company's best historical EBIT margin and a 20% floor. "
+        "The reasoning is that a business at full maturity should reach at least 20% operating "
+        "margins unless its own track record suggests the ceiling is lower, in which case the "
+        "best year it has achieved is the right anchor. "
+        "**Spread source:** the same sigma as the current EBIT margin, because both figures are "
+        "derived from the same reported income statement data and the uncertainty is symmetric. "
+        "The PERT half-width is clamped to the range of 3 to 20 percentage points so that "
+        "companies with short histories do not produce a degenerate zero-width distribution, "
+        "and companies with very erratic margins do not produce implausibly wide ones."
     ),
     'avg_growth_anchored_to_gdp': (
-        "**Mode derivation:** avg_g = (starting revenue growth + 2.5 %) ÷ 2 — the arithmetic "
-        "mean of the fade path from current growth to nominal-GDP terminal rate, so "
-        "faster-growing companies get a modestly higher terminal assumption.  "
-        "Capped at 2.5 % so the terminal rate never exceeds long-run nominal GDP.  "
-        "**σ_hist:** macro-derived from US annual nominal GDP growth (FRED GDPA); identical for "
-        "every company by design — terminal growth uncertainty is a macro variable, not a "
-        "company-specific forecast.  "
-        "**Asymmetric bounds:** floor = max(−2 %, 0.3 × avg_g) so economic decline is permitted "
-        "but bounded; cap = min(4 %, WACC − 1 %, avg_g + 1 pp). "
-        "The WACC − 1 % constraint prevents the Gordon Growth denominator from approaching zero, "
-        "which would cause the terminal value to diverge."
+        "**Mode derivation:** avg_g = (starting revenue growth + 2.5%) divided by 2. This is "
+        "the arithmetic midpoint between where growth is today and where nominal GDP sits, so "
+        "faster-growing companies get a modestly higher terminal assumption while remaining "
+        "grounded in long-run macro reality. The rate is capped at 2.5% so it can never exceed "
+        "nominal GDP growth in perpetuity. "
+        "**Sigma_hist:** derived from the historical standard deviation of US annual nominal GDP "
+        "growth (FRED GDPA series). This is the same value for every company by design. Terminal "
+        "growth uncertainty is a macro variable, not a company-specific forecast. "
+        "**Asymmetric bounds:** the floor is the maximum of negative 2% and 30% of avg_g, "
+        "permitting modest economic contraction scenarios. The cap is the minimum of 4%, WACC "
+        "minus 1%, and avg_g plus 1 percentage point. The WACC minus 1% constraint is critical "
+        "because it keeps the Gordon Growth Model denominator away from zero, which would cause "
+        "the terminal value to become unreasonably large or infinite."
     ),
     'capm_synthetic_rating_blume_beta': (
-        "**σ_hist:** reconstructed year-by-year by re-running the WACC formula with each year's "
-        "FRED DGS10 risk-free rate and the Damodaran synthetic rating implied by that year's "
-        "EBIT/interest-coverage ratio.  Beta (Blume-adjusted: 0.67 × raw + 0.33) and capital "
-        "structure weights are held fixed at current values across the reconstruction.  "
-        "**Fallback (1.5 pp):** applied when fewer than 3 profitable years are available for "
-        "reconstruction — for example, pre-profitability growth companies whose coverage ratio "
-        "is negative or undefined.  "
-        "**No σ_cross:** WACC inputs (beta, Rf) are market-derived and identical across all "
-        "data sources, so cross-source disagreement does not add uncertainty here."
+        "**Sigma_hist:** reconstructed year-by-year by re-running the WACC formula with each "
+        "historical year's FRED DGS10 risk-free rate and the Damodaran synthetic rating implied "
+        "by that year's EBIT to interest-coverage ratio. Blume-adjusted beta (0.67 times raw "
+        "plus 0.33) and capital structure weights are held fixed at their current values across "
+        "all historical years. "
+        "**Fallback (1.5 percentage points):** applied when fewer than 3 profitable years are "
+        "available for the reconstruction, for example pre-profitability growth companies where "
+        "coverage ratios are negative or undefined. "
+        "**No sigma_cross:** WACC inputs including beta and the risk-free rate are market-derived "
+        "and identical across all data sources, so cross-source disagreement does not apply here."
     ),
 }
 
@@ -987,14 +1225,14 @@ def _render_mc_var_card(
             cf_str = _fp(cf) if math.isfinite(cf) else '−∞'
             cc_str = _fp(cc) if math.isfinite(cc) else '∞'
             if cb == 'none':
-                clamp_note = 'none — ±3σ_eff lies within plausibility limits'
+                clamp_note = 'none (±3σ_eff lies within plausibility limits)'
             elif cb == 'floor':
-                clamp_note = f'floor — ±3σ_eff floor is {raw_lo_str} but constrained to {cf_str}'
+                clamp_note = f'floor active (±3σ_eff floor would be {raw_lo_str} but constrained to {cf_str})'
             elif cb == 'cap':
-                clamp_note = f'cap — ±3σ_eff cap is {raw_hi_str} but constrained to {cc_str}'
+                clamp_note = f'cap active (±3σ_eff cap would be {raw_hi_str} but constrained to {cc_str})'
             else:  # both
-                clamp_note = (f'both — ±3σ_eff gives [{raw_lo_str}, {raw_hi_str}] '
-                              f'but constrained to [{cf_str}, {cc_str}]')
+                clamp_note = (f'both active (±3σ_eff gives [{raw_lo_str}, {raw_hi_str}] '
+                              f'but constrained to [{cf_str}, {cc_str}])')
 
             # Terminal g: flag whether WACC-1% or absolute 4% is the binding cap
             if var == 'terminal_g':
@@ -1033,7 +1271,7 @@ def _render_mc_var_card(
                 rationale += (
                     '\n\n**⚠ Fallback active for this ticker:** fewer than 3 profitable years '
                     'were available for WACC reconstruction (negative or undefined coverage ratio). '
-                    'σ_WACC is set to 1.5 pp — a conservative estimate consistent with observed '
+                    'σ_WACC is set to 1.5 pp, a conservative estimate consistent with observed '
                     'WACC variation for investment-grade companies.'
                 )
             if rationale:
@@ -1072,7 +1310,7 @@ def _render_mc_var_card(
             )
             var_name = 'diluted shares' if var == 'diluted_shares' else 'net debt'
             st.markdown(
-                f'**Promoted variable** — cross-source disagreement of {disagree_s} exceeded the '
+                f'**Promoted variable:** cross-source disagreement of {disagree_s} exceeded the '
                 f'2 % promotion threshold, so {var_name} is sampled in each simulation as a '
                 f'narrow PERT centred on the preferred-source value (half-width = σ_cross). '
                 f'Sampling is independent of the operating-driver copula (balance-sheet '
@@ -1109,10 +1347,12 @@ def _render_expander_mc_inputs(r: ValuationResult) -> None:
 
     with st.expander('Monte Carlo Input Distributions', expanded=False):
         st.markdown(
-            'One card per sampled variable. All numbers trace directly to `result.transparency` — '
-            'nothing is hardcoded. The distribution popover overlays the theoretical PERT pdf '
-            '(dashed) against a KDE of the actual draws — agreement confirms the sampler is '
-            'correctly centred and scaled.'
+            'One card per sampled variable. Every number shown here is sourced directly from '
+            'the transparency payload built during the simulation run, nothing is hardcoded or '
+            'approximated. The distribution chart in each card overlays the theoretical PERT '
+            'curve (dashed line) against a KDE of the actual simulation draws. When the two '
+            'lines agree closely, it confirms the sampler is correctly centred on the '
+            'base-case mode and drawing from the intended distribution.'
         )
 
         # Per-variable cards
@@ -1135,10 +1375,10 @@ def _render_expander_mc_inputs(r: ValuationResult) -> None:
 # ── Currency Simulation (GBM) expander ───────────────────────────────────────
 
 _GBM_STATIC_EXPLANATION = r"""
-**Geometric Brownian Motion with annual steps** (driftless):
+**Geometric Brownian Motion with annual steps (driftless):**
 
-Each forecast year the simulated exchange rate is multiplied by a random lognormal
-factor drawn independently for that year.  The cumulative path to year *t* is:
+Each forecast year, the simulated exchange rate is multiplied by an independently drawn
+random lognormal factor. The cumulative simulated path to year t is:
 """
 
 def _render_expander_fx(r: ValuationResult) -> None:
@@ -1152,10 +1392,11 @@ def _render_expander_fx(r: ValuationResult) -> None:
     with st.expander('Currency Simulation (GBM)', expanded=False):
         if not fx.get('is_foreign', False):
             st.info(
-                f'**{r.ticker} reports in USD** — no FX leg is simulated.  '
-                'Every forecast-year FCF and the terminal value are already in USD; '
-                'the FX rate is fixed at 1.0 throughout all simulations.  '
-                'The section below describes what runs for foreign-currency reporters.'
+                f'**{r.ticker} reports in USD** so no FX simulation is run. '
+                'Every forecast-year FCF and the terminal value are already in USD '
+                'and the exchange rate stays fixed at 1.0 across all simulations. '
+                'The section below describes how the FX module works for '
+                'foreign-currency reporters.'
             )
             st.divider()
 
@@ -1168,12 +1409,13 @@ def _render_expander_fx(r: ValuationResult) -> None:
             r"\,\right), \quad Z_s \overset{\text{iid}}{\sim} \mathcal{N}(0,1)"
         )
         st.markdown(
-            r'The $-\tfrac{1}{2}\sigma^2$ term is the Itô drift correction: '
-            r'it keeps $\mathbb{E}[r_t] = r_0$ for all $t$ '
-            r'(the process is a random walk around today\'s spot rate, '
-            r'not a prediction of appreciation or depreciation).  '
-            r'Each year is simulated independently so FX uncertainty **compounds with time** — '
-            r'year-1 cash flows carry less currency risk than the terminal value.'
+            r'The $-\tfrac{1}{2}\sigma^2$ term is the Ito drift correction. '
+            r'It keeps the expected value of the exchange rate equal to today\'s spot rate '
+            r'at every point in time, meaning this process does not predict appreciation or '
+            r'depreciation in any direction. It is a random walk centred on the current spot '
+            r'rate. Because each year is simulated independently, FX uncertainty '
+            r'**compounds with time**: year-1 cash flows carry less currency risk than '
+            r'the terminal value.'
         )
 
         if not fx.get('is_foreign', False):
@@ -1252,7 +1494,7 @@ def _render_expander_fx(r: ValuationResult) -> None:
 
         fig.update_layout(
             title=dict(
-                text=f'{ccy}/USD Exchange Rate — {n_paths} GBM sample paths  (σ = {sigma:.0%}/yr)',
+                text=f'{ccy}/USD Exchange Rate: {n_paths} GBM sample paths (σ = {sigma:.0%}/yr)',
                 font_size=13,
             ),
             xaxis=dict(title='Forecast year', dtick=1, tick0=0),
@@ -1278,8 +1520,9 @@ def _render_expander_fx(r: ValuationResult) -> None:
             })
         st.dataframe(pd.DataFrame(table_rows), use_container_width=False, hide_index=True)
         st.caption(
-            f'All rates are {ccy}/USD.  P10/P90 widen each year as uncertainty compounds.  '
-            f'The median path stays near the spot rate by construction (driftless process).'
+            f'All rates are {ccy}/USD. P10/P90 widen each year as uncertainty compounds '
+            f'over the forecast horizon. The median path stays near the spot rate by '
+            f'construction because the process is driftless.'
         )
 
 
@@ -1317,16 +1560,17 @@ def _render_expander_validation(r: ValuationResult) -> None:
             use_container_width=False, hide_index=True,
         )
 
-        st.markdown('**Invariants verified by this test suite:**')
+        st.markdown('**Invariants verified by this test:**')
         st.markdown(
-            '- **Zero-width → deterministic:** when all PERT half-widths are collapsed to zero, '
-            'every draw is the base-case mode; the MC P50 must equal `value()` to within \\$0.01.  '
-            'Confirms the simulation is centred correctly and the PERT inverse-CDF is accurate at the mode.\n'
-            '- **USD ticker ↔ FX module:** when `currency == "USD"`, `fx_path` is never set; '
-            '`vps_usd = vps_local × 1.0` — byte-identical to the non-FX code path.\n'
-            '- **Realized correlation ≈ target:** `np.corrcoef` of the 5 sampled input arrays '
-            'should be within ~0.02 of the target CORR matrix entries at n = 10,000 draws '
-            '(visible in the Correlation Structure & Copula expander).'
+            '- **Zero-width collapse:** when all PERT half-widths are set to zero, every draw '
+            'must be the base-case mode and the MC P50 must match `value()` to within \\$0.01. '
+            'This confirms the simulation is centred on the correct value and the PERT '
+            'inverse-CDF is accurate at the mode.\n'
+            '- **USD ticker FX path:** when `currency == "USD"`, fx_path is never set and '
+            '`vps_usd = vps_local x 1.0`, which is byte-identical to the non-FX code path.\n'
+            '- **Realized correlation matching target:** the corrcoef of the 5 sampled input '
+            'arrays should be within approximately 0.02 of the target correlation matrix entries '
+            'at 10,000 draws (visible in the Correlation Structure and Copula expander).'
         )
 
 
@@ -1339,10 +1583,11 @@ def _render_expander_reconciliation(r: ValuationResult) -> None:
         return
     with st.expander("Data Reconciliation & Distribution Widening", expanded=False):
         st.markdown(
-            "When multiple data sources (Yahoo Finance, FMP, SEC EDGAR) are available, "
-            "their disagreement on **DATA** fields widens the Monte Carlo input distributions. "
-            "**DEFINITIONAL** fields (D&A, total debt, tax rate) differ by reporting convention "
-            "and are resolved by normalisation — they do not add uncertainty."
+            "When multiple data sources are available, their field-by-field disagreement on "
+            "DATA fields widens the Monte Carlo input distributions. DEFINITIONAL fields such "
+            "as D&A, total debt, and tax rate differ between sources because of accounting "
+            "convention differences rather than genuine data errors. These are resolved by "
+            "normalisation and do not contribute additional uncertainty to the simulation."
         )
         st.latex(
             r"\sigma_{\text{eff}} = \sqrt{\,\sigma_{\text{hist}}^2 + \sigma_{\text{cross}}^2\,}"
@@ -1368,7 +1613,7 @@ def _render_expander_reconciliation(r: ValuationResult) -> None:
                 ftype  = info["field_type"]
                 if ftype == "DEFINITIONAL":
                     type_str = "DEFINITIONAL (conv)"
-                    dis_str  = f"{dpct:.1f}% — resolved by convention" if dpct is not None else "n/a"
+                    dis_str  = f"{dpct:.1f}% (resolved by convention)" if dpct is not None else "n/a"
                 elif dpct is None:
                     type_str = "DATA"
                     dis_str  = "n/a (single source)"
@@ -1405,9 +1650,10 @@ def _render_expander_reconciliation(r: ValuationResult) -> None:
                 use_container_width=True, hide_index=True,
             )
             st.caption(
-                "σ_hist = historical std of the annual figure.  "
-                "σ_cross = std of the derived rate / level across sources.  "
-                "σ_eff = √(σ_hist² + σ_cross²) — combined uncertainty fed into the PERT bounds."
+                "σ_hist = historical std of the annual figure. "
+                "σ_cross = std of the derived rate or level across sources. "
+                "σ_eff = the square root of (σ_hist squared + σ_cross squared), "
+                "which is the combined uncertainty fed into the PERT bounds."
             )
 
 
@@ -1426,7 +1672,7 @@ def _render_valuation(r: ValuationResult) -> None:
               delta=f"{(det-price)/price*100:+.1f}%")
     c3.metric("Median (P50)",       f"${r.p50:.2f}",
               delta=f"{pct_vs_market:+.1f}%")
-    c4.metric("P10 / P90",          f"${r.p10:.0f} – ${r.p90:.0f}")
+    c4.metric("P10 / P90",          f"${r.p10:.0f} - ${r.p90:.0f}")
     c5.metric("P(Undervalued)",     f"{r.pct_undervalued:.1f}%")
 
     # ── Distribution histogram ────────────────────────────────────────────────
@@ -1448,16 +1694,16 @@ def _render_valuation(r: ValuationResult) -> None:
     # ── Plain-English interpretation ──────────────────────────────────────────
     over_under = f"{abs(pct_vs_market):.1f}% {direction}"
     st.info(
-        f"**{r.ticker} — {r.n_valid:,} simulated scenarios ({r.copula_label} copula)**\n\n"
+        f"**{r.ticker}: {r.n_valid:,} simulated scenarios ({r.copula_label} copula)**\n\n"
         f"The median intrinsic value across all simulations is **\\${r.p50:.2f}**, "
         f"which is **{over_under}** relative to the current market price of \\${price:.2f}. "
         f"The deterministic (base-case) estimate is \\${det:.2f}.\n\n"
         f"There is a 10% chance intrinsic value is below **\\${r.p10:.2f}** and a 10% chance "
-        f"it is above **\\${r.p90:.2f}** — that's the P10–P90 range covering the middle 80% "
+        f"it is above **\\${r.p90:.2f}**. That is the P10 to P90 range covering the middle 80% "
         f"of simulated outcomes.\n\n"
         f"**P(Undervalued) = {r.pct_undervalued:.1f}%**: this is the share of simulated "
         f"scenarios in which the model's intrinsic value exceeds today's market price of "
-        f"\\${price:.2f}.  It is not a probability of future returns — it reflects how "
+        f"\\${price:.2f}. It is not a probability of future returns. It reflects how "
         f"often the DCF assumptions (revenue growth, margins, WACC) combine to produce "
         f"a value above the current price."
     )
@@ -1489,7 +1735,7 @@ with tab_valuation:
         ticker = ticker_input.upper().strip()
         if ticker:
             try:
-                with st.spinner(f"Running Monte Carlo DCF for {ticker} — fetching data and running 10,000 simulations…"):
+                with st.spinner(f"Running Monte Carlo DCF for {ticker}: fetching data and running 10,000 simulations…"):
                     result = _cached_valuation(ticker)
                 st.session_state["val_result"] = result
             except Exception as exc:
