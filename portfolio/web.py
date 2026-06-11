@@ -460,6 +460,166 @@ def _render_expander_bridge(r: ValuationResult) -> None:
         )
 
 
+# ── Correlation Structure & Copula expander ───────────────────────────────────
+
+_CORR_VAR_NAMES = ['rev_growth', 'ebit_margin', 'terminal_g', 'wacc', 'tgt_margin']
+
+
+def _make_corr_heatmap(matrix: np.ndarray, title: str) -> go.Figure:
+    """5×5 annotated diverging heatmap for a correlation matrix."""
+    n = len(_CORR_VAR_NAMES)
+    text = [[f'{matrix[i, j]:.2f}' for j in range(n)] for i in range(n)]
+    fig = go.Figure(go.Heatmap(
+        z=matrix,
+        x=_CORR_VAR_NAMES,
+        y=_CORR_VAR_NAMES,
+        text=text,
+        texttemplate='%{text}',
+        textfont=dict(size=11),
+        colorscale='RdBu',       # Red=-1, White=0, Blue=+1
+        zmin=-1, zmax=1,
+        showscale=True,
+        colorbar=dict(thickness=10, len=0.85, tickformat='.1f'),
+    ))
+    fig.update_layout(
+        title=dict(text=title, font_size=13),
+        yaxis=dict(autorange='reversed'),
+        height=290,
+        margin=dict(t=38, b=8, l=82, r=16),
+        plot_bgcolor='rgba(0,0,0,0)',
+    )
+    return fig
+
+
+def _render_expander_corr_copula(r: ValuationResult) -> None:
+    t = r.transparency
+    if not t:
+        return
+    ci            = t.get('copula_info', {})
+    corr_target   = t.get('correlation_target')
+    corr_realized = t.get('correlation_realized')
+    samps         = t.get('samples', {})
+    if not ci:
+        return
+
+    with st.expander('Correlation Structure & Copula', expanded=False):
+
+        # ── Copula type banner ────────────────────────────────────────────────
+        copula_type = ci.get('type', 'gaussian')
+        copula_df   = ci.get('df')
+        triggers    = ci.get('triggers', [])
+        fired       = [tr for tr in triggers if tr['fired']]
+
+        if copula_type == 'student-t':
+            fired_names = ', '.join(tr['name'] for tr in fired)
+            st.info(
+                f'**Student-t copula (df={copula_df})** — fat-tailed joint distribution.  '
+                f'Triggered by: **{fired_names}**.  '
+                'Produces more extreme simultaneous scenarios than a Gaussian copula, '
+                'reflecting higher fundamental unpredictability.'
+            )
+        else:
+            st.success(
+                '**Gaussian copula** — no fat-tail triggers fired.  '
+                'The joint distribution of sampled inputs is multivariate-normal on the probability scale.'
+            )
+
+        # ── Trigger table (always shown, both copula types) ───────────────────
+        st.markdown('**Trigger evaluation** — Student-t is selected if ANY trigger fires:')
+        trig_rows = []
+        for tr in triggers:
+            trig_rows.append({
+                'Trigger':   tr['name'],
+                'Actual':    f'{tr["actual_value"]:.2%}',
+                'Threshold': f'{tr["threshold"]:.0%}',
+                'Fired':     '✅' if tr['fired'] else '—',
+            })
+        st.dataframe(pd.DataFrame(trig_rows), use_container_width=False, hide_index=True)
+        st.caption(
+            'Triggers measure **fundamental unpredictability** (revenue-growth vol, EBIT-margin vol, '
+            'FCF vol, cross-source disagreement).  '
+            'Stock-price volatility is deliberately excluded: it measures market sentiment, '
+            'not valuation-input uncertainty.'
+        )
+
+        st.divider()
+
+        # ── Side-by-side correlation heatmaps ─────────────────────────────────
+        if corr_target is not None and corr_realized is not None:
+            c1, c2 = st.columns(2)
+            with c1:
+                st.plotly_chart(
+                    _make_corr_heatmap(corr_target, 'Target correlation matrix'),
+                    use_container_width=True,
+                )
+            with c2:
+                st.plotly_chart(
+                    _make_corr_heatmap(corr_realized, 'Realized correlation — 10,000 draws'),
+                    use_container_width=True,
+                )
+            st.caption(
+                'Realized ≈ target: confirms the Gaussian/t copula → Cholesky → inverse-CDF '
+                'pipeline is correctly implemented end-to-end.'
+            )
+
+            # Scatter popover: rev growth vs WACC
+            rg = samps.get('revenue_growth', np.array([]))
+            wa = samps.get('wacc', np.array([]))
+            if len(rg) >= 10 and len(wa) == len(rg):
+                r_realized = float(np.corrcoef(rg, wa)[0, 1])
+                r_target   = float(corr_target[0, 3])   # CORR row 0=rev_g, col 3=wacc
+                idx = np.random.default_rng(0).choice(len(rg), min(2000, len(rg)), replace=False)
+                fig_sc = go.Figure(go.Scatter(
+                    x=rg[idx], y=wa[idx],
+                    mode='markers',
+                    marker=dict(size=3, color='steelblue', opacity=0.35),
+                    hovertemplate='rev growth: %{x:.1%}<br>WACC: %{y:.1%}<extra></extra>',
+                ))
+                fig_sc.update_layout(
+                    title=dict(
+                        text=(f'Revenue Growth vs WACC  '
+                              f'(realized r = {r_realized:.3f},  target = {r_target:.2f})'),
+                        font_size=13,
+                    ),
+                    xaxis_title='Revenue Growth',
+                    yaxis_title='WACC',
+                    xaxis_tickformat='.0%',
+                    yaxis_tickformat='.1%',
+                    height=380,
+                    margin=dict(t=48, b=48, l=60, r=16),
+                    plot_bgcolor='rgba(0,0,0,0)',
+                    showlegend=False,
+                )
+                with st.popover('📊 Rev Growth vs WACC scatter'):
+                    st.plotly_chart(fig_sc, use_container_width=True)
+
+        st.divider()
+
+        # ── Sampling pipeline ─────────────────────────────────────────────────
+        st.markdown('**Sampling pipeline**')
+        st.markdown(
+            r"""
+1. Draw **Z** ∈ ℝ^(n×k) of independent standard-normal variates (n = simulations, k = 5 variables).
+2. Cholesky-decompose the target correlation matrix: **L** = chol(**Σ**), such that **L** · **Lᵀ** = **Σ**.
+3. Correlate: **Z_C** = **Z** · **Lᵀ** → each row of **Z_C** is drawn from N(**0**, **Σ**).
+4. *(Student-t only)* draw χ²_ν scalars **w** ~ χ²(ν); divide: **T** = **Z_C** / √(**w**/ν) → correlated t-variates with ν degrees of freedom, preserving the correlation structure **Σ**.
+5. Apply marginal CDF column-wise: **U** = Φ(**Z_C**) *or* F_{t,ν}(**T**) → correlated uniform percentiles on (0, 1).
+6. Map each column through the PERT inverse-CDF: x_i = PERT⁻¹(U_i ; min_i, mode_i, max_i).
+
+**PERT parameterisation** (scaled Beta):
+"""
+        )
+        st.latex(
+            r"\alpha = 1 + \frac{4(\text{mode} - \text{min})}{\text{max} - \text{min}}, \quad"
+            r"\beta  = 1 + \frac{4(\text{max}  - \text{mode})}{\text{max} - \text{min}}"
+        )
+        st.markdown(
+            'Agreement between the theoretical PERT pdf and the KDE of realized draws '
+            '(visible in the *Monte Carlo Input Distributions* expander) '
+            'is the end-to-end correctness check for steps 5 → 6.'
+        )
+
+
 # ── MC Input Distributions expander ──────────────────────────────────────────
 
 _MC_VAR_META: dict = {
@@ -769,71 +929,12 @@ def _render_expander_mc_inputs(r: ValuationResult) -> None:
         return
 
     with st.expander('Monte Carlo Input Distributions', expanded=False):
-        ci = t.get('copula_info', {})
         st.markdown(
-            'One card per sampled variable.  '
-            'All numbers trace directly to `result.transparency` — nothing is hardcoded.  '
-            'The distribution chart overlays the theoretical PERT pdf (dashed) against a KDE '
-            'of the actual draws; agreement is the primary check that the sampler is working correctly.'
+            'One card per sampled variable. All numbers trace directly to `result.transparency` — '
+            'nothing is hardcoded. The distribution popover overlays the theoretical PERT pdf '
+            '(dashed) against a KDE of the actual draws — agreement confirms the sampler is '
+            'correctly centred and scaled.'
         )
-
-        # Copula summary banner
-        copula_type = ci.get('type', 'gaussian')
-        copula_df   = ci.get('df')
-        triggers    = ci.get('triggers', [])
-        fired       = [tr for tr in triggers if tr.get('fired')]
-        if copula_type == 'student-t':
-            fired_names = ', '.join(tr['name'] for tr in fired)
-            st.info(
-                f'**Student-t copula (df={copula_df})** — fatter tails than Gaussian.  '
-                f'Triggered by: {fired_names}.  '
-                f'{ci.get("note", "")}'
-            )
-        else:
-            st.success(
-                '**Gaussian copula** — no fat-tail triggers fired.  '
-                f'{ci.get("note", "")}'
-            )
-
-        # Trigger detail table
-        if triggers:
-            trig_rows = []
-            for tr in triggers:
-                act = tr['actual_value']
-                thr = tr['threshold']
-                fmt_a = f'{act:.2%}'
-                fmt_t = f'{thr:.0%}'
-                status = '✅ fired' if tr['fired'] else '—'
-                trig_rows.append((tr['name'], fmt_a, fmt_t, status))
-            st.dataframe(
-                pd.DataFrame(trig_rows, columns=['Trigger', 'Actual', 'Threshold', 'Status']),
-                use_container_width=False, hide_index=True,
-            )
-            st.caption(ci.get('note', ''))
-
-        st.divider()
-
-        # Correlation matrices (target vs realised)
-        with st.expander('Correlation matrices (target vs realised)', expanded=False):
-            corr_target   = t.get('correlation_target')
-            corr_realized = t.get('correlation_realized')
-            var_names = ['rev_growth', 'ebit_margin', 'terminal_g', 'wacc', 'tgt_margin']
-            if corr_target is not None and corr_realized is not None:
-                c1, c2 = st.columns(2)
-                with c1:
-                    st.caption('Target (CORR matrix)')
-                    st.dataframe(
-                        pd.DataFrame(corr_target, index=var_names, columns=var_names).style.format('{:.2f}'),
-                        use_container_width=True,
-                    )
-                with c2:
-                    st.caption('Realised (from draws)')
-                    st.dataframe(
-                        pd.DataFrame(corr_realized, index=var_names, columns=var_names).style.format('{:.2f}'),
-                        use_container_width=True,
-                    )
-
-        st.divider()
 
         # Per-variable cards
         var_order = ['revenue_growth', 'ebit_margin', 'target_margin', 'terminal_g', 'wacc']
@@ -1005,6 +1106,7 @@ def _render_valuation(r: ValuationResult) -> None:
     _render_expander_forecast(r)
     _render_expander_terminal(r)
     _render_expander_bridge(r)
+    _render_expander_corr_copula(r)
     _render_expander_mc_inputs(r)
     _render_expander_reconciliation(r)
 
