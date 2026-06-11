@@ -876,6 +876,26 @@ high-growth runway and a cash-earnings premium that this model does not grant. T
 purpose of this tool is to find genuine undervaluation in under-covered or misunderstood
 companies where a rigorous FCFF framework surfaces something the market has missed, not to
 argue that Microsoft or Apple are 30% overvalued on a technical basis.
+
+**This model does not work for pre-profit or cash-burning companies.** A DCF is built
+entirely around the idea that a business generates positive free cash flow that can be
+discounted back to today. For a company that is burning cash and has no near-term path to
+profitability, the model either produces a negative intrinsic value (which is meaningless,
+because equity has a floor of zero due to limited liability) or it exploits the linear
+margin fade to project artificial profitability by the final forecast year while producing
+negative FCFFs in most of the preceding years. In either case, the output is not a
+valuation. It is an artefact of applying the wrong tool to the wrong problem.
+
+The value of an early-stage company depends on things a single-path DCF does not model:
+the probability of reaching profitability, the amount of dilutive capital required to get
+there, the option value of its technology, and the binary outcomes that separate the large
+fraction of such companies that fail from the small fraction that succeed. A scenario
+analysis or a real-options framework is the appropriate tool for those cases.
+
+When the model detects that the base-case DCF produces a negative intrinsic value or that
+the terminal-year FCFF is non-positive, it suppresses the headline valuation entirely and
+replaces it with an explanation. I would rather tell you the model is not applicable than
+present a negative number as if it means something.
 """)
 
 

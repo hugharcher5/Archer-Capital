@@ -9,7 +9,12 @@
       "Bash(git commit -m ' *)",
       "Bash(WACC_DEBUG=1 venv/bin/python run_dcf.py MSFT)",
       "Bash(grep -v \"^$\")",
-      "Bash(WACC_DEBUG=1 venv/bin/python run_dcf.py ORCL)"
+      "Bash(WACC_DEBUG=1 venv/bin/python run_dcf.py ORCL)",
+      "Bash(git commit *)",
+      "Bash(xargs ls *)",
+      "Bash(venv/bin/streamlit run *)",
+      "Bash(echo \"PID: $!\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8502/healthz)"
     ]
   }
 }
