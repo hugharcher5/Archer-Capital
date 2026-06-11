@@ -342,20 +342,21 @@ def _render_expander_forecast(r: ValuationResult) -> None:
 
         ccy = a.currency
         display_df = pd.DataFrame({
-            "Yr":        df.index,
-            "Growth":    df["Growth"].map("{:.1%}".format),
-            "Marg%":     df["Margin%"].map("{:.1%}".format),
-            f"Revenue ({ccy}B)": (df["Revenue"] / 1e9).map("{:.3f}".format),
-            f"EBIT ({ccy}B)":    (df["EBIT"]    / 1e9).map("{:.3f}".format),
-            f"NOPAT ({ccy}B)":   (df["NOPAT"]   / 1e9).map("{:.3f}".format),
-            f"D&A ({ccy}B)":     (df["D&A"]     / 1e9).map("{:.3f}".format),
-            "CapEx%":    df["CapEx%"].map("{:.1%}".format),
-            f"CapEx ({ccy}B)":   (df["CapEx"]   / 1e9).map("{:.3f}".format),
-            f"ΔNWC ({ccy}B)":    (df["ΔNWC"]    / 1e9).map("{:.3f}".format),
-            f"FCFF ({ccy}B)":    (df["FCFF"]    / 1e9).map("{:.3f}".format),
-            "Disc.":     df["Disc."].map("{:.4f}".format),
-            f"PV(FCFF) ({ccy}B)": (df["PV(FCFF)"] / 1e9).map("{:.3f}".format),
+            "Yr":      df.index,
+            "Growth":  df["Growth"].map("{:.1%}".format),
+            "Marg%":   df["Margin%"].map("{:.1%}".format),
+            "Revenue": (df["Revenue"] / 1e9).map("{:.3f}".format),
+            "EBIT":    (df["EBIT"]    / 1e9).map("{:.3f}".format),
+            "NOPAT":   (df["NOPAT"]   / 1e9).map("{:.3f}".format),
+            "D&A":     (df["D&A"]     / 1e9).map("{:.3f}".format),
+            "CapEx%":  df["CapEx%"].map("{:.1%}".format),
+            "CapEx":   (df["CapEx"]   / 1e9).map("{:.3f}".format),
+            "ΔNWC":    (df["ΔNWC"]    / 1e9).map("{:.3f}".format),
+            "FCFF":    (df["FCFF"]    / 1e9).map("{:.3f}".format),
+            "Disc.":   df["Disc."].map("{:.4f}".format),
+            "PV(FCFF)":(df["PV(FCFF)"] / 1e9).map("{:.3f}".format),
         })
+        st.caption(f"Monetary values in {ccy} billions.")
         st.dataframe(display_df, use_container_width=True, hide_index=True)
 
         res = r.dcf
@@ -578,15 +579,15 @@ def _render_valuation(r: ValuationResult) -> None:
     over_under = f"{abs(pct_vs_market):.1f}% {direction}"
     st.info(
         f"**{r.ticker} — {r.n_valid:,} simulated scenarios ({r.copula_label} copula)**\n\n"
-        f"The median intrinsic value across all simulations is **${r.p50:.2f}**, "
-        f"which is **{over_under}** relative to the current market price of ${price:.2f}. "
-        f"The deterministic (base-case) estimate is ${det:.2f}.\n\n"
-        f"There is a 10% chance intrinsic value is below **${r.p10:.2f}** and a 10% chance "
-        f"it is above **${r.p90:.2f}** — that's the P10–P90 range covering the middle 80% "
+        f"The median intrinsic value across all simulations is **\\${r.p50:.2f}**, "
+        f"which is **{over_under}** relative to the current market price of \\${price:.2f}. "
+        f"The deterministic (base-case) estimate is \\${det:.2f}.\n\n"
+        f"There is a 10% chance intrinsic value is below **\\${r.p10:.2f}** and a 10% chance "
+        f"it is above **\\${r.p90:.2f}** — that's the P10–P90 range covering the middle 80% "
         f"of simulated outcomes.\n\n"
         f"**P(Undervalued) = {r.pct_undervalued:.1f}%**: this is the share of simulated "
         f"scenarios in which the model's intrinsic value exceeds today's market price of "
-        f"${price:.2f}.  It is not a probability of future returns — it reflects how "
+        f"\\${price:.2f}.  It is not a probability of future returns — it reflects how "
         f"often the DCF assumptions (revenue growth, margins, WACC) combine to produce "
         f"a value above the current price."
     )

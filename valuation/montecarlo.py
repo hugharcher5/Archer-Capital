@@ -24,11 +24,11 @@ from .reconcile import FIELD_TYPE, ALL_FIELDS
 # ─────────────────────────── Editable constants ───────────────────────────────
 
 SPREAD_SIGMA: float            = 3.0     # PERT half-width = N × historical σ
+MC_RANDOM_SEED: int            = 42      # reproducible main simulation seed
 HIGH_VOL_THRESHOLD: float      = 0.20    # σ_eff revenue growth — Student-t copula trigger
 EBIT_VOL_THRESHOLD: float      = 0.05    # σ_eff EBIT margin (5pp) — Student-t copula trigger
 FCF_VOL_THRESHOLD: float       = 0.08    # σ FCF/revenue (8pp) — Student-t copula trigger
 SIGMA_CROSS_THRESHOLD: float   = 0.15    # max rate σ_cross (15pp) — Student-t copula trigger
-PRICE_VOL_THRESHOLD: float     = 0.50    # annualised price vol (50%) — Student-t copula trigger
 STUDENT_T_DF: int              = 5       # degrees of freedom for Student-t copula
 WACC_SPREAD_ABS: float         = 0.015   # WACC PERT half-width (absolute, e.g. ±1.5%)
 TERM_G_MIN: float              = 0.015   # 1.5% floor on terminal g
@@ -251,7 +251,8 @@ def _run_sims(
     shares_promoted: bool = False,
     nd_cross: float = 0.0,      # absolute σ_cross for net_debt (0 = not promoted)
     nd_promoted: bool = False,
-) -> np.ndarray:
+    _collect: bool = False,     # when True return (valid, extras_dict) for transparency payload
+):
     """
     Draw n per-share intrinsic values (USD).
     spread_sigma=0 → all inputs pinned at base-case mode (consistency check).
@@ -301,14 +302,17 @@ def _run_sims(
     # Hard clamp: enforce WACC − terminal_g ≥ WACC_TG_GAP at all times
     tg_s = np.minimum(tg_s, wa_s - WACC_TG_GAP)
 
-    # FX path — GBM for non-USD, only when spread > 0
+    # FX GBM path — per-year rates for non-USD, independent of fundamental draws.
+    # fx_paths shape (n, T): rate_t = rate_0 × exp(cumsum[-0.5σ² + σZ_s] for s=1..t)
+    # USD companies: fx_paths stays None; a.fx_path is never set → byte-identical output.
+    T = base.forecast_years
     if base.currency != 'USD' and spread_sigma > 1e-9:
-        vol = FX_ANNUAL_VOL.get(base.currency, FX_ANNUAL_VOL['_default'])
-        T   = base.forecast_years
-        Z   = rng.standard_normal(n)
-        fx_s = base.fx_rate * np.exp(-0.5 * vol**2 * T + vol * math.sqrt(T) * Z)
+        vol      = FX_ANNUAL_VOL.get(base.currency, FX_ANNUAL_VOL['_default'])
+        Z_fx     = rng.standard_normal((n, T))                           # (n, T) independent
+        log_inc  = -0.5 * vol**2 + vol * Z_fx                           # annual log-increments
+        fx_paths = base.fx_rate * np.exp(np.cumsum(log_inc, axis=1))    # (n, T) cumulative path
     else:
-        fx_s = np.full(n, base.fx_rate)
+        fx_paths = None   # USD or zero-spread: leave a.fx_path=None, use a.fx_rate
 
     # Promoted balance-sheet variables: diluted_shares and net_debt.
     # Sampled independently (not through the copula — balance-sheet uncertainty
@@ -340,7 +344,8 @@ def _run_sims(
         a.target_margin  = float(tm_s[i])
         a.terminal_g     = float(tg_s[i])
         a.wacc           = float(wa_s[i])
-        a.fx_rate        = float(fx_s[i])
+        if fx_paths is not None:
+            a.fx_path = fx_paths[i]   # per-year path; a.fx_rate stays as current spot
         a.diluted_shares = float(sh_s[i])
         a.net_debt       = float(nd_s[i])
         try:
@@ -349,14 +354,56 @@ def _run_sims(
             results[i] = float('nan')
             n_except   += 1
 
-    valid     = results[~np.isnan(results)]
-    n_nan     = n - len(valid)
+    valid_mask = ~np.isnan(results)
+    valid      = results[valid_mask]
+    n_nan      = n - len(valid)
     if n_nan:
         # n_nan covers both exception-thrown draws and draws where value() returned
         # NaN (e.g. from invalid PERT parameters producing NaN sampled inputs).
         print(f"  ⚠  {n_nan}/{n} draws discarded ({n_except} exceptions, "
               f"{n_nan - n_except} silent NaN); excluded from results.")
-    return valid
+
+    if not _collect:
+        return valid
+
+    # Transparency extras: sampled inputs + PERT bounds + FX paths (filtered to valid draws)
+    samples = {
+        'revenue_growth': rg_s[valid_mask],
+        'ebit_margin':    em_s[valid_mask],
+        'target_margin':  tm_s[valid_mask],
+        'terminal_g':     tg_s[valid_mask],
+        'wacc':           wa_s[valid_mask],
+    }
+    if shares_promoted:
+        samples['diluted_shares'] = sh_s[valid_mask]
+    if nd_promoted:
+        samples['net_debt'] = nd_s[valid_mask]
+
+    pert_params = {
+        'revenue_growth': {'lo': rg_lo, 'mode': base.revenue_growth, 'hi': rg_hi},
+        'ebit_margin':    {'lo': em_lo, 'mode': base.ebit_margin,    'hi': em_hi},
+        'target_margin':  {'lo': tm_lo, 'mode': base.target_margin,  'hi': tm_hi},
+        'terminal_g':     {'lo': tg_lo, 'mode': base.terminal_g,     'hi': tg_hi},
+        'wacc':           {'lo': wa_lo, 'mode': base.wacc,           'hi': wa_hi},
+    }
+
+    if fx_paths is not None:
+        fx_extra = {
+            'per_year': [
+                {
+                    'year': t + 1,
+                    'p10': float(np.percentile(fx_paths[:, t], 10)),
+                    'p50': float(np.percentile(fx_paths[:, t], 50)),
+                    'p90': float(np.percentile(fx_paths[:, t], 90)),
+                }
+                for t in range(T)
+            ],
+            'sample_paths': fx_paths[:min(100, n)],
+        }
+    else:
+        fx_extra = None
+
+    return valid, {'samples': samples, 'pert_params': pert_params, 'fx_extra': fx_extra}
 
 
 # ───────────────────────────── Histogram ──────────────────────────────────────
@@ -508,14 +555,15 @@ def run_valuation(
 
     corr = _ensure_psd(CORR.copy())
 
-    # Student-t copula triggers: any one is sufficient.
+    # Student-t copula triggers (4 fundamental): any one is sufficient.
+    # Stock-price volatility is deliberately excluded — it is market-derived, not an
+    # operating fundamental, and would conflate valuation uncertainty with market pricing.
     _max_sc = max(sigma_cross.get('revenue_growth', 0.0), sigma_cross.get('ebit_margin', 0.0))
     _triggers: list[str] = []
-    if sg                    > HIGH_VOL_THRESHOLD:  _triggers.append(f"σ_growth={sg:.1%} > {HIGH_VOL_THRESHOLD:.0%}")
-    if sm                    > EBIT_VOL_THRESHOLD:  _triggers.append(f"σ_margin={sm:.1%} > {EBIT_VOL_THRESHOLD:.0%}")
-    if drvrs.std_fcf_pct     > FCF_VOL_THRESHOLD:   _triggers.append(f"σ_FCF={drvrs.std_fcf_pct:.1%} > {FCF_VOL_THRESHOLD:.0%}")
-    if _max_sc               > SIGMA_CROSS_THRESHOLD: _triggers.append(f"max_σ_cross={_max_sc:.1%} > {SIGMA_CROSS_THRESHOLD:.0%}")
-    if raw.price_vol         > PRICE_VOL_THRESHOLD:   _triggers.append(f"price_vol={raw.price_vol:.1%} > {PRICE_VOL_THRESHOLD:.0%}")
+    if sg                > HIGH_VOL_THRESHOLD:    _triggers.append(f"σ_growth={sg:.1%} > {HIGH_VOL_THRESHOLD:.0%}")
+    if sm                > EBIT_VOL_THRESHOLD:    _triggers.append(f"σ_margin={sm:.1%} > {EBIT_VOL_THRESHOLD:.0%}")
+    if drvrs.std_fcf_pct > FCF_VOL_THRESHOLD:     _triggers.append(f"σ_FCF={drvrs.std_fcf_pct:.1%} > {FCF_VOL_THRESHOLD:.0%}")
+    if _max_sc           > SIGMA_CROSS_THRESHOLD: _triggers.append(f"max_σ_cross={_max_sc:.1%} > {SIGMA_CROSS_THRESHOLD:.0%}")
 
     use_t      = bool(_triggers)
     copula_key = 'student-t' if use_t else 'gaussian'
@@ -531,13 +579,14 @@ def run_valuation(
     cc_p50  = float(np.median(cc_sims))
     cc_ok   = abs(cc_p50 - dcf_r.value_per_share_usd) < 0.01
 
-    # Full simulation
-    sims = _run_sims(
+    # Full simulation — collect samples and PERT bounds for the transparency payload.
+    sims, _extras = _run_sims(
         base, sg, sm, corr, n_sims, SPREAD_SIGMA,
-        np.random.default_rng(seed=42), copula_key,
+        np.random.default_rng(seed=MC_RANDOM_SEED), copula_key,
         sw=sw, stm=stm, stg=stg,
         shares_cross=sc_abs,   shares_promoted=shares_promoted,
         nd_cross=nd_abs,       nd_promoted=nd_promoted,
+        _collect=True,
     )
     n_v  = len(sims)
 
@@ -555,6 +604,155 @@ def run_valuation(
     std_v     = float(np.std(sims))
     pct_under = float(np.mean(sims > base.current_price_usd)) * 100
 
+    # ── Transparency payload ──────────────────────────────────────────────────
+    _, tg_floor_main, tg_cap_main = _terminal_g_params(base.revenue_growth, base.wacc)
+    _pp = _extras['pert_params']
+
+    _sigma_meta = {
+        'revenue_growth': {
+            'sigma_hist':  sg_hist,
+            'sigma_cross': sigma_cross.get('revenue_growth', 0.0),
+            'sigma_eff':   sg,
+            'clamp_floor': -0.30,
+            'clamp_cap':    1.50,
+            'rationale_key': 'historical_mean_growth',
+        },
+        'ebit_margin': {
+            'sigma_hist':  sm_hist,
+            'sigma_cross': sigma_cross.get('ebit_margin', 0.0),
+            'sigma_eff':   sm,
+            'clamp_floor': -0.20,
+            'clamp_cap':    0.75,
+            'rationale_key': 'historical_mean_ebit_margin',
+        },
+        'target_margin': {
+            'sigma_hist':  drvrs.std_target_margin,
+            'sigma_cross': sigma_cross.get('ebit_margin', 0.0),
+            'sigma_eff':   stm,
+            'clamp_floor': -0.10,
+            'clamp_cap':    0.75,
+            'rationale_key': 'best_historical_ebit_margin',
+        },
+        'terminal_g': {
+            'sigma_hist':  stg_macro,
+            'sigma_cross': 0.5 * sigma_cross.get('revenue_growth', 0.0),
+            'sigma_eff':   stg,
+            'clamp_floor': tg_floor_main,
+            'clamp_cap':   tg_cap_main,
+            'rationale_key': 'avg_growth_anchored_to_gdp',
+        },
+        'wacc': {
+            'sigma_hist':  sw,
+            'sigma_cross': 0.0,
+            'sigma_eff':   sw,
+            'clamp_floor': 0.04,
+            'clamp_cap':   float('inf'),
+            'rationale_key': 'capm_synthetic_rating_blume_beta',
+        },
+    }
+
+    def _clamp_binding(lo: float, hi: float, raw_lo: float, raw_hi: float) -> str:
+        floor_hit = lo > raw_lo + 1e-9
+        cap_hit   = hi < raw_hi - 1e-9
+        if floor_hit and cap_hit:
+            return 'both'
+        return 'floor' if floor_hit else ('cap' if cap_hit else 'none')
+
+    distribution_params: dict = {}
+    for var, info in _sigma_meta.items():
+        lo    = _pp[var]['lo']
+        hi    = _pp[var]['hi']
+        mode  = _pp[var]['mode']
+        raw_lo = mode - SPREAD_SIGMA * info['sigma_eff']
+        raw_hi = mode + SPREAD_SIGMA * info['sigma_eff']
+        distribution_params[var] = {
+            'pert_min':      lo,
+            'pert_mode':     mode,
+            'pert_max':      hi,
+            'sigma_hist':    info['sigma_hist'],
+            'sigma_cross':   info['sigma_cross'],
+            'sigma_eff':     info['sigma_eff'],
+            'clamp_floor':   info['clamp_floor'],
+            'clamp_cap':     info['clamp_cap'],
+            'clamp_binding': _clamp_binding(lo, hi, raw_lo, raw_hi),
+            'rationale_key': info['rationale_key'],
+        }
+
+    # Realised correlation from the 5 primary sampled inputs
+    _smp = _extras['samples']
+    _corr_mat = np.row_stack([
+        _smp['revenue_growth'],
+        _smp['ebit_margin'],
+        _smp['terminal_g'],
+        _smp['wacc'],
+        _smp['target_margin'],
+    ])
+    corr_realized = np.corrcoef(_corr_mat) if _corr_mat.shape[1] >= 2 else np.eye(5)
+
+    # FX info
+    _fx_extra = _extras.get('fx_extra')
+    fx_vol = FX_ANNUAL_VOL.get(base.currency, FX_ANNUAL_VOL['_default'])
+    fx_info = {
+        'is_foreign':   base.currency != 'USD',
+        'sigma':        fx_vol,
+        'per_year':     _fx_extra['per_year']    if _fx_extra else [],
+        'sample_paths': _fx_extra['sample_paths'] if _fx_extra else np.array([]),
+    }
+
+    # Copula info including all 4 fundamental trigger specs
+    _trigger_specs = [
+        {
+            'name':         'revenue_growth_vol',
+            'threshold':    HIGH_VOL_THRESHOLD,
+            'actual_value': sg,
+            'fired':        sg > HIGH_VOL_THRESHOLD,
+        },
+        {
+            'name':         'ebit_margin_vol',
+            'threshold':    EBIT_VOL_THRESHOLD,
+            'actual_value': sm,
+            'fired':        sm > EBIT_VOL_THRESHOLD,
+        },
+        {
+            'name':         'fcf_vol',
+            'threshold':    FCF_VOL_THRESHOLD,
+            'actual_value': drvrs.std_fcf_pct,
+            'fired':        drvrs.std_fcf_pct > FCF_VOL_THRESHOLD,
+        },
+        {
+            'name':         'sigma_cross_max',
+            'threshold':    SIGMA_CROSS_THRESHOLD,
+            'actual_value': _max_sc,
+            'fired':        _max_sc > SIGMA_CROSS_THRESHOLD,
+        },
+    ]
+    copula_info = {
+        'type':     copula_key,
+        'df':       STUDENT_T_DF if use_t else None,
+        'triggers': _trigger_specs,
+        'note':     (
+            'Stock-price volatility deliberately excluded — market-derived input, not an '
+            'operating fundamental; would conflate valuation uncertainty with market pricing.'
+        ),
+    }
+
+    transparency = {
+        'samples':              _smp,
+        'distribution_params':  distribution_params,
+        'copula_info':          copula_info,
+        'correlation_target':   corr.copy(),
+        'correlation_realized': corr_realized,
+        'fx_info':              fx_info,
+        'validation': {
+            'zero_width_test_passed': cc_ok,
+            'mc_p50_at_zero_width':   cc_p50,
+            'deterministic_base':     dcf_r.value_per_share_usd,
+            'abs_diff':               abs(cc_p50 - dcf_r.value_per_share_usd),
+        },
+        'n_sims':      n_sims,
+        'random_seed': MC_RANDOM_SEED,
+    }
+
     return ValuationResult(
         ticker=ticker.upper(), currency=base.currency,
         current_price_usd=base.current_price_usd,
@@ -567,6 +765,7 @@ def run_valuation(
         sigma_cross=sigma_cross,
         recon_fields=recon_fields, recon_sigma=recon_sigma,
         sw=sw, stm=stm, stg=stg,
+        transparency=transparency,
     )
 
 
@@ -644,7 +843,7 @@ def print_valuation(result: ValuationResult) -> None:
     if base.currency != 'USD':
         fxv = FX_ANNUAL_VOL.get(base.currency, FX_ANNUAL_VOL['_default'])
         print(f"  {'FX (' + base.currency + '/USD)':<22}"
-              f"  {'GBM (lognormal)':>10}  {base.fx_rate:>10.5f}  {'σ=' + f'{fxv:.0%}':>10}")
+              f"  {'GBM path/yr':>10}  {base.fx_rate:>10.5f}  {'σ=' + f'{fxv:.0%}':>10}")
 
     print(f"\n  Consistency check (zero-variance run, n=50)...")
     print(f"  Deterministic value()  = ${det:.4f}")

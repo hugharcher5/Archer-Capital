@@ -53,6 +53,13 @@ class Assumptions:
     current_ebitda: float       # most recent actual EBITDA in local currency
     market_ev_local: float      # market cap + net debt, in local currency
 
+    # ── Per-year FX path (Monte Carlo only) ───────────────────────────────────
+    # When set, _compute() translates each forecast year's discounted FCF at
+    # fx_path[t-1] and the terminal value at fx_path[-1].  fx_rate is then used
+    # only for net_debt (current balance-sheet item → terminal-year rate here).
+    # None → single-rate: vps_usd = vps_local × fx_rate  (base-case / display).
+    fx_path: object = None   # np.ndarray shape (forecast_years,) | None
+
 
 @dataclass
 class DCFResult:
@@ -132,10 +139,23 @@ def _compute(a: Assumptions) -> DCFResult:
     tv    = terminal_fcff * (1 + a.terminal_g) / (a.wacc - a.terminal_g)
     pv_tv = tv / (1 + a.wacc) ** a.forecast_years
 
-    ev             = pv_explicit + pv_tv
-    equity_value   = ev - a.net_debt
-    vps_local      = equity_value / a.diluted_shares
-    vps_usd        = vps_local * a.fx_rate
+    ev           = pv_explicit + pv_tv
+    equity_value = ev - a.net_debt
+    vps_local    = equity_value / a.diluted_shares
+
+    if a.fx_path is not None:
+        # Per-year FX: each year's discounted FCF translated at its own path rate.
+        # Terminal value translated at the final-year rate (path endpoint).
+        # Net debt translated at the terminal-year rate (matches old single-shock
+        # semantics — both EV and net debt at the same year-N FX rate).
+        fx_arr  = np.asarray(a.fx_path[:a.forecast_years], dtype=float)
+        fx_N    = float(fx_arr[-1])
+        pv_expl_usd = float(
+            (forecast['FCFF'].values * forecast['Disc.'].values * fx_arr).sum()
+        )
+        vps_usd = (pv_expl_usd + pv_tv * fx_N - a.net_debt * fx_N) / a.diluted_shares
+    else:
+        vps_usd = vps_local * a.fx_rate
 
     implied_ev_ebitda = (ev / a.current_ebitda
                          if a.current_ebitda and a.current_ebitda > 0
