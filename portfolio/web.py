@@ -460,6 +460,185 @@ def _render_expander_bridge(r: ValuationResult) -> None:
         )
 
 
+# ── Methodology expander (rendered first in the expander list) ───────────────
+
+def _render_expander_methodology(r: ValuationResult) -> None:
+    with st.expander('Methodology — Full Model Specification', expanded=False):
+        st.markdown(r"""
+### Overview
+This is a Discounted Cash Flow (DCF) model with a Monte Carlo uncertainty layer.
+The deterministic base-case answers "what is the company worth under the most
+likely set of assumptions?"; the Monte Carlo answers "how wide is the credible
+range given genuine uncertainty in those assumptions?"  The two are run from the
+same engine — the simulation is centred exactly on the base case.
+
+---
+
+### 1 · Data sourcing and reconciliation
+Financial data is fetched from up to three sources: Yahoo Finance, Financial
+Modelling Prep (FMP), and SEC EDGAR.  When multiple sources are available their
+values are compared field-by-field:
+
+- **DATA fields** (revenue, EBIT, CapEx, diluted shares, cash) — disagreement
+  widens the Monte Carlo input distribution via σ_eff = √(σ_hist² + σ_cross²).
+  Fields with > 2 % relative disagreement are flagged; diluted shares and net
+  debt are *promoted* to sampled variables (independent narrow PERT) when their
+  relative cross-source spread exceeds 2 %.
+- **DEFINITIONAL fields** (D&A, total debt, tax rate) — differ by accounting
+  convention (e.g. operating vs finance leases, gross vs net tax); normalised
+  by a fixed convention and excluded from uncertainty widening.
+
+Source hierarchy when values conflict: SEC EDGAR ▶ FMP ▶ Yahoo Finance.
+
+---
+
+### 2 · Financial history
+Three to five fiscal years of annual income-statement and cash-flow data are used.
+Year-over-year drivers (revenue growth, EBIT margin, D&A%, CapEx%, SBC%,
+tax rate) are averaged to form base-case inputs; their standard deviations
+become the historical component of σ_eff.  NWC is taken from the most recent
+balance sheet only (no time series available).
+
+**Forecast horizon rule:** 10 years when trailing revenue growth exceeds 15 %;
+5 years otherwise.  High-growth companies need a longer explicit period before
+growth fades to the terminal rate.
+
+**SBC treatment:** Stock-based compensation is already expensed in reported EBIT
+(Route 1 — no add-back).  This approach is internally consistent but produces
+lower margins than cash-EPS-based peers; the same convention is applied to the
+terminal year.
+
+---
+
+### 3 · DCF mechanics
+
+**Revenue forecast:** grows from the base-case rate, fading linearly to the
+terminal growth rate over the forecast horizon.
+
+**EBIT margin:** fades linearly from the starting (average historical) margin to
+the target (mature) margin.  Target margin = max(best historical EBIT margin,
+20 % floor) — the company should reach at least 20 % operating margin at
+maturity unless its own track record implies higher.
+
+**CapEx:** fades linearly from the historical average to D&A% by the final
+forecast year, so that steady-state net reinvestment (CapEx − D&A) → 0.  This
+is consistent with a Gordon Growth terminal value that assumes no net investment
+above the depreciation charge.
+
+**FCFF per year:**
+""")
+        st.latex(
+            r"\text{FCFF}_t = \underbrace{\text{EBIT}_t \cdot (1-t)}_{\text{NOPAT}}"
+            r"+ \text{D\&A}_t - \text{CapEx}_t - \Delta\text{NWC}_t"
+        )
+        st.markdown(r"""
+**Terminal value** (Gordon Growth on the final forecast year's FCFF):
+""")
+        st.latex(
+            r"TV = \frac{\text{FCFF}_N \cdot (1+g_\infty)}{\text{WACC} - g_\infty}"
+        )
+        st.markdown(r"""
+**Terminal growth rate (g∞):** anchored to the company's own growth trajectory.
+avg_g = (starting revenue growth + 2.5 %) ÷ 2 — the average of the fade path
+from current growth to nominal-GDP rate.  Capped at 2.5 % so it never exceeds
+long-run nominal GDP.  Lower bound: max(−2 %, 0.3 × avg_g); upper bound:
+min(4 %, WACC − 1 %, avg_g + 1 pp).  The WACC − 1 % cap prevents the terminal
+value denominator from approaching zero.
+
+**Enterprise value → equity value:**
+""")
+        st.latex(
+            r"V_{\text{equity}} = EV - D_{\text{net}}, \quad"
+            r"V/\text{share} = \frac{V_{\text{equity}}}{\text{diluted shares}}"
+        )
+        st.markdown(r"""
+---
+
+### 4 · WACC
+
+**Cost of equity** via CAPM with Blume-adjusted beta:
+""")
+        st.latex(
+            r"K_E = R_f + \beta_{\text{adj}} \cdot \text{ERP}, \quad"
+            r"\beta_{\text{adj}} = 0.67 \cdot \beta_{\text{raw}} + 0.33"
+        )
+        st.markdown(r"""
+The Blume adjustment mean-reverts beta toward 1, reflecting the empirical
+tendency of extreme betas to moderate over time.  Risk-free rate from FRED
+DGS10 (10-year Treasury); ERP = 4.5 % (Damodaran implied ERP).
+
+**Cost of debt** via Damodaran synthetic rating: the EBIT/interest-coverage
+ratio maps to an implied credit rating and default spread.
+
+**WACC σ:** reconstructed historically by re-running the WACC formula for each
+year of available data, using that year's DGS10 yield and coverage-implied
+spread, with beta and capital structure held fixed.  Fallback of 1.5 pp is used
+when fewer than 3 profitable years are available (coverage ratio undefined for
+loss-making companies).
+
+---
+
+### 5 · Monte Carlo — uncertainty quantification
+
+Five variables are sampled jointly: revenue growth, EBIT margin, target margin,
+terminal growth, and WACC.
+
+**Marginal distributions:** PERT (scaled Beta), parameterised by
+[min, mode, max] = [mode − 3σ_eff, base-case, mode + 3σ_eff], subject to
+plausibility clamps.  σ_eff = √(σ_hist² + σ_cross²) combines historical
+volatility with cross-source disagreement.
+
+**Dependence structure:** Gaussian or Student-t copula via Cholesky decomposition
+of a hand-specified 5 × 5 target correlation matrix.  Student-t (ν = 5) is used
+when any of four fundamental triggers fires:
+
+| Trigger | Threshold | Rationale |
+|---|---|---|
+| σ_eff revenue growth | > 20 % | Structurally erratic revenue |
+| σ_eff EBIT margin | > 5 pp | High operating leverage / volatility |
+| σ FCF/Revenue | > 8 % | Cash conversion unpredictability |
+| max σ_cross | > 15 pp | Large cross-source disagreement |
+
+Stock-price volatility is deliberately excluded — it measures market sentiment,
+not valuation-input uncertainty, and would conflate the two.
+
+---
+
+### 6 · FX translation
+
+USD reporters: a single fx_rate = 1.0, no simulation.
+
+Foreign reporters: a driftless Geometric Brownian Motion path with one rate per
+forecast year.  Year-t FCFs are translated at the year-t simulated rate;
+terminal value at the final-year rate.  The −½σ² Itô correction keeps the
+expected path flat (uncertainty, not directional prediction).
+
+---
+
+### 7 · Model biases and known limitations
+
+This model is **deliberately conservative** in several respects:
+
+- **CapEx fades to D&A%** — steady-state net reinvestment collapses to zero.
+  Asset-light businesses with genuinely low reinvestment needs are fairly
+  treated; asset-heavy businesses requiring continued net investment are
+  *overvalued* by the model.
+- **SBC expensed in EBIT** — operating margins are lower than cash-based
+  metrics.  High-SBC companies (cloud software, early-stage tech) appear less
+  profitable than they are on a cash basis.
+- **Terminal growth capped at 2.5 %** — secular-tailwind businesses that will
+  plausibly outgrow nominal GDP for longer than the explicit horizon are
+  conservatively valued.
+- **Consequence:** mature, large-cap technology companies with high multiples
+  frequently appear overvalued against the model's intrinsic estimate — not
+  because the model is wrong, but because the market is pricing in a longer
+  high-growth runway and/or a cash-earnings premium that the model does not
+  capture.  The designed edge is in under-covered or misunderstood companies
+  where a simple FCFF framework surfaces undervaluation the market has missed,
+  not in arguing that MSFT or AAPL are 30 % overvalued.
+""")
+
+
 # ── Correlation Structure & Copula expander ───────────────────────────────────
 
 _CORR_VAR_NAMES = ['rev_growth', 'ebit_margin', 'terminal_g', 'wacc', 'tgt_margin']
@@ -951,18 +1130,204 @@ def _render_expander_mc_inputs(r: ValuationResult) -> None:
             st.subheader(label)
             _render_mc_var_card(var, dp, samps_dict, r)
 
-        # Validation summary
-        st.divider()
-        val = t.get('validation', {})
-        if val:
-            ok = val.get('zero_width_test_passed', False)
-            st.markdown(
-                f'**Zero-width consistency check:** '
-                f'{"✅ pass" if ok else "❌ fail"}  |  '
-                f'det = \\${val.get("deterministic_base", 0):.4f}  |  '
-                f'zero-σ MC P50 = \\${val.get("mc_p50_at_zero_width", 0):.4f}  |  '
-                f'|diff| = \\${val.get("abs_diff", 0):.4f}'
+
+
+# ── Currency Simulation (GBM) expander ───────────────────────────────────────
+
+_GBM_STATIC_EXPLANATION = r"""
+**Geometric Brownian Motion with annual steps** (driftless):
+
+Each forecast year the simulated exchange rate is multiplied by a random lognormal
+factor drawn independently for that year.  The cumulative path to year *t* is:
+"""
+
+def _render_expander_fx(r: ValuationResult) -> None:
+    t_pay = r.transparency
+    if not t_pay:
+        return
+    fx    = t_pay.get('fx_info', {})
+    ccy   = r.currency
+    spot  = r.assumptions.fx_rate
+
+    with st.expander('Currency Simulation (GBM)', expanded=False):
+        if not fx.get('is_foreign', False):
+            st.info(
+                f'**{r.ticker} reports in USD** — no FX leg is simulated.  '
+                'Every forecast-year FCF and the terminal value are already in USD; '
+                'the FX rate is fixed at 1.0 throughout all simulations.  '
+                'The section below describes what runs for foreign-currency reporters.'
             )
+            st.divider()
+
+        # ── GBM equation (always shown) ───────────────────────────────────────
+        st.markdown(_GBM_STATIC_EXPLANATION)
+        st.latex(
+            r"r_t = r_0 \cdot \exp\!\left(\,"
+            r"\sum_{s=1}^{t}"
+            r"\left(-\tfrac{1}{2}\sigma^2 + \sigma Z_s\right)"
+            r"\,\right), \quad Z_s \overset{\text{iid}}{\sim} \mathcal{N}(0,1)"
+        )
+        st.markdown(
+            r'The $-\tfrac{1}{2}\sigma^2$ term is the Itô drift correction: '
+            r'it keeps $\mathbb{E}[r_t] = r_0$ for all $t$ '
+            r'(the process is a random walk around today\'s spot rate, '
+            r'not a prediction of appreciation or depreciation).  '
+            r'Each year is simulated independently so FX uncertainty **compounds with time** — '
+            r'year-1 cash flows carry less currency risk than the terminal value.'
+        )
+
+        if not fx.get('is_foreign', False):
+            return
+
+        sigma       = fx.get('sigma', 0.0)
+        per_year    = fx.get('per_year', [])
+        paths       = fx.get('sample_paths', np.array([]))
+        T           = len(per_year)
+        n_paths     = paths.shape[0] if hasattr(paths, 'shape') and paths.ndim == 2 else 0
+
+        if T == 0 or n_paths == 0:
+            st.warning('FX simulation data not available in the payload.')
+            return
+
+        st.markdown(f'**Currency:** {ccy}/USD  |  **Spot rate (today):** {spot:.5f}  |  **Annual σ:** {sigma:.0%}')
+
+        # ── Spaghetti plot ────────────────────────────────────────────────────
+        years = list(range(1, T + 1))
+
+        # Combine all sample paths into one trace (NaN-separated for speed)
+        x_spaghetti, y_spaghetti = [], []
+        for path_row in paths:
+            x_spaghetti += [0] + years + [None]
+            y_spaghetti += [spot] + list(path_row) + [None]
+
+        x_band  = [0] + years
+        y_p10   = [spot] + [p['p10'] for p in per_year]
+        y_p50   = [spot] + [p['p50'] for p in per_year]
+        y_p90   = [spot] + [p['p90'] for p in per_year]
+
+        fig = go.Figure()
+
+        # Sample paths (single combined trace, grey, low opacity)
+        fig.add_trace(go.Scatter(
+            x=x_spaghetti, y=y_spaghetti,
+            mode='lines',
+            line=dict(color='rgba(180,180,180,0.25)', width=0.8),
+            showlegend=False,
+            hoverinfo='skip',
+        ))
+
+        # P90 / P10 fill band
+        fig.add_trace(go.Scatter(
+            x=x_band + x_band[::-1],
+            y=y_p90 + y_p10[::-1],
+            fill='toself',
+            fillcolor='rgba(70,130,180,0.12)',
+            line=dict(width=0),
+            showlegend=False,
+            hoverinfo='skip',
+        ))
+
+        # P10, P50, P90 lines
+        for yvals, color, dash, name in [
+            (y_p10, 'darkorange', 'dot',   'P10'),
+            (y_p50, 'steelblue',  'solid', 'P50 (median)'),
+            (y_p90, 'darkorange', 'dot',   'P90'),
+        ]:
+            fig.add_trace(go.Scatter(
+                x=x_band, y=yvals,
+                mode='lines',
+                line=dict(color=color, width=2, dash=dash),
+                name=name,
+                hovertemplate=f'{name}: %{{y:.5f}}<extra></extra>',
+            ))
+
+        # Spot rate marker at year 0
+        fig.add_trace(go.Scatter(
+            x=[0], y=[spot],
+            mode='markers',
+            marker=dict(color='seagreen', size=8, symbol='circle'),
+            name=f'Spot ({spot:.5f})',
+            hovertemplate=f'Spot today: {spot:.5f}<extra></extra>',
+        ))
+
+        fig.update_layout(
+            title=dict(
+                text=f'{ccy}/USD Exchange Rate — {n_paths} GBM sample paths  (σ = {sigma:.0%}/yr)',
+                font_size=13,
+            ),
+            xaxis=dict(title='Forecast year', dtick=1, tick0=0),
+            yaxis=dict(title=f'{ccy} per 1 USD (inverted: higher = weaker {ccy})'
+                             if spot < 1 else f'USD per 1 {ccy}'),
+            height=400,
+            margin=dict(t=44, b=44, l=60, r=16),
+            legend=dict(x=0.01, y=0.99, bgcolor='rgba(0,0,0,0)'),
+            plot_bgcolor='rgba(0,0,0,0)',
+        )
+        st.plotly_chart(fig, use_container_width=True)
+
+        # ── Per-year table ────────────────────────────────────────────────────
+        table_rows = [{'Year': 0, 'P10 rate': f'{spot:.5f}', 'Median rate': f'{spot:.5f}',
+                       'P90 rate': f'{spot:.5f}', 'Note': 'spot (fixed)'}]
+        for p in per_year:
+            table_rows.append({
+                'Year':        p['year'],
+                'P10 rate':    f"{p['p10']:.5f}",
+                'Median rate': f"{p['p50']:.5f}",
+                'P90 rate':    f"{p['p90']:.5f}",
+                'Note':        '',
+            })
+        st.dataframe(pd.DataFrame(table_rows), use_container_width=False, hide_index=True)
+        st.caption(
+            f'All rates are {ccy}/USD.  P10/P90 widen each year as uncertainty compounds.  '
+            f'The median path stays near the spot rate by construction (driftless process).'
+        )
+
+
+# ── Validation & Reproducibility expander ─────────────────────────────────────
+
+def _render_expander_validation(r: ValuationResult) -> None:
+    t_pay = r.transparency
+    if not t_pay:
+        return
+    val  = t_pay.get('validation', {})
+    if not val:
+        return
+
+    with st.expander('Validation & Reproducibility', expanded=False):
+        ok       = val.get('zero_width_test_passed', False)
+        det      = val.get('deterministic_base', float('nan'))
+        mc_p50   = val.get('mc_p50_at_zero_width', float('nan'))
+        abs_diff = val.get('abs_diff', float('nan'))
+        n_sims   = t_pay.get('n_sims', 0)
+        seed     = t_pay.get('random_seed', 'n/a')
+
+        badge = '✅ PASS' if ok else '❌ FAIL'
+        color = 'green' if ok else 'red'
+        st.markdown(f'**Zero-width collapse test:** :{color}[{badge}]')
+
+        rows = [
+            ('Zero-width MC P50',       f'${mc_p50:.4f}',   'median of n=50 draws at σ=0'),
+            ('Deterministic base case', f'${det:.4f}',       'value() called directly'),
+            ('|Difference|',            f'${abs_diff:.4f}',  'must be < $0.01 to pass'),
+            ('Simulations (main run)',  f'{n_sims:,}',         ''),
+            ('Random seed',             str(seed),             'fixed for reproducibility'),
+        ]
+        st.dataframe(
+            pd.DataFrame(rows, columns=['Check', 'Value', 'Note']),
+            use_container_width=False, hide_index=True,
+        )
+
+        st.markdown('**Invariants verified by this test suite:**')
+        st.markdown(
+            '- **Zero-width → deterministic:** when all PERT half-widths are collapsed to zero, '
+            'every draw is the base-case mode; the MC P50 must equal `value()` to within \\$0.01.  '
+            'Confirms the simulation is centred correctly and the PERT inverse-CDF is accurate at the mode.\n'
+            '- **USD ticker ↔ FX module:** when `currency == "USD"`, `fx_path` is never set; '
+            '`vps_usd = vps_local × 1.0` — byte-identical to the non-FX code path.\n'
+            '- **Realized correlation ≈ target:** `np.corrcoef` of the 5 sampled input arrays '
+            'should be within ~0.02 of the target CORR matrix entries at n = 10,000 draws '
+            '(visible in the Correlation Structure & Copula expander).'
+        )
 
 
 # ── Reconciliation expander ───────────────────────────────────────────────────
@@ -1100,6 +1465,7 @@ def _render_valuation(r: ValuationResult) -> None:
     st.divider()
 
     # ── Expanders ─────────────────────────────────────────────────────────────
+    _render_expander_methodology(r)
     _render_expander_drivers(r)
     _render_expander_wacc(r)
     _render_expander_assumptions(r)
@@ -1108,6 +1474,8 @@ def _render_valuation(r: ValuationResult) -> None:
     _render_expander_bridge(r)
     _render_expander_corr_copula(r)
     _render_expander_mc_inputs(r)
+    _render_expander_fx(r)
+    _render_expander_validation(r)
     _render_expander_reconciliation(r)
 
 
