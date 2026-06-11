@@ -16,7 +16,7 @@ import matplotlib.pyplot as plt
 from .data      import fetch_raw
 from .drivers   import compute_drivers
 from .wacc      import compute_wacc
-from .dcf       import Assumptions, value, detailed_value, TERMINAL_G, HIGH_GROWTH_THRESHOLD, MATURE_MARGIN_DEFAULT
+from .dcf       import Assumptions, value, value_and_ceiling_hits, detailed_value, TERMINAL_G, HIGH_GROWTH_THRESHOLD, MATURE_MARGIN_DEFAULT, G_CEILING_A, G_CEILING_B
 from .result    import ValuationResult
 from .reconcile import FIELD_TYPE, ALL_FIELDS
 
@@ -334,8 +334,9 @@ def _run_sims(
         nd_s = np.full(n, base.net_debt)
 
     # Inner loop: one copy, mutate per draw, call pure value()
-    results  = np.empty(n)
-    n_except = 0
+    results      = np.empty(n)
+    ceiling_hits = np.zeros(n, dtype=int)   # forecast years ceiling was binding, per draw
+    n_except     = 0
     a = copy.copy(base)
 
     for i in range(n):
@@ -349,10 +350,14 @@ def _run_sims(
         a.diluted_shares = float(sh_s[i])
         a.net_debt       = float(nd_s[i])
         try:
-            results[i] = value(a)
+            if _collect:
+                results[i], ceiling_hits[i] = value_and_ceiling_hits(a)
+            else:
+                results[i] = value(a)
         except Exception:
-            results[i] = float('nan')
-            n_except   += 1
+            results[i]      = float('nan')
+            ceiling_hits[i] = 0
+            n_except        += 1
 
     valid_mask = ~np.isnan(results)
     valid      = results[valid_mask]
@@ -365,6 +370,13 @@ def _run_sims(
 
     if not _collect:
         return valid
+
+    # Ceiling stats across valid draws
+    ch_valid = ceiling_hits[valid_mask]
+    ceiling_stats = {
+        'pct_paths_bound': float(np.mean(ch_valid > 0)) * 100.0,
+        'avg_years_bound': float(np.mean(ch_valid)),
+    }
 
     # Transparency extras: sampled inputs + PERT bounds + FX paths (filtered to valid draws)
     samples = {
@@ -403,7 +415,8 @@ def _run_sims(
     else:
         fx_extra = None
 
-    return valid, {'samples': samples, 'pert_params': pert_params, 'fx_extra': fx_extra}
+    return valid, {'samples': samples, 'pert_params': pert_params, 'fx_extra': fx_extra,
+                   'ceiling_stats': ceiling_stats}
 
 
 # ───────────────────────────── Histogram ──────────────────────────────────────
@@ -736,6 +749,7 @@ def run_valuation(
         ),
     }
 
+    _cs = _extras.get('ceiling_stats', {})
     transparency = {
         'samples':              _smp,
         'distribution_params':  distribution_params,
@@ -743,6 +757,12 @@ def run_valuation(
         'correlation_target':   corr.copy(),
         'correlation_realized': corr_realized,
         'fx_info':              fx_info,
+        'g_ceiling': {
+            'A':               G_CEILING_A,
+            'b':               G_CEILING_B,
+            'pct_paths_bound': _cs.get('pct_paths_bound', 0.0),
+            'avg_years_bound': _cs.get('avg_years_bound', 0.0),
+        },
         'validation': {
             'zero_width_test_passed': cc_ok,
             'mc_p50_at_zero_width':   cc_p50,

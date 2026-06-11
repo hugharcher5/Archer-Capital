@@ -1370,6 +1370,60 @@ def _render_expander_mc_inputs(r: ValuationResult) -> None:
             st.subheader(label)
             _render_mc_var_card(var, dp, samps_dict, r)
 
+        # ── Size-dependent growth ceiling ─────────────────────────────────────
+        gc = t.get('g_ceiling', {})
+        if gc:
+            st.divider()
+            st.subheader('Size-Dependent Revenue Growth Ceiling')
+            pct_b = gc.get('pct_paths_bound', 0.0)
+            avg_y = gc.get('avg_years_bound', 0.0)
+            A_val = gc.get('A', 74.0)
+            b_val = gc.get('b', 1.029)
+            st.markdown(
+                f'The DCF loop applies a scale-dependent ceiling to revenue growth inside each '
+                f'simulation path, tightening year by year as projected revenue grows. '
+                f'The ceiling at any point in the forecast is computed as '
+                f'**g_ceiling(R) = max(terminal_g, {A_val:.1f} / R^{b_val:.3f})** where R is '
+                f'projected revenue in USD billions at the start of that forecast year. '
+                f'I calibrated this to two empirical anchors: a company already at ~$250B of '
+                f'revenue can realistically sustain around 25% annual growth, while a ~$1T '
+                f'revenue company cannot sustain more than roughly 6% (consistent with '
+                f'historical evidence from the largest public companies). The exponent of '
+                f'{b_val:.3f} means the ceiling roughly halves as revenue doubles, reflecting '
+                f'the well-documented difficulty of growing faster in absolute dollar terms as '
+                f'a business scales.'
+            )
+            st.markdown(
+                'This ceiling operates at the input level inside the DCF loop, not as an '
+                'output-side market cap constraint. It clips the sampled growth rate before '
+                'it is applied to revenue for that year, so the compounding effect accumulates '
+                'correctly. Without this, high historical growth rates for companies like NVDA '
+                'can compound into economically impossible revenue figures over a 10-year '
+                'horizon, producing valuations in the tens of trillions of dollars.'
+            )
+            col1, col2 = st.columns(2)
+            with col1:
+                st.metric('Paths where ceiling bound', f'{pct_b:.1f}%')
+            with col2:
+                st.metric('Avg forecast years bound (per path)', f'{avg_y:.2f}')
+            if pct_b > 5.0:
+                st.warning(
+                    f'The size ceiling was binding in **{pct_b:.1f}%** of simulated paths '
+                    f'(average {avg_y:.1f} forecast years per path). This suppresses the right '
+                    f'tail of the distribution. The P90 and mean values shown above are lower '
+                    f'than they would be without the ceiling. For large-cap high-growth companies '
+                    f'this is the intended behaviour.'
+                )
+            elif pct_b > 1.0:
+                st.info(
+                    f'The size ceiling was binding in {pct_b:.1f}% of paths '
+                    f'(average {avg_y:.2f} forecast years per path). Modest right-tail compression.'
+                )
+            else:
+                st.caption(
+                    f'Size ceiling rarely active ({pct_b:.1f}% of paths). '
+                    'Revenue is not projected to reach scales where the ceiling becomes constraining.'
+                )
 
 
 # ── Currency Simulation (GBM) expander ───────────────────────────────────────
@@ -1707,6 +1761,19 @@ def _render_valuation(r: ValuationResult) -> None:
         f"often the DCF assumptions (revenue growth, margins, WACC) combine to produce "
         f"a value above the current price."
     )
+
+    # ── Size ceiling callout (shown when ceiling is actively suppressing paths) ──
+    gc = r.transparency.get('g_ceiling', {}) if r.transparency else {}
+    if gc and gc.get('pct_paths_bound', 0.0) > 1.0:
+        pct_b = gc['pct_paths_bound']
+        avg_y = gc['avg_years_bound']
+        st.caption(
+            f"Size ceiling active in **{pct_b:.1f}%** of simulated paths "
+            f"(avg {avg_y:.1f} forecast years per path). "
+            "Revenue growth is capped by a scale-dependent ceiling that tightens as projected "
+            "revenue grows within each path. This suppresses the right tail of the distribution. "
+            "See Monte Carlo Input Distributions for details."
+        )
 
     st.divider()
 

@@ -15,6 +15,20 @@ TERMINAL_G: float            = 0.025   # 2.5% default terminal growth rate
 HIGH_GROWTH_THRESHOLD: float = 0.15    # use 10-year horizon if starting growth > this
 MATURE_MARGIN_DEFAULT: float = 0.20    # floor for target EBIT margin at maturity
 
+# Size-dependent revenue growth ceiling: g_ceiling(R) = max(terminal_g, G_CEILING_A / R**G_CEILING_B)
+# R = projected revenue in USD billions (local currency × current spot FX rate / 1e9).
+# Prevents economically impossible compound growth at scale: a company already generating
+# $1T of revenue cannot sustain 50%/yr growth; the ceiling enforces that achievable rates
+# fall as absolute size increases, applied year-by-year as revenue compounds within each path.
+# Calibrated to two empirical anchors:
+#   R ≈ $250 B  →  ceiling ≈ 25 %   (large but still high-growth company)
+#   R ≈ $1 T    →  ceiling ≈  6 %   (mega-cap steady-state territory)
+# Two-point solve: A / 250^b = 0.25,  A / 1000^b = 0.06
+#   → b = ln(25/6) / ln(4) ≈ 1.029
+#   → A = 0.25 × 250^1.029 ≈ 74.0
+G_CEILING_A: float = 74.0    # ceiling numerator  (R in USD billions)
+G_CEILING_B: float = 1.029   # ceiling exponent   (≈1 → ceiling roughly halves as revenue doubles)
+
 
 @dataclass
 class Assumptions:
@@ -72,6 +86,7 @@ class DCFResult:
     terminal_value_local: float
     implied_ev_ebitda: float
     forecast: pd.DataFrame      # year-by-year table
+    ceiling_hits: int = 0       # number of forecast years where size ceiling was binding
 
 
 def _compute(a: Assumptions) -> DCFResult:
@@ -96,11 +111,22 @@ def _compute(a: Assumptions) -> DCFResult:
     # EBIT margin fades from starting margin to target (mature) margin.
     margin_path = np.linspace(a.ebit_margin, a.target_margin, a.forecast_years)
 
-    rows   = []
+    rows           = []
+    n_ceiling_hits = 0
     prev_rev = a.start_revenue
     prev_nwc = a.start_revenue * a.nwc_pct   # NWC at t=0
 
     for t, (g, cp, m) in enumerate(zip(growth_rates, capex_pcts, margin_path), start=1):
+        # Size-dependent growth ceiling: cap g before applying to revenue.
+        # R_usd_b = last year's revenue in USD billions; ceiling = max(terminal_g, A/R^b).
+        # Guards: skip if fx_rate is zero (should never happen) or revenue is zero/negative.
+        if a.fx_rate > 0 and prev_rev > 0:
+            r_usd_b = prev_rev * a.fx_rate / 1e9
+            g_ceil  = max(a.terminal_g, G_CEILING_A / (r_usd_b ** G_CEILING_B))
+            if g > g_ceil:
+                n_ceiling_hits += 1
+                g = g_ceil
+
         rev   = prev_rev * (1 + g)
         ebit  = rev * m
         nopat = ebit * (1 - a.tax_rate)      # EBIT×(1−tax); SBC already in EBIT (Route 1)
@@ -171,6 +197,7 @@ def _compute(a: Assumptions) -> DCFResult:
         terminal_value_local=tv,
         implied_ev_ebitda=implied_ev_ebitda,
         forecast=forecast,
+        ceiling_hits=n_ceiling_hits,
     )
 
 
@@ -178,6 +205,13 @@ def value(a: Assumptions) -> float:
     """Pure, fast path — returns intrinsic value per share in USD.
     No I/O. Safe to call in a Monte Carlo loop."""
     return _compute(a).value_per_share_usd
+
+
+def value_and_ceiling_hits(a: Assumptions) -> tuple[float, int]:
+    """Returns (vps_usd, ceiling_hits) — used by Monte Carlo _collect path to
+    track how many forecast years the size ceiling was binding in each draw."""
+    r = _compute(a)
+    return r.value_per_share_usd, r.ceiling_hits
 
 
 def detailed_value(a: Assumptions) -> DCFResult:
