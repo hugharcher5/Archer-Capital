@@ -57,3 +57,8 @@ class ValuationResult:
 
     # ── Full transparency payload (populated on main run; empty dict when n_sims=0) ──
     transparency: dict = field(default_factory=dict)
+
+    # ── DCF applicability gate ─────────────────────────────────────────────────
+    # False when terminal-year FCFF <= 0 (Gordon Growth would be degenerate).
+    # UI suppresses headline valuation metrics and shows an explanatory banner.
+    dcf_applicable: bool = True

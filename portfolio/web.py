@@ -628,6 +628,24 @@ fading is a simple and defensible approximation of that natural deceleration and
 artificial cliff-edge that comes from holding growth constant and then abruptly switching to
 a terminal rate.
 
+**Size-dependent growth ceiling:** within each forecast year, the growth rate is capped by
+a scale-dependent ceiling before it is applied to revenue. The ceiling is computed as
+g_ceiling(R) = max(terminal_g, 74.0 / R^1.029) where R is projected revenue in USD
+billions at the start of that year. I calibrated this to two empirical anchors: a company
+already generating around $250 billion of annual revenue can realistically sustain roughly
+25% growth, while a company generating $1 trillion cannot credibly sustain more than about
+6%. The exponent of 1.029 means the ceiling roughly halves as revenue doubles, which is
+consistent with how growth constraints work in practice at scale.
+
+This ceiling matters for high-growth companies whose Monte Carlo draws can include very high
+sampled growth rates. Without it, a company like NVDA, which had historical revenue growth
+above 100% in recent years, would compound those draws across a 10-year forecast horizon
+into revenue figures that exceed the entire global economy. The ceiling does not adjust the
+terminal growth rate, does not cap the market capitalisation, and does not constrain the
+base-case DCF. It only clips the year-by-year applied growth rate inside each simulation
+path when that path reaches a revenue scale where the sampled rate becomes economically
+implausible.
+
 **EBIT margin:** fades linearly from the starting historically-averaged margin to the target
 mature margin. I set the target as the higher of the company's best historical EBIT margin
 and a 20% floor. The reasoning is that a business should be capable of reaching at least
@@ -1711,9 +1729,69 @@ def _render_expander_reconciliation(r: ValuationResult) -> None:
             )
 
 
+# ── DCF not-applicable banner ─────────────────────────────────────────────────
+
+def _render_dcf_not_applicable(r: ValuationResult, dcf_app: dict) -> None:
+    price = r.current_price_usd
+
+    st.error(
+        "**DCF not applicable** — this company does not generate positive free cash flow "
+        "within the forecast horizon. A discounted-cash-flow model cannot meaningfully "
+        "value pre-profit or cash-burning businesses: their value depends on financing, "
+        "dilution, and binary future outcomes that a single-path DCF does not capture. "
+        "A scenario or real-options approach is more appropriate."
+    )
+
+    triggers = dcf_app.get('triggers', [])
+    if triggers:
+        _trigger_labels = {
+            'terminal_fcff_non_positive':    'Terminal-year FCFF is zero or negative — the Gordon Growth terminal value is undefined.',
+            'current_ebit_negative':         'Current EBIT is negative — the business is operating at a loss today.',
+            'base_case_intrinsic_negative':  'Base-case intrinsic value per share is negative.',
+        }
+        trigger_lines = []
+        for t in triggers:
+            if t.startswith('forecast_fcff_negative_in_'):
+                trigger_lines.append(f'FCFF is negative in one or more forecast years ({t.replace("_", " ").replace("forecast fcff negative in ", "")}).')
+            else:
+                trigger_lines.append(_trigger_labels.get(t, t.replace('_', ' ')))
+        st.markdown('**Triggers that fired:**\n' + '\n'.join(f'- {line}' for line in trigger_lines))
+
+    c1, c2 = st.columns(2)
+    c1.metric('Current Price', f'${price:.2f}')
+    c2.metric('Base Case DCF', f'${dcf_app.get("base_case_intrinsic", 0):.2f}',
+              help='Shown for diagnostic purposes only. This number is not a meaningful valuation.')
+
+    with st.expander('Diagnostic distribution — NOT a valuation', expanded=False):
+        st.caption(
+            'The distribution below shows the Monte Carlo output for this ticker. '
+            'Because terminal FCFF is non-positive, the majority of simulated paths '
+            'produce negative or near-zero intrinsic values. These numbers are not '
+            'a valuation. They are shown only to illustrate why the DCF framework '
+            'breaks down for this company.'
+        )
+        _render_histogram(r)
+
+    st.divider()
+    _render_expander_methodology(r)
+    _render_expander_drivers(r)
+    _render_expander_wacc(r)
+    _render_expander_assumptions(r)
+    _render_expander_forecast(r)
+    _render_expander_terminal(r)
+    _render_expander_bridge(r)
+    _render_expander_reconciliation(r)
+
+
 # ── Main render ───────────────────────────────────────────────────────────────
 
 def _render_valuation(r: ValuationResult) -> None:
+    # ── DCF applicability gate ────────────────────────────────────────────────
+    dcf_app = r.transparency.get('dcf_applicability', {}) if r.transparency else {}
+    if not dcf_app.get('dcf_applicable', True):
+        _render_dcf_not_applicable(r, dcf_app)
+        return
+
     price = r.current_price_usd
     det   = r.dcf.value_per_share_usd
     pct_vs_market = (r.p50 - price) / price * 100 if price > 0 else float('nan')

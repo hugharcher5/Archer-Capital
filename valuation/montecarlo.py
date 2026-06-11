@@ -482,6 +482,29 @@ def run_valuation(
     base   = _build_base(raw, drvrs, wacc_r)
     dcf_r  = detailed_value(base)
 
+    # ── DCF applicability gate ────────────────────────────────────────────────
+    # HARD GATE: terminal-year FCFF <= 0 → Gordon Growth TV is degenerate.
+    # Secondary diagnostics are recorded for transparency but do not gate alone.
+    _terminal_fcff     = float(dcf_r.forecast['FCFF'].iloc[-1])
+    _current_ebit      = base.ebit_margin * base.start_revenue
+    _frac_neg_fcff     = float((dcf_r.forecast['FCFF'] < 0).mean())
+    _bc_intrinsic      = dcf_r.value_per_share_usd
+    # Gate trips on either condition: terminal FCFF degenerate OR base-case
+    # intrinsic negative (the latter catches companies where years of negative
+    # FCFFs overwhelm a positive terminal value, e.g. IONQ-style pre-profit).
+    dcf_applicable     = _terminal_fcff > 0 and _bc_intrinsic > 0
+
+    _gate_triggers: list[str] = []
+    if _terminal_fcff <= 0:
+        _gate_triggers.append('terminal_fcff_non_positive')
+    if _current_ebit < 0:
+        _gate_triggers.append('current_ebit_negative')
+    if _frac_neg_fcff > 0.0:
+        n_neg = round(_frac_neg_fcff * base.forecast_years)
+        _gate_triggers.append(f'forecast_fcff_negative_in_{n_neg}_of_{base.forecast_years}_years')
+    if _bc_intrinsic < 0:
+        _gate_triggers.append('base_case_intrinsic_negative')
+
     sg_hist = drvrs.std_revenue_growth
     sm_hist = drvrs.std_ebit_margin
 
@@ -564,6 +587,7 @@ def run_valuation(
             sigma_cross=sigma_cross,
             recon_fields=recon_fields, recon_sigma=recon_sigma,
             sw=sw, stm=stm, stg=stg,
+            dcf_applicable=dcf_applicable,
         )
 
     corr = _ensure_psd(CORR.copy())
@@ -757,6 +781,14 @@ def run_valuation(
         'correlation_target':   corr.copy(),
         'correlation_realized': corr_realized,
         'fx_info':              fx_info,
+        'dcf_applicability': {
+            'dcf_applicable':     dcf_applicable,
+            'terminal_fcff':      _terminal_fcff,
+            'current_ebit':       _current_ebit,
+            'frac_negative_fcff': _frac_neg_fcff,
+            'base_case_intrinsic': _bc_intrinsic,
+            'triggers':           _gate_triggers,
+        },
         'g_ceiling': {
             'A':               G_CEILING_A,
             'b':               G_CEILING_B,
@@ -786,6 +818,7 @@ def run_valuation(
         recon_fields=recon_fields, recon_sigma=recon_sigma,
         sw=sw, stm=stm, stg=stg,
         transparency=transparency,
+        dcf_applicable=dcf_applicable,
     )
 
 
