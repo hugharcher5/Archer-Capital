@@ -460,6 +460,410 @@ def _render_expander_bridge(r: ValuationResult) -> None:
         )
 
 
+# ── MC Input Distributions expander ──────────────────────────────────────────
+
+_MC_VAR_META: dict = {
+    'revenue_growth': {'label': 'Revenue Growth',  'is_pct': True},
+    'ebit_margin':    {'label': 'EBIT Margin',     'is_pct': True},
+    'target_margin':  {'label': 'Target Margin',   'is_pct': True},
+    'terminal_g':     {'label': 'Terminal Growth', 'is_pct': True},
+    'wacc':           {'label': 'WACC',            'is_pct': True},
+    'diluted_shares': {'label': 'Diluted Shares',  'is_pct': False},
+    'net_debt':       {'label': 'Net Debt',        'is_pct': False},
+}
+
+_MC_RATIONALE: dict = {
+    'historical_mean_growth': (
+        "**Spread source:** standard deviation of the company's annual revenue growth rate "
+        "over the available history. Combined with cross-source disagreement in quadrature: "
+        "σ_eff = √(σ_hist² + σ_cross²). "
+        "PERT bounds = mode ± 3σ_eff, clamped to [−30 %, +150 %] for plausibility.  "
+        "A σ_cross of zero means only one data source is available or all sources agree."
+    ),
+    'historical_mean_ebit_margin': (
+        "**Spread source:** standard deviation of annual EBIT margins over the available history. "
+        "Combined with cross-source uncertainty in quadrature. "
+        "Bounds clamped to [−20 %, +75 %]. "
+        "A negative margin is allowed — the model can handle operating-loss years."
+    ),
+    'best_historical_ebit_margin': (
+        "**Mode:** max(best historical EBIT margin, 20 % floor) — the company should converge "
+        "toward at least 20 % mature margin unless its best reported year was higher. "
+        "**Spread source:** reuses the same σ as the current EBIT margin (both are derived from "
+        "the same reported income statement data). "
+        "The PERT half-width is clamped to [3 pp, 20 pp] so that short histories don't produce "
+        "a degenerate zero-width PERT, and small companies with erratic margins don't get "
+        "absurdly wide ranges."
+    ),
+    'avg_growth_anchored_to_gdp': (
+        "**Mode derivation:** avg_g = (starting revenue growth + 2.5 %) ÷ 2 — the arithmetic "
+        "mean of the fade path from current growth to nominal-GDP terminal rate, so "
+        "faster-growing companies get a modestly higher terminal assumption.  "
+        "Capped at 2.5 % so the terminal rate never exceeds long-run nominal GDP.  "
+        "**σ_hist:** macro-derived from US annual nominal GDP growth (FRED GDPA); identical for "
+        "every company by design — terminal growth uncertainty is a macro variable, not a "
+        "company-specific forecast.  "
+        "**Asymmetric bounds:** floor = max(−2 %, 0.3 × avg_g) so economic decline is permitted "
+        "but bounded; cap = min(4 %, WACC − 1 %, avg_g + 1 pp). "
+        "The WACC − 1 % constraint prevents the Gordon Growth denominator from approaching zero, "
+        "which would cause the terminal value to diverge."
+    ),
+    'capm_synthetic_rating_blume_beta': (
+        "**σ_hist:** reconstructed year-by-year by re-running the WACC formula with each year's "
+        "FRED DGS10 risk-free rate and the Damodaran synthetic rating implied by that year's "
+        "EBIT/interest-coverage ratio.  Beta (Blume-adjusted: 0.67 × raw + 0.33) and capital "
+        "structure weights are held fixed at current values across the reconstruction.  "
+        "**Fallback (1.5 pp):** applied when fewer than 3 profitable years are available for "
+        "reconstruction — for example, pre-profitability growth companies whose coverage ratio "
+        "is negative or undefined.  "
+        "**No σ_cross:** WACC inputs (beta, Rf) are market-derived and identical across all "
+        "data sources, so cross-source disagreement does not add uncertainty here."
+    ),
+}
+
+
+def _make_pert_dist_chart(
+    samps: np.ndarray,
+    lo: float,
+    mode: float,
+    hi: float,
+    label: str,
+    is_pct: bool,
+) -> go.Figure:
+    """Overlay theoretical PERT pdf and KDE of actual draws."""
+    n_draws = len(samps)
+    p005, p995 = np.percentile(samps, [0.5, 99.5])
+    x_lo = min(p005, lo)
+    x_hi = max(p995, hi)
+    margin = max((x_hi - x_lo) * 0.08, 1e-6)
+    x_grid = np.linspace(x_lo - margin, x_hi + margin, 400)
+
+    # KDE of actual draws
+    kde    = scipy.stats.gaussian_kde(samps)
+    y_kde  = kde(x_grid)
+
+    # Theoretical PERT pdf (scaled Beta on [lo, hi])
+    if hi - lo > 1e-12:
+        r_range = hi - lo
+        alpha   = 1.0 + 4.0 * (mode - lo) / r_range
+        beta_p  = 1.0 + 4.0 * (hi - mode) / r_range
+        x_norm  = np.clip((x_grid - lo) / r_range, 0.0, 1.0)
+        y_pert  = scipy.stats.beta.pdf(x_norm, alpha, beta_p) / r_range
+    else:
+        y_pert = np.zeros(len(x_grid))
+
+    med = float(np.median(samps))
+
+    tick_fmt = '.1%' if is_pct else '.3f'
+    hover_fmt = '.2%' if is_pct else '.3f'
+
+    fig = go.Figure()
+
+    # PERT theoretical (dashed)
+    fig.add_trace(go.Scatter(
+        x=x_grid, y=y_pert,
+        mode='lines',
+        line=dict(color='#4a9eff', width=2, dash='dash'),
+        name='Theoretical PERT',
+        hovertemplate=f'%{{x:{hover_fmt}}}<br>PERT density: %{{y:.5f}}<extra></extra>',
+    ))
+
+    # KDE actual draws (filled)
+    fig.add_trace(go.Scatter(
+        x=x_grid, y=y_kde,
+        mode='lines',
+        fill='tozeroy',
+        fillcolor='rgba(70,130,180,0.18)',
+        line=dict(color='steelblue', width=2),
+        name='Realized draws (KDE)',
+        hovertemplate=f'%{{x:{hover_fmt}}}<br>KDE density: %{{y:.5f}}<extra></extra>',
+    ))
+
+    # Mode marker
+    fig.add_vline(x=mode, line_color='gold', line_width=1.5, line_dash='dot',
+                  annotation_text='mode', annotation_position='top left',
+                  annotation_font_size=11)
+
+    # Realized median marker
+    fig.add_vline(x=med, line_color='seagreen', line_width=1.5, line_dash='dash',
+                  annotation_text='median', annotation_position='top right',
+                  annotation_font_size=11)
+
+    fig.update_layout(
+        title=dict(text=f'Theoretical PERT vs {n_draws:,} realized draws', font_size=13),
+        xaxis_title=label,
+        yaxis_title='Density',
+        xaxis_tickformat=tick_fmt,
+        height=300,
+        margin=dict(t=40, b=36, l=46, r=16),
+        legend=dict(x=0.01, y=0.99, bgcolor='rgba(0,0,0,0)', font_size=11),
+        plot_bgcolor='rgba(0,0,0,0)',
+    )
+    return fig
+
+
+def _render_mc_var_card(
+    var: str,
+    dp: dict,
+    samps_dict: dict,
+    r: ValuationResult,
+) -> None:
+    """Render one per-variable card (table + rationale + distribution popover)."""
+    meta    = _MC_VAR_META.get(var, {'label': var, 'is_pct': True})
+    label   = meta['label']
+    is_pct  = meta['is_pct']
+    samps   = samps_dict.get(var, np.array([]))
+    info    = dp.get(var)         # None for promoted balance-sheet vars
+
+    n_samps = len(samps)
+
+    def _fp(v: float) -> str:
+        """Format value as pct or absolute (billions)."""
+        if not math.isfinite(v):
+            return '∞' if v > 0 else '−∞'
+        return f'{v:.2%}' if is_pct else f'{v/1e9:.3f}B'
+
+    left_col, right_col = st.columns([3, 2])
+
+    with left_col:
+        # ── Operating variable (has distribution_params entry) ────────────────
+        if info is not None:
+            lo  = info['pert_min']
+            md  = info['pert_mode']
+            hi  = info['pert_max']
+            sh  = info['sigma_hist']
+            sc  = info['sigma_cross']
+            se  = info['sigma_eff']
+            cf  = info['clamp_floor']
+            cc  = info['clamp_cap']
+            cb  = info['clamp_binding']
+            rk  = info.get('rationale_key', '')
+
+            draws_median = float(np.median(samps)) if n_samps > 0 else float('nan')
+            draws_mean   = float(np.mean(samps))   if n_samps > 0 else float('nan')
+
+            # Human-readable clamp note
+            raw_lo_str = _fp(md - 3.0 * se)
+            raw_hi_str = _fp(md + 3.0 * se)
+            cf_str = _fp(cf) if math.isfinite(cf) else '−∞'
+            cc_str = _fp(cc) if math.isfinite(cc) else '∞'
+            if cb == 'none':
+                clamp_note = 'none — ±3σ_eff lies within plausibility limits'
+            elif cb == 'floor':
+                clamp_note = f'floor — ±3σ_eff floor is {raw_lo_str} but constrained to {cf_str}'
+            elif cb == 'cap':
+                clamp_note = f'cap — ±3σ_eff cap is {raw_hi_str} but constrained to {cc_str}'
+            else:  # both
+                clamp_note = (f'both — ±3σ_eff gives [{raw_lo_str}, {raw_hi_str}] '
+                              f'but constrained to [{cf_str}, {cc_str}]')
+
+            # Terminal g: flag whether WACC-1% or absolute 4% is the binding cap
+            if var == 'terminal_g':
+                wacc_val = r.assumptions.wacc
+                wacc_cap = wacc_val - 0.01
+                if math.isfinite(cc) and abs(cc - wacc_cap) < 1e-6:
+                    clamp_note += f' (WACC−1% = {wacc_cap:.2%} binding)'
+                elif math.isfinite(cc):
+                    clamp_note += f' (4% GDP ceiling binding; WACC−1% = {wacc_cap:.2%})'
+
+            # WACC fallback annotation
+            sigma_hist_str = _fp(sh)
+            if var == 'wacc' and r.wacc_result.wacc_sigma_fallback:
+                sigma_hist_str += '  ⚠ fallback (< 3 profitable yrs for reconstruction)'
+
+            rows = [
+                ('PERT min',     _fp(lo)),
+                ('PERT mode',    _fp(md)),
+                ('PERT max',     _fp(hi)),
+                ('Draws median', _fp(draws_median)),
+                ('Draws mean',   _fp(draws_mean)),
+                ('σ_hist',       sigma_hist_str),
+                ('σ_cross',      _fp(sc)),
+                ('σ_eff',        _fp(se)),
+                ('Clamp floor',  cf_str),
+                ('Clamp cap',    cc_str),
+                ('Binding',      clamp_note),
+            ]
+            st.dataframe(
+                pd.DataFrame(rows, columns=['Parameter', 'Value']),
+                use_container_width=True, hide_index=True,
+            )
+
+            rationale = _MC_RATIONALE.get(rk, '')
+            if var == 'wacc' and r.wacc_result.wacc_sigma_fallback:
+                rationale += (
+                    '\n\n**⚠ Fallback active for this ticker:** fewer than 3 profitable years '
+                    'were available for WACC reconstruction (negative or undefined coverage ratio). '
+                    'σ_WACC is set to 1.5 pp — a conservative estimate consistent with observed '
+                    'WACC variation for investment-grade companies.'
+                )
+            if rationale:
+                st.markdown(rationale)
+
+        # ── Promoted balance-sheet variable ───────────────────────────────────
+        else:
+            rs_info   = r.recon_sigma.get(var, {})
+            sc_abs    = rs_info.get('sigma_cross', 0.0)
+            base_v    = (r.assumptions.diluted_shares if var == 'diluted_shares'
+                         else r.assumptions.net_debt)
+            prom_lo   = max(0.0, base_v - sc_abs) if var == 'diluted_shares' else base_v - sc_abs
+            prom_hi   = base_v + sc_abs
+
+            # Disagreement that tripped promotion
+            rf_info    = r.recon_fields.get(var, {}) if r.recon_fields else {}
+            disagree   = rf_info.get('disagree_pct')
+            disagree_s = f'{disagree:.1f}%' if disagree is not None else 'n/a'
+
+            draws_median = float(np.median(samps)) if n_samps > 0 else float('nan')
+            draws_mean   = float(np.mean(samps))   if n_samps > 0 else float('nan')
+
+            rows = [
+                ('Base value (mode)',     _fp(base_v)),
+                ('PERT min',             _fp(prom_lo)),
+                ('PERT max',             _fp(prom_hi)),
+                ('σ_cross (half-width)', _fp(sc_abs)),
+                ('Draws median',         _fp(draws_median)),
+                ('Draws mean',           _fp(draws_mean)),
+                ('Disagreement',         disagree_s),
+                ('Promotion threshold',  '> 2% relative'),
+            ]
+            st.dataframe(
+                pd.DataFrame(rows, columns=['Parameter', 'Value']),
+                use_container_width=True, hide_index=True,
+            )
+            var_name = 'diluted shares' if var == 'diluted_shares' else 'net debt'
+            st.markdown(
+                f'**Promoted variable** — cross-source disagreement of {disagree_s} exceeded the '
+                f'2 % promotion threshold, so {var_name} is sampled in each simulation as a '
+                f'narrow PERT centred on the preferred-source value (half-width = σ_cross). '
+                f'Sampling is independent of the operating-driver copula (balance-sheet '
+                f'uncertainty is orthogonal to the forecast uncertainty).'
+            )
+            # Use reconstructed bounds for chart
+            info_chart = {'pert_min': prom_lo, 'pert_mode': base_v, 'pert_max': prom_hi}
+            lo, md, hi = prom_lo, base_v, prom_hi
+
+    with right_col:
+        # Resolve lo/md/hi for operating vars (already set for promoted above)
+        if info is not None:
+            lo, md, hi = info['pert_min'], info['pert_mode'], info['pert_max']
+
+        if n_samps >= 10 and hi > lo + 1e-12:
+            fig = _make_pert_dist_chart(samps, lo, md, hi, label, is_pct)
+            with st.popover('📊 view distribution'):
+                st.plotly_chart(fig, use_container_width=True)
+        elif n_samps >= 10:
+            st.caption('Distribution degenerate (zero-width PERT).')
+        else:
+            st.caption('Not enough draws to plot.')
+
+
+def _render_expander_mc_inputs(r: ValuationResult) -> None:
+    t = r.transparency
+    if not t:
+        return
+
+    dp         = t.get('distribution_params', {})
+    samps_dict = t.get('samples', {})
+    if not dp:
+        return
+
+    with st.expander('Monte Carlo Input Distributions', expanded=False):
+        ci = t.get('copula_info', {})
+        st.markdown(
+            'One card per sampled variable.  '
+            'All numbers trace directly to `result.transparency` — nothing is hardcoded.  '
+            'The distribution chart overlays the theoretical PERT pdf (dashed) against a KDE '
+            'of the actual draws; agreement is the primary check that the sampler is working correctly.'
+        )
+
+        # Copula summary banner
+        copula_type = ci.get('type', 'gaussian')
+        copula_df   = ci.get('df')
+        triggers    = ci.get('triggers', [])
+        fired       = [tr for tr in triggers if tr.get('fired')]
+        if copula_type == 'student-t':
+            fired_names = ', '.join(tr['name'] for tr in fired)
+            st.info(
+                f'**Student-t copula (df={copula_df})** — fatter tails than Gaussian.  '
+                f'Triggered by: {fired_names}.  '
+                f'{ci.get("note", "")}'
+            )
+        else:
+            st.success(
+                '**Gaussian copula** — no fat-tail triggers fired.  '
+                f'{ci.get("note", "")}'
+            )
+
+        # Trigger detail table
+        if triggers:
+            trig_rows = []
+            for tr in triggers:
+                act = tr['actual_value']
+                thr = tr['threshold']
+                fmt_a = f'{act:.2%}'
+                fmt_t = f'{thr:.0%}'
+                status = '✅ fired' if tr['fired'] else '—'
+                trig_rows.append((tr['name'], fmt_a, fmt_t, status))
+            st.dataframe(
+                pd.DataFrame(trig_rows, columns=['Trigger', 'Actual', 'Threshold', 'Status']),
+                use_container_width=False, hide_index=True,
+            )
+            st.caption(ci.get('note', ''))
+
+        st.divider()
+
+        # Correlation matrices (target vs realised)
+        with st.expander('Correlation matrices (target vs realised)', expanded=False):
+            corr_target   = t.get('correlation_target')
+            corr_realized = t.get('correlation_realized')
+            var_names = ['rev_growth', 'ebit_margin', 'terminal_g', 'wacc', 'tgt_margin']
+            if corr_target is not None and corr_realized is not None:
+                c1, c2 = st.columns(2)
+                with c1:
+                    st.caption('Target (CORR matrix)')
+                    st.dataframe(
+                        pd.DataFrame(corr_target, index=var_names, columns=var_names).style.format('{:.2f}'),
+                        use_container_width=True,
+                    )
+                with c2:
+                    st.caption('Realised (from draws)')
+                    st.dataframe(
+                        pd.DataFrame(corr_realized, index=var_names, columns=var_names).style.format('{:.2f}'),
+                        use_container_width=True,
+                    )
+
+        st.divider()
+
+        # Per-variable cards
+        var_order = ['revenue_growth', 'ebit_margin', 'target_margin', 'terminal_g', 'wacc']
+        for pv in ('diluted_shares', 'net_debt'):
+            if pv in samps_dict:
+                var_order.append(pv)
+
+        for idx, var in enumerate(var_order):
+            if var not in dp and var not in samps_dict:
+                continue
+            if idx > 0:
+                st.divider()
+            label = _MC_VAR_META.get(var, {}).get('label', var)
+            st.subheader(label)
+            _render_mc_var_card(var, dp, samps_dict, r)
+
+        # Validation summary
+        st.divider()
+        val = t.get('validation', {})
+        if val:
+            ok = val.get('zero_width_test_passed', False)
+            st.markdown(
+                f'**Zero-width consistency check:** '
+                f'{"✅ pass" if ok else "❌ fail"}  |  '
+                f'det = \\${val.get("deterministic_base", 0):.4f}  |  '
+                f'zero-σ MC P50 = \\${val.get("mc_p50_at_zero_width", 0):.4f}  |  '
+                f'|diff| = \\${val.get("abs_diff", 0):.4f}'
+            )
+
+
 # ── Reconciliation expander ───────────────────────────────────────────────────
 
 def _render_expander_reconciliation(r: ValuationResult) -> None:
@@ -601,6 +1005,7 @@ def _render_valuation(r: ValuationResult) -> None:
     _render_expander_forecast(r)
     _render_expander_terminal(r)
     _render_expander_bridge(r)
+    _render_expander_mc_inputs(r)
     _render_expander_reconciliation(r)
 
 
