@@ -42,6 +42,10 @@ class RawData:
     # data.py stores raw total_debt (unchanged); sources.py subtracts op_lease_liab as needed.
     op_lease_liab: float = 0.0
 
+    # Annualised daily return volatility (1-year window, simple returns × √252).
+    # 0.0 when fewer than 20 daily observations are available.
+    price_vol: float = 0.0
+
     missing_fields: list = field(default_factory=list)
 
 
@@ -132,6 +136,15 @@ def fetch_raw(ticker: str, years: int = 5) -> RawData:
             diluted_shares = 0.0
             missing.append('diluted_shares')
 
+    # ── Annualised price volatility (1-year daily window) ────────────────────
+    price_vol = 0.0
+    try:
+        hist = t.history(period='1y', interval='1d')
+        if len(hist) >= 20:
+            price_vol = float(hist['Close'].pct_change().dropna().std() * (252 ** 0.5))
+    except Exception:
+        pass
+
     # ── Financial statements ──────────────────────────────────────────────────
     def _fetch(primary: str, fallback: str) -> pd.DataFrame:
         for attr in (primary, fallback):
@@ -216,6 +229,7 @@ def fetch_raw(ticker: str, years: int = 5) -> RawData:
     print(f"  Total debt            : {total_debt/1e9:.3f}B {currency}")
     nwc = (curr_assets - cash) - (curr_liab - curr_debt)
     print(f"  Operating NWC         : {nwc/1e9:.3f}B {currency}  [(CA−Cash)−(CL−CurrDebt)]")
+    print(f"  Price vol (1yr ann.)  : {price_vol:.1%}")
 
     return RawData(
         ticker=ticker,
@@ -240,5 +254,6 @@ def fetch_raw(ticker: str, years: int = 5) -> RawData:
         current_liabilities=curr_liab,
         current_debt=curr_debt,
         op_lease_liab=op_lease_liab,
+        price_vol=price_vol,
         missing_fields=uniq_missing,
     )

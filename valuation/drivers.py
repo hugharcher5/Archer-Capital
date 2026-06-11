@@ -36,6 +36,7 @@ class Drivers:
     std_revenue_growth: float
     std_ebit_margin: float
     std_target_margin: float
+    std_fcf_pct: float         # std of historical (EBIT×(1−t) + D&A − CapEx) / Revenue
 
     years_used: int
 
@@ -90,6 +91,10 @@ def compute_drivers(raw: RawData) -> Drivers:
     std_growth   = float(df['revenue_growth'].std())
     std_margin   = float(df['ebit_margin'].std())
 
+    df['fcf_pct'] = (df['ebit'] * (1.0 - df['tax_rate']) + df['da'] - df['capex']) / df['revenue']
+    _fcf_clean    = df['fcf_pct'].dropna()
+    std_fcf_pct   = float(_fcf_clean.std()) if len(_fcf_clean) >= 2 else 0.0
+
     # ── Print historical table ────────────────────────────────────────────────
     print(f"\n{'='*60}")
     print(f"  HISTORICAL DRIVERS — {raw.ticker}  ({years_used} years used)")
@@ -122,6 +127,7 @@ def compute_drivers(raw: RawData) -> Drivers:
     print(f"  Revenue growth  : {rev_growth:>7.2%}   σ = {std_growth:.2%}")
     print(f"  EBIT margin     : {ebit_margin:>7.2%}   σ = {std_margin:.2%}   (best historical: {best_margin:.2%})")
     print(f"  Target margin σ : {std_margin:>7.2%}   (= EBIT margin σ; drives target-margin PERT)")
+    print(f"  FCF margin σ    : {std_fcf_pct:>7.2%}   (EBIT×(1−t)+D&A−CapEx)/Revenue")
     print(f"  Tax rate        : {tax_rate:>7.2%}")
     print(f"  D&A / Revenue   : {da_pct:>7.2%}")
     print(f"  CapEx / Revenue : {capex_pct:>7.2%}")
@@ -140,6 +146,7 @@ def compute_drivers(raw: RawData) -> Drivers:
         std_revenue_growth=std_growth,
         std_ebit_margin=std_margin,
         std_target_margin=std_margin,
+        std_fcf_pct=std_fcf_pct,
         years_used=years_used,
         hist_df=df,
     )

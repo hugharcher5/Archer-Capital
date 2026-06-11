@@ -24,7 +24,11 @@ from .reconcile import FIELD_TYPE, ALL_FIELDS
 # ─────────────────────────── Editable constants ───────────────────────────────
 
 SPREAD_SIGMA: float            = 3.0     # PERT half-width = N × historical σ
-HIGH_VOL_THRESHOLD: float      = 0.20    # Student-t copula when σ_growth exceeds this
+HIGH_VOL_THRESHOLD: float      = 0.20    # σ_eff revenue growth — Student-t copula trigger
+EBIT_VOL_THRESHOLD: float      = 0.05    # σ_eff EBIT margin (5pp) — Student-t copula trigger
+FCF_VOL_THRESHOLD: float       = 0.08    # σ FCF/revenue (8pp) — Student-t copula trigger
+SIGMA_CROSS_THRESHOLD: float   = 0.15    # max rate σ_cross (15pp) — Student-t copula trigger
+PRICE_VOL_THRESHOLD: float     = 0.50    # annualised price vol (50%) — Student-t copula trigger
 STUDENT_T_DF: int              = 5       # degrees of freedom for Student-t copula
 WACC_SPREAD_ABS: float         = 0.015   # WACC PERT half-width (absolute, e.g. ±1.5%)
 TERM_G_MIN: float              = 0.015   # 1.5% floor on terminal g
@@ -414,8 +418,7 @@ def run_valuation(
     raw    = fetch_raw(ticker)
     drvrs  = compute_drivers(raw)
     wacc_r = compute_wacc(raw, drvrs)
-    sw = wacc_r.std_wacc   # historical WACC σ (or fallback)
-    stm = drvrs.std_target_margin   # historical margin σ drives target-margin PERT
+    sw = wacc_r.std_wacc   # historical WACC σ (or fallback) — no σ_cross (WACC inputs are market-derived)
     base   = _build_base(raw, drvrs, wacc_r)
     dcf_r  = detailed_value(base)
 
@@ -426,6 +429,16 @@ def run_valuation(
     # σ_eff can only grow, never shrink — adding a zero σ_cross leaves σ_hist unchanged.
     sg = math.sqrt(sg_hist**2 + sigma_cross.get("revenue_growth", 0.0)**2)
     sm = math.sqrt(sm_hist**2 + sigma_cross.get("ebit_margin",    0.0)**2)
+
+    # target_margin uses the same σ_cross source as ebit_margin (derived from same data).
+    stm = math.sqrt(drvrs.std_target_margin**2 + sigma_cross.get("ebit_margin", 0.0)**2)
+
+    # terminal_g is anchored at avg_g = (revenue_growth + TERM_G_MODE) / 2, so revenue_growth
+    # uncertainty propagates at half-weight: σ_cross_tg = 0.5 × σ_cross["revenue_growth"].
+    stg_macro, tg_fallback = _get_term_g_sigma()
+    if tg_fallback:
+        print("  [MC] Terminal-g spread: FRED unavailable — using fixed 2pp fallback.")
+    stg = math.sqrt(stg_macro**2 + (0.5 * sigma_cross.get("revenue_growth", 0.0))**2)
 
     # Promoted balance-sheet variables.
     # A DATA variable is promoted when its relative cross-source spread > 2%.
@@ -458,6 +471,16 @@ def run_valuation(
             "sigma_cross": sigma_cross.get("ebit_margin", 0.0),
             "sigma_eff":   sm,
         }
+        recon_sigma["target_margin"] = {
+            "sigma_hist":  drvrs.std_target_margin,
+            "sigma_cross": sigma_cross.get("ebit_margin", 0.0),
+            "sigma_eff":   stm,
+        }
+        recon_sigma["terminal_g"] = {
+            "sigma_hist":  stg_macro,
+            "sigma_cross": 0.5 * sigma_cross.get("revenue_growth", 0.0),
+            "sigma_eff":   stg,
+        }
         if shares_promoted:
             recon_sigma["diluted_shares"] = {
                 "sigma_hist": 0.0, "sigma_cross": sc_abs, "sigma_eff": sc_abs,
@@ -466,10 +489,6 @@ def run_valuation(
             recon_sigma["net_debt"] = {
                 "sigma_hist": 0.0, "sigma_cross": nd_abs, "sigma_eff": nd_abs,
             }
-
-    stg, tg_fallback = _get_term_g_sigma()
-    if tg_fallback:
-        print("  [MC] Terminal-g spread: FRED unavailable — using fixed 2pp fallback.")
 
     nan = float('nan')
     if n_sims <= 0:
@@ -487,10 +506,22 @@ def run_valuation(
             sw=sw, stm=stm, stg=stg,
         )
 
-    corr       = _ensure_psd(CORR.copy())
-    use_t      = sg > HIGH_VOL_THRESHOLD
+    corr = _ensure_psd(CORR.copy())
+
+    # Student-t copula triggers: any one is sufficient.
+    _max_sc = max(sigma_cross.get('revenue_growth', 0.0), sigma_cross.get('ebit_margin', 0.0))
+    _triggers: list[str] = []
+    if sg                    > HIGH_VOL_THRESHOLD:  _triggers.append(f"σ_growth={sg:.1%} > {HIGH_VOL_THRESHOLD:.0%}")
+    if sm                    > EBIT_VOL_THRESHOLD:  _triggers.append(f"σ_margin={sm:.1%} > {EBIT_VOL_THRESHOLD:.0%}")
+    if drvrs.std_fcf_pct     > FCF_VOL_THRESHOLD:   _triggers.append(f"σ_FCF={drvrs.std_fcf_pct:.1%} > {FCF_VOL_THRESHOLD:.0%}")
+    if _max_sc               > SIGMA_CROSS_THRESHOLD: _triggers.append(f"max_σ_cross={_max_sc:.1%} > {SIGMA_CROSS_THRESHOLD:.0%}")
+    if raw.price_vol         > PRICE_VOL_THRESHOLD:   _triggers.append(f"price_vol={raw.price_vol:.1%} > {PRICE_VOL_THRESHOLD:.0%}")
+
+    use_t      = bool(_triggers)
     copula_key = 'student-t' if use_t else 'gaussian'
     copula_lbl = f'Student-t (df={STUDENT_T_DF})' if use_t else 'Gaussian'
+    if use_t:
+        print(f"  [MC] Student-t copula: {'; '.join(_triggers)}")
 
     # Consistency check: zero spread_sigma pins all variables to mode.
     # Pass sg/sm (with any σ_cross baked in) but spread_sigma=0 overrides bounds to
@@ -561,7 +592,7 @@ def print_valuation(result: ValuationResult) -> None:
         if parts:
             cross_note = "  cross-source: " + ", ".join(parts)
     print(f"\n  Copula : {result.copula_label}"
-          f"   (σ_growth_eff = {sg:.2%},  threshold = {HIGH_VOL_THRESHOLD:.0%})"
+          f"   (σ_growth={sg:.2%}  σ_margin={sm:.2%}  σ_FCF={drvrs.std_fcf_pct:.2%})"
           + cross_note)
 
     stg          = result.stg
