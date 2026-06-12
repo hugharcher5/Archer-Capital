@@ -1872,26 +1872,26 @@ def _render_gap_paragraph(r: ValuationResult) -> None:
     # Sentence 1: gap size and direction
     if ga['direction'] == 'fair':
         adj = 'above' if ga['gap_pct'] < 0 else 'below'
-        s1 = (f"The DCF median of ${p50:.0f} sits {gap_abs:.0%} {adj} the current price "
-              f"of ${price:.2f} — approximately fairly valued by this model.")
+        s1 = (f"The DCF median of \\${p50:.0f} sits {gap_abs:.0%} {adj} the current price "
+              f"of \\${price:.2f} — approximately fairly valued by this model.")
     elif is_over:
-        s1 = (f"The DCF median of ${p50:.0f} sits {gap_abs:.0%} below the current price "
-              f"of ${price:.2f} — the market is pricing the stock above the model's central estimate.")
+        s1 = (f"The DCF median of \\${p50:.0f} sits {gap_abs:.0%} below the current price "
+              f"of \\${price:.2f} — the market is pricing the stock above the model's central estimate.")
     else:
-        s1 = (f"The DCF median of ${p50:.0f} sits {gap_abs:.0%} above the current price "
-              f"of ${price:.2f} — the market is pricing the stock below the model's central estimate.")
+        s1 = (f"The DCF median of \\${p50:.0f} sits {gap_abs:.0%} above the current price "
+              f"of \\${price:.2f} — the market is pricing the stock below the model's central estimate.")
 
     # Sentence 2: range overlap
     if pvr == 'inside':
         s2 = (f"The market price falls within the model's P10–P90 range "
-              f"(${p10:.0f}–${p90:.0f}) — the gap is consistent with normal parameter "
+              f"(\\${p10:.0f}–\\${p90:.0f}) — the gap is consistent with normal parameter "
               f"uncertainty and does not require unusual assumptions to explain.")
     elif pvr == 'above':
-        s2 = (f"The market price sits above the P90 outcome (${p90:.0f}). "
+        s2 = (f"The market price sits above the P90 outcome (\\${p90:.0f}). "
               f"Base-case assumptions and their uncertainty cannot explain the premium — "
               f"the market is pricing in something the model does not capture.")
     else:
-        s2 = (f"The market price sits below the P10 outcome (${p10:.0f}). "
+        s2 = (f"The market price sits below the P10 outcome (\\${p10:.0f}). "
               f"Even pessimistic assumptions produce a higher value — "
               f"the market is pricing in risk the model does not capture.")
 
