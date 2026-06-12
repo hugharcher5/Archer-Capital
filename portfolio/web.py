@@ -2,18 +2,20 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+import copy
 import math
 import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import scipy.stats
+from scipy.optimize import brentq
 import streamlit as st
 
 from portfolio.data          import fetch_portfolio
 from valuation.montecarlo    import run_valuation
 from valuation.result        import ValuationResult
-from valuation.dcf           import MATURE_MARGIN_DEFAULT
+from valuation.dcf           import MATURE_MARGIN_DEFAULT, value as _dcf_value
 from valuation.sources       import fetch_yahoo, fetch_fmp, fetch_edgar
 from valuation.reconcile     import reconcile
 
@@ -1749,6 +1751,199 @@ def _render_expander_reconciliation(r: ValuationResult) -> None:
             )
 
 
+# ── Gap analysis helpers ──────────────────────────────────────────────────────
+
+def _mktcap_tier(r: ValuationResult) -> str:
+    mktcap = r.current_price_usd * r.assumptions.diluted_shares
+    if mktcap > 500e9:
+        return 'mega'
+    if mktcap < 2e9:
+        return 'small'
+    return 'mid'
+
+
+def _rev_growth_flag(g: float, tier: str) -> str:
+    hi = {'mega': 0.15, 'small': 0.35}.get(tier, 0.25)
+    lo = {'mega': 0.10, 'small': 0.20}.get(tier, 0.15)
+    if g > hi:
+        return 'implausible at this scale'
+    if g > lo:
+        return 'aggressive'
+    return 'plausible'
+
+
+def _margin_flag(m: float) -> str:
+    if m > 0.60:
+        return 'implausible'
+    if m > 0.50:
+        return 'aggressive'
+    return 'plausible'
+
+
+def _wacc_flag(w: float) -> str:
+    if w < 0.05:
+        return 'implausible'
+    if w < 0.07:
+        return 'aggressive'
+    return 'plausible'
+
+
+def _solve_sensitivity(base, target: float, param: str, lo: float, hi: float):
+    """Bisect for the value of `param` that makes DCF value == target. Returns None on failure."""
+    def f(x):
+        a = copy.copy(base)
+        setattr(a, param, x)
+        try:
+            return _dcf_value(a) - target
+        except Exception:
+            return float('nan')
+
+    try:
+        f_lo, f_hi = f(lo), f(hi)
+        if not (math.isfinite(f_lo) and math.isfinite(f_hi)):
+            return None
+        if f_lo * f_hi >= 0:
+            return None
+        return float(brentq(f, lo, hi, xtol=1e-4, maxiter=100))
+    except Exception:
+        return None
+
+
+def _compute_gap_analysis(r: ValuationResult) -> dict:
+    price      = r.current_price_usd
+    p50, p10, p90 = r.p50, r.p10, r.p90
+    base       = r.assumptions
+
+    if not math.isfinite(p50) or p50 == 0:
+        return {}
+
+    gap_pct    = (price - p50) / abs(p50)
+    is_over    = gap_pct > 0   # price above model median
+
+    if abs(gap_pct) < 0.10:
+        direction = 'fair'
+    elif is_over:
+        direction = 'over'
+    else:
+        direction = 'under'
+
+    pvr = 'above' if price > p90 else ('below' if price < p10 else 'inside')
+
+    solves = {}
+    if pvr != 'inside':
+        tg = base.terminal_g
+        g_solved  = _solve_sensitivity(base, price, 'revenue_growth', -0.50, 2.00)
+        if g_solved is not None:
+            solves['revenue_growth'] = g_solved
+        tm_solved = _solve_sensitivity(base, price, 'target_margin',  -0.50, 0.95)
+        if tm_solved is not None:
+            solves['target_margin']  = tm_solved
+        w_solved  = _solve_sensitivity(base, price, 'wacc', tg + 0.002, 0.60)
+        if w_solved is not None:
+            solves['wacc'] = w_solved
+
+    return {
+        'gap_pct':   gap_pct,
+        'direction': direction,
+        'pvr':       pvr,
+        'is_over':   is_over,
+        'p10': p10, 'p50': p50, 'p90': p90, 'price': price,
+        'solves':    solves,
+        'tier':      _mktcap_tier(r),
+        'base_g':    base.revenue_growth,
+        'base_tm':   base.target_margin,
+        'base_wacc': base.wacc,
+    }
+
+
+def _render_gap_paragraph(r: ValuationResult) -> None:
+    ga = _compute_gap_analysis(r)
+    if not ga:
+        return
+
+    price = ga['price']
+    p50, p10, p90 = ga['p50'], ga['p10'], ga['p90']
+    gap_abs = abs(ga['gap_pct'])
+    pvr     = ga['pvr']
+    is_over = ga['is_over']
+    solves  = ga['solves']
+    tier    = ga['tier']
+
+    # Sentence 1: gap size and direction
+    if ga['direction'] == 'fair':
+        adj = 'above' if ga['gap_pct'] < 0 else 'below'
+        s1 = (f"The DCF median of ${p50:.0f} sits {gap_abs:.0%} {adj} the current price "
+              f"of ${price:.2f} — approximately fairly valued by this model.")
+    elif is_over:
+        s1 = (f"The DCF median of ${p50:.0f} sits {gap_abs:.0%} below the current price "
+              f"of ${price:.2f} — the market is pricing the stock above the model's central estimate.")
+    else:
+        s1 = (f"The DCF median of ${p50:.0f} sits {gap_abs:.0%} above the current price "
+              f"of ${price:.2f} — the market is pricing the stock below the model's central estimate.")
+
+    # Sentence 2: range overlap
+    if pvr == 'inside':
+        s2 = (f"The market price falls within the model's P10–P90 range "
+              f"(${p10:.0f}–${p90:.0f}) — the gap is consistent with normal parameter "
+              f"uncertainty and does not require unusual assumptions to explain.")
+    elif pvr == 'above':
+        s2 = (f"The market price sits above the P90 outcome (${p90:.0f}). "
+              f"Base-case assumptions and their uncertainty cannot explain the premium — "
+              f"the market is pricing in something the model does not capture.")
+    else:
+        s2 = (f"The market price sits below the P10 outcome (${p10:.0f}). "
+              f"Even pessimistic assumptions produce a higher value — "
+              f"the market is pricing in risk the model does not capture.")
+
+    # Sentence 3: sensitivity lines (only outside P10-P90)
+    s3 = ''
+    if solves and pvr != 'inside':
+        lines = []
+
+        if 'revenue_growth' in solves:
+            g = solves['revenue_growth']
+            if is_over:
+                flag  = _rev_growth_flag(g, tier)
+                lines.append(f"revenue growth of {g:.1%} (base: {ga['base_g']:.1%}, {flag})")
+            else:
+                lines.append(f"revenue growth collapsing to {g:.1%} (base: {ga['base_g']:.1%})")
+
+        if 'target_margin' in solves:
+            tm = solves['target_margin']
+            if is_over:
+                flag  = _margin_flag(tm)
+                lines.append(f"terminal EBIT margins of {tm:.0%} (base: {ga['base_tm']:.0%}, {flag})")
+            else:
+                lines.append(f"terminal margins of {tm:.0%} (base: {ga['base_tm']:.0%})")
+
+        if 'wacc' in solves:
+            w = solves['wacc']
+            if is_over:
+                flag  = _wacc_flag(w)
+                lines.append(f"a WACC of {w:.1%} (base: {ga['base_wacc']:.1%}, {flag})")
+            else:
+                lines.append(f"a WACC of {w:.1%} (base: {ga['base_wacc']:.1%})")
+
+        if lines:
+            verb = 'Closing the gap requires' if is_over else 'Closing the gap downward requires'
+            if len(lines) == 1:
+                solve_str = lines[0]
+            elif len(lines) == 2:
+                solve_str = f"{lines[0]} or {lines[1]}"
+            else:
+                solve_str = f"{', '.join(lines[:-1])}, or {lines[-1]}"
+            s3 = f"{verb} {solve_str}."
+
+    # Sentence 4: conclusion (only outside P10-P90)
+    s4 = ''
+    if pvr == 'above':
+        s4 = "The market is pricing in significant outperformance beyond what historical drivers support."
+    elif pvr == 'below':
+        s4 = "The market is pricing in significant deterioration or risk not captured in historical financials."
+
+    st.info(' '.join(s for s in [s1, s2, s3, s4] if s))
+
+
 # ── DCF not-applicable banner ─────────────────────────────────────────────────
 
 def _render_dcf_not_applicable(r: ValuationResult, dcf_app: dict) -> None:
@@ -1826,6 +2021,9 @@ def _render_valuation(r: ValuationResult) -> None:
               delta=f"{pct_vs_market:+.1f}%")
     c4.metric("P10 / P90",          f"${r.p10:.0f} - ${r.p90:.0f}")
     c5.metric("P(Undervalued)",     f"{r.pct_undervalued:.1f}%")
+
+    # ── Gap interpretation paragraph ──────────────────────────────────────────
+    _render_gap_paragraph(r)
 
     # ── Distribution histogram ────────────────────────────────────────────────
     _render_histogram(r)
