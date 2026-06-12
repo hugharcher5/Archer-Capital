@@ -1,6 +1,9 @@
 import sys
 from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent.parent))
+_DCF_ROOT  = Path(__file__).parent.parent          # .../Archer-Capital/dcf
+_REPO_ROOT = _DCF_ROOT.parent                      # .../Archer-Capital
+sys.path.insert(0, str(_DCF_ROOT))
+sys.path.insert(0, str(_REPO_ROOT))
 
 import copy
 import math
@@ -22,7 +25,7 @@ from valuation.reconcile     import reconcile
 st.set_page_config(page_title="Archer Capital", layout="wide")
 st.title("Archer Capital")
 
-tab_portfolio, tab_valuation = st.tabs(["Portfolio", "Valuation"])
+tab_portfolio, tab_valuation, tab_strategies = st.tabs(["Portfolio", "Valuation", "Strategies"])
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -2110,3 +2113,23 @@ with tab_valuation:
 
     if "val_result" in st.session_state:
         _render_valuation(st.session_state["val_result"])
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  STRATEGIES TAB
+# ══════════════════════════════════════════════════════════════════════════════
+
+with tab_strategies:
+    from strategies.strategy_page import render_strategy_page
+    from strategies.private_competitor_distress.config import STRATEGY_CONFIG
+
+    _STRATEGY_REGISTRY = {
+        STRATEGY_CONFIG["name"]: STRATEGY_CONFIG,
+    }
+
+    selected = st.selectbox(
+        "Select strategy",
+        options=list(_STRATEGY_REGISTRY.keys()),
+        key="strategy_select",
+    )
+    render_strategy_page(_STRATEGY_REGISTRY[selected])

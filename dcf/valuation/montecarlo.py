@@ -7,6 +7,7 @@ No valuation logic is duplicated here.
 
 from __future__ import annotations
 import copy, math, os
+from pathlib import Path
 import numpy as np
 import scipy.stats
 import matplotlib
@@ -423,8 +424,9 @@ def _run_sims(
 
 def _save_histogram(ticker, results, price, n_valid, copula_label,
                     det_val, p10, p50, p90) -> str:
-    os.makedirs('output', exist_ok=True)
-    path = f'output/{ticker}_montecarlo.png'
+    output_dir = Path(__file__).parent.parent / 'output'
+    os.makedirs(output_dir, exist_ok=True)
+    path = str(output_dir / f'{ticker}_montecarlo.png')
 
     # Winsorise display only (P1–P99) so extreme tails don't squash the body
     p1, p99 = np.percentile(results, [1, 99])

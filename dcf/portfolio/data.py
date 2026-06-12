@@ -1,8 +1,9 @@
 import time
+from pathlib import Path
 import yaml
 import yfinance as yf
 
-CONFIG_PATH = "config/positions.yaml"
+CONFIG_PATH = str(Path(__file__).parent.parent / 'config' / 'positions.yaml')
 MAX_RETRIES = 3
 RETRY_DELAY = 2
 
