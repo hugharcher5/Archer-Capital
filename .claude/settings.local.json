@@ -14,7 +14,8 @@
       "Bash(xargs ls *)",
       "Bash(venv/bin/streamlit run *)",
       "Bash(echo \"PID: $!\")",
-      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8502/healthz)"
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8502/healthz)",
+      "Bash(grep -n '\\\\\\\\$\\\\|f\".*\\\\$\\\\|f'\"'\"'.*\\\\$' /mnt/c/Users/user/Archer-Capital/portfolio/web.py)"
     ]
   }
 }
