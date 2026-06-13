@@ -16,7 +16,9 @@
       "Bash(echo \"PID: $!\")",
       "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8502/healthz)",
       "Bash(grep -n '\\\\\\\\$\\\\|f\".*\\\\$\\\\|f'\"'\"'.*\\\\$' /mnt/c/Users/user/Archer-Capital/portfolio/web.py)",
-      "Bash(git mv *)"
+      "Bash(git mv *)",
+      "Bash(pip show *)",
+      "Bash(venv/bin/pip show *)"
     ]
   }
 }
