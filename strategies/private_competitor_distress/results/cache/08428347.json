@@ -1,0 +1,75 @@
+{
+  "ch_number": "08428347",
+  "name": "DREAMS LIMITED",
+  "company_type": "ltd",
+  "current_status": "active",
+  "incorporation_date": "2013-03-04",
+  "accounts": [
+    {
+      "period_end": "2013-12-24",
+      "filed_at": "2014-10-08",
+      "due_date": "2014-09-24"
+    },
+    {
+      "period_end": "2014-03-31",
+      "filed_at": "2013-03-04",
+      "due_date": "2014-12-31"
+    },
+    {
+      "period_end": "2014-12-24",
+      "filed_at": "2015-10-15",
+      "due_date": "2015-09-24"
+    },
+    {
+      "period_end": "2015-12-24",
+      "filed_at": "2016-07-25",
+      "due_date": "2016-09-24"
+    },
+    {
+      "period_end": "2016-12-24",
+      "filed_at": "2017-09-19",
+      "due_date": "2017-09-24"
+    },
+    {
+      "period_end": "2017-12-24",
+      "filed_at": "2018-08-16",
+      "due_date": "2018-09-24"
+    },
+    {
+      "period_end": "2018-12-24",
+      "filed_at": "2019-06-26",
+      "due_date": "2019-09-24"
+    },
+    {
+      "period_end": "2019-12-24",
+      "filed_at": "2020-11-17",
+      "due_date": "2020-09-24"
+    },
+    {
+      "period_end": "2020-12-24",
+      "filed_at": "2021-10-06",
+      "due_date": "2021-09-24"
+    },
+    {
+      "period_end": "2021-12-24",
+      "filed_at": "2022-10-05",
+      "due_date": "2022-09-24"
+    },
+    {
+      "period_end": "2022-12-24",
+      "filed_at": "2023-08-02",
+      "due_date": "2023-09-24"
+    },
+    {
+      "period_end": "2023-12-24",
+      "filed_at": "2024-10-04",
+      "due_date": "2024-09-24"
+    },
+    {
+      "period_end": "2024-12-24",
+      "filed_at": "2025-08-07",
+      "due_date": "2025-09-24"
+    }
+  ],
+  "insolvency_date": null
+}

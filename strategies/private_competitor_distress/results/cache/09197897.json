@@ -1,0 +1,70 @@
+{
+  "ch_number": "09197897",
+  "name": "B.46 TRUSTEES LTD.",
+  "company_type": "ltd",
+  "current_status": "active",
+  "incorporation_date": "2014-09-01",
+  "accounts": [
+    {
+      "period_end": "2015-09-30",
+      "filed_at": "2014-09-01",
+      "due_date": "2016-06-30"
+    },
+    {
+      "period_end": "2015-10-31",
+      "filed_at": "2016-04-20",
+      "due_date": "2016-07-31"
+    },
+    {
+      "period_end": "2016-10-31",
+      "filed_at": "2017-04-18",
+      "due_date": "2017-07-31"
+    },
+    {
+      "period_end": "2017-10-31",
+      "filed_at": "2018-04-13",
+      "due_date": "2018-07-31"
+    },
+    {
+      "period_end": "2018-10-31",
+      "filed_at": "2019-04-16",
+      "due_date": "2019-07-31"
+    },
+    {
+      "period_end": "2019-10-31",
+      "filed_at": "2020-05-07",
+      "due_date": "2020-07-31"
+    },
+    {
+      "period_end": "2020-10-31",
+      "filed_at": "2021-07-08",
+      "due_date": "2021-07-31"
+    },
+    {
+      "period_end": "2021-10-31",
+      "filed_at": "2022-04-12",
+      "due_date": "2022-07-31"
+    },
+    {
+      "period_end": "2022-10-31",
+      "filed_at": "2023-06-16",
+      "due_date": "2023-07-31"
+    },
+    {
+      "period_end": "2023-10-31",
+      "filed_at": "2024-03-27",
+      "due_date": "2024-07-31"
+    },
+    {
+      "period_end": "2024-10-31",
+      "filed_at": "2025-04-08",
+      "due_date": "2025-07-31"
+    },
+    {
+      "period_end": "2025-10-31",
+      "filed_at": "2026-05-31",
+      "due_date": "2026-07-31"
+    }
+  ],
+  "insolvency_date": "2023-06-14"
+}

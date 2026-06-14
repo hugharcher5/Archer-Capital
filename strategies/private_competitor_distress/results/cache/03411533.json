@@ -1,0 +1,150 @@
+{
+  "ch_number": "03411533",
+  "name": "ENCON LIMITED",
+  "company_type": "ltd",
+  "current_status": "active",
+  "incorporation_date": "1997-07-30",
+  "accounts": [
+    {
+      "period_end": "1998-08-31",
+      "filed_at": "1999-05-28",
+      "due_date": "1999-05-31"
+    },
+    {
+      "period_end": "1999-08-31",
+      "filed_at": "2000-08-30",
+      "due_date": "2000-05-31"
+    },
+    {
+      "period_end": "2000-08-31",
+      "filed_at": "2000-12-11",
+      "due_date": "2001-05-31"
+    },
+    {
+      "period_end": "2001-08-31",
+      "filed_at": "2002-03-15",
+      "due_date": "2002-05-31"
+    },
+    {
+      "period_end": "2002-08-31",
+      "filed_at": "2002-12-12",
+      "due_date": "2003-05-31"
+    },
+    {
+      "period_end": "2003-08-31",
+      "filed_at": "2003-12-18",
+      "due_date": "2004-05-31"
+    },
+    {
+      "period_end": "2004-08-31",
+      "filed_at": "2004-12-22",
+      "due_date": "2005-05-31"
+    },
+    {
+      "period_end": "2005-08-31",
+      "filed_at": "2005-10-26",
+      "due_date": "2006-05-31"
+    },
+    {
+      "period_end": "2006-07-31",
+      "filed_at": "2007-06-11",
+      "due_date": "2007-04-30"
+    },
+    {
+      "period_end": "2007-07-31",
+      "filed_at": "2008-06-03",
+      "due_date": "2008-04-30"
+    },
+    {
+      "period_end": "2008-07-31",
+      "filed_at": "2009-05-26",
+      "due_date": "2009-04-30"
+    },
+    {
+      "period_end": "2009-07-31",
+      "filed_at": "2010-04-27",
+      "due_date": "2010-04-30"
+    },
+    {
+      "period_end": "2010-07-31",
+      "filed_at": "2011-02-22",
+      "due_date": "2011-04-30"
+    },
+    {
+      "period_end": "2011-07-31",
+      "filed_at": "2012-03-02",
+      "due_date": "2012-04-30"
+    },
+    {
+      "period_end": "2012-07-31",
+      "filed_at": "2012-11-14",
+      "due_date": "2013-04-30"
+    },
+    {
+      "period_end": "2013-07-31",
+      "filed_at": "2013-11-27",
+      "due_date": "2014-04-30"
+    },
+    {
+      "period_end": "2014-07-31",
+      "filed_at": "2014-11-21",
+      "due_date": "2015-04-30"
+    },
+    {
+      "period_end": "2015-07-31",
+      "filed_at": "2015-10-15",
+      "due_date": "2016-04-30"
+    },
+    {
+      "period_end": "2016-07-31",
+      "filed_at": "2016-11-08",
+      "due_date": "2017-04-30"
+    },
+    {
+      "period_end": "2017-07-31",
+      "filed_at": "2017-10-31",
+      "due_date": "2018-04-30"
+    },
+    {
+      "period_end": "2018-07-31",
+      "filed_at": "2018-10-29",
+      "due_date": "2019-04-30"
+    },
+    {
+      "period_end": "2019-07-31",
+      "filed_at": "2019-11-21",
+      "due_date": "2020-04-30"
+    },
+    {
+      "period_end": "2020-07-31",
+      "filed_at": "2020-12-17",
+      "due_date": "2021-04-30"
+    },
+    {
+      "period_end": "2021-07-31",
+      "filed_at": "2021-12-15",
+      "due_date": "2022-04-30"
+    },
+    {
+      "period_end": "2022-07-31",
+      "filed_at": "2022-12-13",
+      "due_date": "2023-04-30"
+    },
+    {
+      "period_end": "2023-07-31",
+      "filed_at": "2023-11-07",
+      "due_date": "2024-04-30"
+    },
+    {
+      "period_end": "2024-07-31",
+      "filed_at": "2024-11-22",
+      "due_date": "2025-04-30"
+    },
+    {
+      "period_end": "2025-07-31",
+      "filed_at": "2026-01-16",
+      "due_date": "2026-04-30"
+    }
+  ],
+  "insolvency_date": null
+}

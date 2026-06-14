@@ -1,0 +1,90 @@
+{
+  "ch_number": "08654028",
+  "name": "EUROCELL PLC",
+  "company_type": "plc",
+  "current_status": "active",
+  "incorporation_date": "2013-08-16",
+  "accounts": [
+    {
+      "period_end": "2013-12-31",
+      "filed_at": "2014-05-16",
+      "due_date": "2014-06-30"
+    },
+    {
+      "period_end": "2014-08-31",
+      "filed_at": "2013-09-16",
+      "due_date": "2015-02-28"
+    },
+    {
+      "period_end": "2014-12-31",
+      "filed_at": "2015-02-23",
+      "due_date": "2015-06-30"
+    },
+    {
+      "period_end": "2014-12-31",
+      "filed_at": "2014-05-13",
+      "due_date": "2015-06-30"
+    },
+    {
+      "period_end": "2015-06-30",
+      "filed_at": "2016-04-20",
+      "due_date": "2015-12-30"
+    },
+    {
+      "period_end": "2015-12-31",
+      "filed_at": "2016-06-29",
+      "due_date": "2016-06-30"
+    },
+    {
+      "period_end": "2016-03-31",
+      "filed_at": "2016-04-28",
+      "due_date": "2016-09-30"
+    },
+    {
+      "period_end": "2016-12-31",
+      "filed_at": "2017-06-26",
+      "due_date": "2017-06-30"
+    },
+    {
+      "period_end": "2017-12-31",
+      "filed_at": "2018-06-29",
+      "due_date": "2018-06-30"
+    },
+    {
+      "period_end": "2018-12-31",
+      "filed_at": "2019-05-15",
+      "due_date": "2019-06-30"
+    },
+    {
+      "period_end": "2019-12-31",
+      "filed_at": "2020-06-17",
+      "due_date": "2020-06-30"
+    },
+    {
+      "period_end": "2020-12-31",
+      "filed_at": "2021-06-16",
+      "due_date": "2021-06-30"
+    },
+    {
+      "period_end": "2021-12-31",
+      "filed_at": "2022-06-23",
+      "due_date": "2022-06-30"
+    },
+    {
+      "period_end": "2022-12-31",
+      "filed_at": "2023-05-26",
+      "due_date": "2023-06-30"
+    },
+    {
+      "period_end": "2023-12-31",
+      "filed_at": "2024-05-31",
+      "due_date": "2024-06-30"
+    },
+    {
+      "period_end": "2024-12-31",
+      "filed_at": "2025-05-30",
+      "due_date": "2025-06-30"
+    }
+  ],
+  "insolvency_date": null
+}

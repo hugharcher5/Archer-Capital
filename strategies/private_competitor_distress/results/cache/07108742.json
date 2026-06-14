@@ -1,0 +1,120 @@
+{
+  "ch_number": "07108742",
+  "name": "FOXTONS GROUP PLC",
+  "company_type": "plc",
+  "current_status": "active",
+  "incorporation_date": "2009-12-18",
+  "accounts": [
+    {
+      "period_end": "2010-12-31",
+      "filed_at": "2011-08-25",
+      "due_date": "2011-06-30"
+    },
+    {
+      "period_end": "2011-12-31",
+      "filed_at": "2012-08-10",
+      "due_date": "2012-06-30"
+    },
+    {
+      "period_end": "2012-12-31",
+      "filed_at": "2013-07-25",
+      "due_date": "2013-06-30"
+    },
+    {
+      "period_end": "2013-12-31",
+      "filed_at": "2014-05-09",
+      "due_date": "2014-06-30"
+    },
+    {
+      "period_end": "2014-06-30",
+      "filed_at": "2015-05-26",
+      "due_date": "2014-12-30"
+    },
+    {
+      "period_end": "2014-12-31",
+      "filed_at": "2015-05-06",
+      "due_date": "2015-06-30"
+    },
+    {
+      "period_end": "2015-06-30",
+      "filed_at": "2015-08-25",
+      "due_date": "2015-12-30"
+    },
+    {
+      "period_end": "2015-12-16",
+      "filed_at": "2015-12-21",
+      "due_date": "2016-06-16"
+    },
+    {
+      "period_end": "2015-12-31",
+      "filed_at": "2016-05-05",
+      "due_date": "2016-06-30"
+    },
+    {
+      "period_end": "2016-04-26",
+      "filed_at": "2016-05-11",
+      "due_date": "2016-10-26"
+    },
+    {
+      "period_end": "2016-06-30",
+      "filed_at": "2016-08-15",
+      "due_date": "2016-12-30"
+    },
+    {
+      "period_end": "2016-12-31",
+      "filed_at": "2017-06-02",
+      "due_date": "2017-06-30"
+    },
+    {
+      "period_end": "2017-12-31",
+      "filed_at": "2018-05-31",
+      "due_date": "2018-06-30"
+    },
+    {
+      "period_end": "2018-12-31",
+      "filed_at": "2019-06-04",
+      "due_date": "2019-06-30"
+    },
+    {
+      "period_end": "2019-12-31",
+      "filed_at": "2020-07-02",
+      "due_date": "2020-06-30"
+    },
+    {
+      "period_end": "2020-12-31",
+      "filed_at": "2021-04-27",
+      "due_date": "2021-06-30"
+    },
+    {
+      "period_end": "2021-12-31",
+      "filed_at": "2022-06-29",
+      "due_date": "2022-06-30"
+    },
+    {
+      "period_end": "2022-12-31",
+      "filed_at": "2023-06-15",
+      "due_date": "2023-06-30"
+    },
+    {
+      "period_end": "2023-12-31",
+      "filed_at": "2024-06-27",
+      "due_date": "2024-06-30"
+    },
+    {
+      "period_end": "2023-12-31",
+      "filed_at": "2024-05-21",
+      "due_date": "2024-06-30"
+    },
+    {
+      "period_end": "2024-12-31",
+      "filed_at": "2025-05-01",
+      "due_date": "2025-06-30"
+    },
+    {
+      "period_end": "2025-12-31",
+      "filed_at": "2026-05-16",
+      "due_date": "2026-06-30"
+    }
+  ],
+  "insolvency_date": "2012-03-27"
+}

@@ -1,0 +1,125 @@
+{
+  "ch_number": "05202036",
+  "name": "WH SMITH PLC",
+  "company_type": "plc",
+  "current_status": "active",
+  "incorporation_date": "2004-08-10",
+  "accounts": [
+    {
+      "period_end": "2005-08-31",
+      "filed_at": "2005-11-01",
+      "due_date": "2006-02-28"
+    },
+    {
+      "period_end": "2006-08-31",
+      "filed_at": "2007-02-13",
+      "due_date": "2007-02-28"
+    },
+    {
+      "period_end": "2006-09-07",
+      "filed_at": "2006-12-07",
+      "due_date": "2007-03-07"
+    },
+    {
+      "period_end": "2007-08-31",
+      "filed_at": "2007-12-22",
+      "due_date": "2008-02-29"
+    },
+    {
+      "period_end": "2008-08-31",
+      "filed_at": "2008-12-22",
+      "due_date": "2009-02-28"
+    },
+    {
+      "period_end": "2009-08-31",
+      "filed_at": "2009-12-23",
+      "due_date": "2010-02-28"
+    },
+    {
+      "period_end": "2010-08-31",
+      "filed_at": "2010-12-08",
+      "due_date": "2011-02-28"
+    },
+    {
+      "period_end": "2011-08-31",
+      "filed_at": "2012-01-02",
+      "due_date": "2012-02-29"
+    },
+    {
+      "period_end": "2012-08-31",
+      "filed_at": "2013-01-21",
+      "due_date": "2013-02-28"
+    },
+    {
+      "period_end": "2013-08-31",
+      "filed_at": "2014-01-28",
+      "due_date": "2014-02-28"
+    },
+    {
+      "period_end": "2014-08-31",
+      "filed_at": "2014-12-23",
+      "due_date": "2015-02-28"
+    },
+    {
+      "period_end": "2015-08-31",
+      "filed_at": "2016-01-04",
+      "due_date": "2016-02-29"
+    },
+    {
+      "period_end": "2016-08-31",
+      "filed_at": "2016-12-29",
+      "due_date": "2017-02-28"
+    },
+    {
+      "period_end": "2017-08-31",
+      "filed_at": "2018-01-03",
+      "due_date": "2018-02-28"
+    },
+    {
+      "period_end": "2018-08-31",
+      "filed_at": "2018-12-22",
+      "due_date": "2019-02-28"
+    },
+    {
+      "period_end": "2019-08-31",
+      "filed_at": "2020-01-03",
+      "due_date": "2020-02-29"
+    },
+    {
+      "period_end": "2020-08-31",
+      "filed_at": "2021-03-05",
+      "due_date": "2021-02-28"
+    },
+    {
+      "period_end": "2021-08-31",
+      "filed_at": "2022-02-03",
+      "due_date": "2022-02-28"
+    },
+    {
+      "period_end": "2022-08-31",
+      "filed_at": "2023-01-26",
+      "due_date": "2023-02-28"
+    },
+    {
+      "period_end": "2023-08-31",
+      "filed_at": "2024-02-09",
+      "due_date": "2024-02-29"
+    },
+    {
+      "period_end": "2024-08-31",
+      "filed_at": "2025-02-20",
+      "due_date": "2025-02-28"
+    },
+    {
+      "period_end": "2024-11-30",
+      "filed_at": "2024-12-17",
+      "due_date": "2025-05-30"
+    },
+    {
+      "period_end": "2025-08-31",
+      "filed_at": "2026-01-22",
+      "due_date": "2026-02-28"
+    }
+  ],
+  "insolvency_date": null
+}

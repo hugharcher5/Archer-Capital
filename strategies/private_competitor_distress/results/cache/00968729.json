@@ -1,0 +1,210 @@
+{
+  "ch_number": "00968729",
+  "name": "CAUNTON ENGINEERING LIMITED",
+  "company_type": "ltd",
+  "current_status": "active",
+  "incorporation_date": "1969-12-19",
+  "accounts": [
+    {
+      "period_end": "1986-01-31",
+      "filed_at": "1986-11-06",
+      "due_date": "1986-10-31"
+    },
+    {
+      "period_end": "1987-01-31",
+      "filed_at": "1987-12-01",
+      "due_date": "1987-10-31"
+    },
+    {
+      "period_end": "1988-01-31",
+      "filed_at": "1988-08-16",
+      "due_date": "1988-10-31"
+    },
+    {
+      "period_end": "1989-01-31",
+      "filed_at": "1989-10-26",
+      "due_date": "1989-10-31"
+    },
+    {
+      "period_end": "1990-01-31",
+      "filed_at": "1990-12-07",
+      "due_date": "1990-10-31"
+    },
+    {
+      "period_end": "1991-01-31",
+      "filed_at": "1991-08-06",
+      "due_date": "1991-10-31"
+    },
+    {
+      "period_end": "1992-01-31",
+      "filed_at": "1992-09-24",
+      "due_date": "1992-10-31"
+    },
+    {
+      "period_end": "1993-01-31",
+      "filed_at": "1993-12-08",
+      "due_date": "1993-10-31"
+    },
+    {
+      "period_end": "1994-01-31",
+      "filed_at": "1994-08-01",
+      "due_date": "1994-10-31"
+    },
+    {
+      "period_end": "1995-01-31",
+      "filed_at": "1995-03-23",
+      "due_date": "1995-10-31"
+    },
+    {
+      "period_end": "1996-01-31",
+      "filed_at": "1996-04-24",
+      "due_date": "1996-10-31"
+    },
+    {
+      "period_end": "1997-01-31",
+      "filed_at": "1997-07-31",
+      "due_date": "1997-10-31"
+    },
+    {
+      "period_end": "1998-01-31",
+      "filed_at": "1998-11-27",
+      "due_date": "1998-10-31"
+    },
+    {
+      "period_end": "1999-01-31",
+      "filed_at": "1999-11-22",
+      "due_date": "1999-10-31"
+    },
+    {
+      "period_end": "2000-01-31",
+      "filed_at": "2000-11-21",
+      "due_date": "2000-10-31"
+    },
+    {
+      "period_end": "2001-01-31",
+      "filed_at": "2001-11-23",
+      "due_date": "2001-10-31"
+    },
+    {
+      "period_end": "2002-01-31",
+      "filed_at": "2002-11-25",
+      "due_date": "2002-10-31"
+    },
+    {
+      "period_end": "2003-01-31",
+      "filed_at": "2003-09-16",
+      "due_date": "2003-10-31"
+    },
+    {
+      "period_end": "2004-01-31",
+      "filed_at": "2004-11-26",
+      "due_date": "2004-10-31"
+    },
+    {
+      "period_end": "2005-01-31",
+      "filed_at": "2005-12-07",
+      "due_date": "2005-10-31"
+    },
+    {
+      "period_end": "2006-01-31",
+      "filed_at": "2006-09-18",
+      "due_date": "2006-10-31"
+    },
+    {
+      "period_end": "2007-01-31",
+      "filed_at": "2007-12-02",
+      "due_date": "2007-10-31"
+    },
+    {
+      "period_end": "2008-01-31",
+      "filed_at": "2008-07-17",
+      "due_date": "2008-10-31"
+    },
+    {
+      "period_end": "2009-01-31",
+      "filed_at": "2009-11-25",
+      "due_date": "2009-10-31"
+    },
+    {
+      "period_end": "2010-01-31",
+      "filed_at": "2010-09-07",
+      "due_date": "2010-10-31"
+    },
+    {
+      "period_end": "2011-01-31",
+      "filed_at": "2011-09-19",
+      "due_date": "2011-10-31"
+    },
+    {
+      "period_end": "2012-01-31",
+      "filed_at": "2012-05-30",
+      "due_date": "2012-10-31"
+    },
+    {
+      "period_end": "2013-01-31",
+      "filed_at": "2013-07-01",
+      "due_date": "2013-10-31"
+    },
+    {
+      "period_end": "2014-01-31",
+      "filed_at": "2014-07-03",
+      "due_date": "2014-10-31"
+    },
+    {
+      "period_end": "2015-01-31",
+      "filed_at": "2015-08-12",
+      "due_date": "2015-10-31"
+    },
+    {
+      "period_end": "2016-01-31",
+      "filed_at": "2016-09-13",
+      "due_date": "2016-10-31"
+    },
+    {
+      "period_end": "2017-01-31",
+      "filed_at": "2017-07-11",
+      "due_date": "2017-10-31"
+    },
+    {
+      "period_end": "2018-01-31",
+      "filed_at": "2018-10-25",
+      "due_date": "2018-10-31"
+    },
+    {
+      "period_end": "2019-01-31",
+      "filed_at": "2019-10-12",
+      "due_date": "2019-10-31"
+    },
+    {
+      "period_end": "2020-01-31",
+      "filed_at": "2021-02-11",
+      "due_date": "2020-10-31"
+    },
+    {
+      "period_end": "2021-01-31",
+      "filed_at": "2021-10-15",
+      "due_date": "2021-10-31"
+    },
+    {
+      "period_end": "2022-01-31",
+      "filed_at": "2022-06-16",
+      "due_date": "2022-10-31"
+    },
+    {
+      "period_end": "2023-01-31",
+      "filed_at": "2023-10-19",
+      "due_date": "2023-10-31"
+    },
+    {
+      "period_end": "2024-01-31",
+      "filed_at": "2024-08-30",
+      "due_date": "2024-10-31"
+    },
+    {
+      "period_end": "2025-01-31",
+      "filed_at": "2025-10-14",
+      "due_date": "2025-10-31"
+    }
+  ],
+  "insolvency_date": null
+}

@@ -20,6 +20,30 @@ STRATEGY_CONFIG = {
     ),
     "results_dir": Path(__file__).parent / "results",
     "signal_file": Path(__file__).parent / "signal.py",
+    "data_sections": [
+        {
+            "id":          "ticker_signals",
+            "title":       "Ticker Signal Scores (live CH data)",
+            "file":        "ticker_signals.csv",
+            "description": (
+                "Aggregate distress exposure per listed ticker. "
+                "avg_distress_score weights all competitors equally. "
+                "Threshold for LONG signal: 0.35."
+            ),
+            "chart_type":  "bar_ticker",
+        },
+        {
+            "id":          "company_scores",
+            "title":       "Company Distress Scores",
+            "file":        "distress_scores.csv",
+            "description": (
+                "Composite score per private competitor. "
+                "Components: accounts delay (40%), company status (30%), "
+                "overdue accounts (20%), late confirmation statement (10%)."
+            ),
+            "chart_type":  "table_companies",
+        },
+    ],
     "validation_layers": [
         {
             "id":          "in_sample_backtest",
@@ -30,7 +54,7 @@ STRATEGY_CONFIG = {
                 "Proves the strategy has edge on data it was built on. A necessary "
                 "but not sufficient condition — results here can reflect overfitting."
             ),
-            "status":      "not_started",
+            "status":      "in_progress",
         },
         {
             "id":          "in_sample_mcpt",

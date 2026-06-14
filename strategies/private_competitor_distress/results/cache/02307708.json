@@ -1,0 +1,195 @@
+{
+  "ch_number": "02307708",
+  "name": "FURNITURE VILLAGE LIMITED",
+  "company_type": "ltd",
+  "current_status": "active",
+  "incorporation_date": "1988-10-20",
+  "accounts": [
+    {
+      "period_end": "1989-12-31",
+      "filed_at": "1990-08-20",
+      "due_date": "1990-09-30"
+    },
+    {
+      "period_end": "1990-12-31",
+      "filed_at": "1991-07-17",
+      "due_date": "1991-09-30"
+    },
+    {
+      "period_end": "1991-12-31",
+      "filed_at": "1992-07-28",
+      "due_date": "1992-09-30"
+    },
+    {
+      "period_end": "1992-12-31",
+      "filed_at": "1993-05-05",
+      "due_date": "1993-09-30"
+    },
+    {
+      "period_end": "1993-12-31",
+      "filed_at": "1994-04-27",
+      "due_date": "1994-09-30"
+    },
+    {
+      "period_end": "1994-12-31",
+      "filed_at": "1995-03-30",
+      "due_date": "1995-09-30"
+    },
+    {
+      "period_end": "1995-12-31",
+      "filed_at": "1996-07-15",
+      "due_date": "1996-09-30"
+    },
+    {
+      "period_end": "1996-12-31",
+      "filed_at": "1997-06-30",
+      "due_date": "1997-09-30"
+    },
+    {
+      "period_end": "1997-12-31",
+      "filed_at": "1998-07-28",
+      "due_date": "1998-09-30"
+    },
+    {
+      "period_end": "1998-12-27",
+      "filed_at": "1999-05-12",
+      "due_date": "1999-09-27"
+    },
+    {
+      "period_end": "2000-04-02",
+      "filed_at": "2000-08-11",
+      "due_date": "2001-01-02"
+    },
+    {
+      "period_end": "2001-04-01",
+      "filed_at": "2001-10-27",
+      "due_date": "2002-01-01"
+    },
+    {
+      "period_end": "2002-03-31",
+      "filed_at": "2002-08-04",
+      "due_date": "2002-12-31"
+    },
+    {
+      "period_end": "2003-03-30",
+      "filed_at": "2003-06-30",
+      "due_date": "2003-12-30"
+    },
+    {
+      "period_end": "2004-03-28",
+      "filed_at": "2004-09-29",
+      "due_date": "2004-12-28"
+    },
+    {
+      "period_end": "2005-04-03",
+      "filed_at": "2005-12-23",
+      "due_date": "2006-01-03"
+    },
+    {
+      "period_end": "2006-04-02",
+      "filed_at": "2006-11-02",
+      "due_date": "2007-01-02"
+    },
+    {
+      "period_end": "2007-04-01",
+      "filed_at": "2007-08-09",
+      "due_date": "2008-01-01"
+    },
+    {
+      "period_end": "2008-03-30",
+      "filed_at": "2008-08-22",
+      "due_date": "2008-12-30"
+    },
+    {
+      "period_end": "2009-03-29",
+      "filed_at": "2009-09-10",
+      "due_date": "2009-12-29"
+    },
+    {
+      "period_end": "2010-04-04",
+      "filed_at": "2010-08-11",
+      "due_date": "2011-01-04"
+    },
+    {
+      "period_end": "2011-04-03",
+      "filed_at": "2012-01-24",
+      "due_date": "2012-01-03"
+    },
+    {
+      "period_end": "2012-04-01",
+      "filed_at": "2013-01-08",
+      "due_date": "2013-01-01"
+    },
+    {
+      "period_end": "2013-03-31",
+      "filed_at": "2014-01-05",
+      "due_date": "2013-12-31"
+    },
+    {
+      "period_end": "2014-03-30",
+      "filed_at": "2014-09-12",
+      "due_date": "2014-12-30"
+    },
+    {
+      "period_end": "2015-03-29",
+      "filed_at": "2015-09-04",
+      "due_date": "2015-12-29"
+    },
+    {
+      "period_end": "2016-03-27",
+      "filed_at": "2016-12-15",
+      "due_date": "2016-12-27"
+    },
+    {
+      "period_end": "2017-04-02",
+      "filed_at": "2018-01-02",
+      "due_date": "2018-01-02"
+    },
+    {
+      "period_end": "2018-04-01",
+      "filed_at": "2018-12-18",
+      "due_date": "2019-01-01"
+    },
+    {
+      "period_end": "2019-03-31",
+      "filed_at": "2020-01-04",
+      "due_date": "2019-12-31"
+    },
+    {
+      "period_end": "2020-03-31",
+      "filed_at": "2021-03-05",
+      "due_date": "2020-12-31"
+    },
+    {
+      "period_end": "2021-03-28",
+      "filed_at": "2022-01-31",
+      "due_date": "2021-12-28"
+    },
+    {
+      "period_end": "2022-03-31",
+      "filed_at": "2022-05-27",
+      "due_date": "2022-12-31"
+    },
+    {
+      "period_end": "2022-07-03",
+      "filed_at": "2023-04-19",
+      "due_date": "2023-04-03"
+    },
+    {
+      "period_end": "2023-07-02",
+      "filed_at": "2024-04-17",
+      "due_date": "2024-04-02"
+    },
+    {
+      "period_end": "2024-06-30",
+      "filed_at": "2025-03-31",
+      "due_date": "2025-03-30"
+    },
+    {
+      "period_end": "2025-06-30",
+      "filed_at": "2026-02-16",
+      "due_date": "2026-03-30"
+    }
+  ],
+  "insolvency_date": null
+}

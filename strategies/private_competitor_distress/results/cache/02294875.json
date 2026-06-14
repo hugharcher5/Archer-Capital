@@ -1,0 +1,185 @@
+{
+  "ch_number": "02294875",
+  "name": "CPR REALISATIONS LIMITED",
+  "company_type": "ltd",
+  "current_status": "administration",
+  "incorporation_date": "1988-09-12",
+  "accounts": [
+    {
+      "period_end": "1989-04-29",
+      "filed_at": "1989-11-07",
+      "due_date": "1990-01-29"
+    },
+    {
+      "period_end": "1990-04-28",
+      "filed_at": "1990-12-07",
+      "due_date": "1991-01-28"
+    },
+    {
+      "period_end": "1991-04-27",
+      "filed_at": "1992-01-06",
+      "due_date": "1992-01-27"
+    },
+    {
+      "period_end": "1992-05-02",
+      "filed_at": "1992-12-07",
+      "due_date": "1993-02-02"
+    },
+    {
+      "period_end": "1993-05-01",
+      "filed_at": "1993-06-07",
+      "due_date": "1994-02-01"
+    },
+    {
+      "period_end": "1994-04-30",
+      "filed_at": "1994-08-01",
+      "due_date": "1995-01-30"
+    },
+    {
+      "period_end": "1995-04-29",
+      "filed_at": "1995-07-28",
+      "due_date": "1996-01-29"
+    },
+    {
+      "period_end": "1996-04-27",
+      "filed_at": "1996-07-30",
+      "due_date": "1997-01-27"
+    },
+    {
+      "period_end": "1997-04-26",
+      "filed_at": "1997-07-25",
+      "due_date": "1998-01-26"
+    },
+    {
+      "period_end": "1998-05-02",
+      "filed_at": "1998-08-06",
+      "due_date": "1999-02-02"
+    },
+    {
+      "period_end": "1999-05-01",
+      "filed_at": "1999-08-12",
+      "due_date": "2000-02-01"
+    },
+    {
+      "period_end": "2000-04-30",
+      "filed_at": "2000-08-11",
+      "due_date": "2001-01-30"
+    },
+    {
+      "period_end": "2001-04-28",
+      "filed_at": "2001-08-14",
+      "due_date": "2002-01-28"
+    },
+    {
+      "period_end": "2002-04-27",
+      "filed_at": "2002-08-17",
+      "due_date": "2003-01-27"
+    },
+    {
+      "period_end": "2003-05-03",
+      "filed_at": "2003-09-18",
+      "due_date": "2004-02-03"
+    },
+    {
+      "period_end": "2004-05-01",
+      "filed_at": "2004-08-20",
+      "due_date": "2005-02-01"
+    },
+    {
+      "period_end": "2005-04-30",
+      "filed_at": "2005-08-25",
+      "due_date": "2006-01-30"
+    },
+    {
+      "period_end": "2006-04-29",
+      "filed_at": "2006-09-15",
+      "due_date": "2007-01-29"
+    },
+    {
+      "period_end": "2007-04-28",
+      "filed_at": "2007-09-13",
+      "due_date": "2008-01-28"
+    },
+    {
+      "period_end": "2008-05-03",
+      "filed_at": "2008-09-23",
+      "due_date": "2009-02-03"
+    },
+    {
+      "period_end": "2009-05-02",
+      "filed_at": "2009-09-16",
+      "due_date": "2010-02-02"
+    },
+    {
+      "period_end": "2010-05-01",
+      "filed_at": "2010-08-27",
+      "due_date": "2011-02-01"
+    },
+    {
+      "period_end": "2011-04-30",
+      "filed_at": "2011-09-14",
+      "due_date": "2012-01-30"
+    },
+    {
+      "period_end": "2012-04-28",
+      "filed_at": "2012-09-11",
+      "due_date": "2013-01-28"
+    },
+    {
+      "period_end": "2013-04-27",
+      "filed_at": "2013-09-12",
+      "due_date": "2014-01-27"
+    },
+    {
+      "period_end": "2014-04-26",
+      "filed_at": "2014-09-10",
+      "due_date": "2015-01-26"
+    },
+    {
+      "period_end": "2015-05-02",
+      "filed_at": "2015-09-23",
+      "due_date": "2016-02-02"
+    },
+    {
+      "period_end": "2016-04-30",
+      "filed_at": "2016-09-17",
+      "due_date": "2017-01-30"
+    },
+    {
+      "period_end": "2017-04-29",
+      "filed_at": "2017-09-15",
+      "due_date": "2018-01-29"
+    },
+    {
+      "period_end": "2018-04-28",
+      "filed_at": "2018-10-05",
+      "due_date": "2019-01-28"
+    },
+    {
+      "period_end": "2019-04-27",
+      "filed_at": "2019-09-23",
+      "due_date": "2020-01-27"
+    },
+    {
+      "period_end": "2020-04-30",
+      "filed_at": "2020-04-24",
+      "due_date": "2021-01-30"
+    },
+    {
+      "period_end": "2020-10-31",
+      "filed_at": "2022-04-04",
+      "due_date": "2021-07-31"
+    },
+    {
+      "period_end": "2021-10-31",
+      "filed_at": "2021-01-08",
+      "due_date": "2022-07-31"
+    },
+    {
+      "period_end": "2022-01-01",
+      "filed_at": "2023-06-29",
+      "due_date": "2022-10-01"
+    }
+  ],
+  "insolvency_date": "2022-10-25"
+}

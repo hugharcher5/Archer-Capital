@@ -1,0 +1,65 @@
+{
+  "ch_number": "09791105",
+  "name": "WATKIN JONES PLC",
+  "company_type": "plc",
+  "current_status": "active",
+  "incorporation_date": "2015-09-23",
+  "accounts": [
+    {
+      "period_end": "2016-03-15",
+      "filed_at": "2016-06-27",
+      "due_date": "2016-09-15"
+    },
+    {
+      "period_end": "2016-09-30",
+      "filed_at": "2017-04-04",
+      "due_date": "2017-03-30"
+    },
+    {
+      "period_end": "2017-09-30",
+      "filed_at": "2018-04-05",
+      "due_date": "2018-03-30"
+    },
+    {
+      "period_end": "2018-09-30",
+      "filed_at": "2019-04-15",
+      "due_date": "2019-03-30"
+    },
+    {
+      "period_end": "2019-09-30",
+      "filed_at": "2020-02-27",
+      "due_date": "2020-03-30"
+    },
+    {
+      "period_end": "2020-09-30",
+      "filed_at": "2021-06-30",
+      "due_date": "2021-03-30"
+    },
+    {
+      "period_end": "2021-09-30",
+      "filed_at": "2022-04-06",
+      "due_date": "2022-03-30"
+    },
+    {
+      "period_end": "2022-09-30",
+      "filed_at": "2023-03-13",
+      "due_date": "2023-03-30"
+    },
+    {
+      "period_end": "2023-09-30",
+      "filed_at": "2024-03-14",
+      "due_date": "2024-03-30"
+    },
+    {
+      "period_end": "2024-09-30",
+      "filed_at": "2025-03-21",
+      "due_date": "2025-03-30"
+    },
+    {
+      "period_end": "2025-09-30",
+      "filed_at": "2026-02-26",
+      "due_date": "2026-03-30"
+    }
+  ],
+  "insolvency_date": "2016-03-15"
+}

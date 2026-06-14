@@ -1,0 +1,100 @@
+{
+  "ch_number": "06690189",
+  "name": "PURE GYM LIMITED",
+  "company_type": "ltd",
+  "current_status": "active",
+  "incorporation_date": "2008-09-05",
+  "accounts": [
+    {
+      "period_end": "2010-02-28",
+      "filed_at": "2010-06-07",
+      "due_date": "2010-11-28"
+    },
+    {
+      "period_end": "2011-02-28",
+      "filed_at": "2011-05-04",
+      "due_date": "2011-11-28"
+    },
+    {
+      "period_end": "2012-02-29",
+      "filed_at": "2012-04-25",
+      "due_date": "2012-11-29"
+    },
+    {
+      "period_end": "2013-02-28",
+      "filed_at": "2013-04-10",
+      "due_date": "2013-11-28"
+    },
+    {
+      "period_end": "2013-12-31",
+      "filed_at": "2014-04-17",
+      "due_date": "2014-09-30"
+    },
+    {
+      "period_end": "2014-02-28",
+      "filed_at": "2013-12-04",
+      "due_date": "2014-11-28"
+    },
+    {
+      "period_end": "2014-12-31",
+      "filed_at": "2015-04-13",
+      "due_date": "2015-09-30"
+    },
+    {
+      "period_end": "2015-12-31",
+      "filed_at": "2016-05-05",
+      "due_date": "2016-09-30"
+    },
+    {
+      "period_end": "2016-12-31",
+      "filed_at": "2017-04-05",
+      "due_date": "2017-09-30"
+    },
+    {
+      "period_end": "2017-12-31",
+      "filed_at": "2018-05-11",
+      "due_date": "2018-09-30"
+    },
+    {
+      "period_end": "2018-12-31",
+      "filed_at": "2019-05-13",
+      "due_date": "2019-09-30"
+    },
+    {
+      "period_end": "2019-12-31",
+      "filed_at": "2020-06-24",
+      "due_date": "2020-09-30"
+    },
+    {
+      "period_end": "2020-12-31",
+      "filed_at": "2021-05-19",
+      "due_date": "2021-09-30"
+    },
+    {
+      "period_end": "2021-12-31",
+      "filed_at": "2022-06-07",
+      "due_date": "2022-09-30"
+    },
+    {
+      "period_end": "2022-12-31",
+      "filed_at": "2023-05-17",
+      "due_date": "2023-09-30"
+    },
+    {
+      "period_end": "2023-12-31",
+      "filed_at": "2024-06-17",
+      "due_date": "2024-09-30"
+    },
+    {
+      "period_end": "2024-12-31",
+      "filed_at": "2025-05-28",
+      "due_date": "2025-09-30"
+    },
+    {
+      "period_end": "2025-12-31",
+      "filed_at": "2026-06-06",
+      "due_date": "2026-09-30"
+    }
+  ],
+  "insolvency_date": null
+}

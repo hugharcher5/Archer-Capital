@@ -12,6 +12,7 @@ Usage:
 """
 
 from __future__ import annotations
+import json
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
@@ -155,6 +156,135 @@ def _fig_crisis(period: str, seed: int, drawdown_pct: float) -> go.Figure:
     return fig
 
 
+# ── Live data section renderers ───────────────────────────────────────────────
+
+def _render_bar_ticker(df: pd.DataFrame, description: str) -> None:
+    st.caption(description)
+    df_sorted = df.sort_values("avg_distress_score", ascending=True)
+    colours = [
+        "#ff4b4b" if s >= 0.35 else "#ffa500" if s >= 0.15 else "#00d4aa"
+        for s in df_sorted["avg_distress_score"]
+    ]
+    fig = go.Figure(go.Bar(
+        x=df_sorted["avg_distress_score"],
+        y=df_sorted["ticker"],
+        orientation="h",
+        marker_color=colours,
+        customdata=np.stack([
+            df_sorted["n_distressed"].values,
+            df_sorted["n_competitors"].values,
+            df_sorted["max_distress_score"].values,
+            df_sorted["most_distressed_co"].values,
+        ], axis=-1),
+        hovertemplate=(
+            "<b>%{y}</b><br>"
+            "Avg score: %{x:.3f}<br>"
+            "Distressed: %{customdata[0]}/%{customdata[1]}<br>"
+            "Max score: %{customdata[2]:.3f}<br>"
+            "Top distressed: %{customdata[3]}<extra></extra>"
+        ),
+    ))
+    fig.add_vline(x=0.35, line_dash="dash", line_color="rgba(255,75,75,0.6)",
+                  annotation_text="Signal threshold (0.35)")
+    fig.update_layout(
+        template=_DARK,
+        title="Avg Competitor Distress Score by Listed Ticker",
+        xaxis_title="Average Distress Score",
+        height=max(300, len(df_sorted) * 26 + 80),
+        margin=dict(t=50, b=40, l=80, r=20),
+        showlegend=False,
+    )
+    st.plotly_chart(fig, use_container_width=True)
+
+    # Signal callout
+    signals = df[df["signal"] == "LONG"]
+    if not signals.empty:
+        tickers = ", ".join(signals["ticker"].tolist())
+        st.error(f"LONG signal active: **{tickers}**  (avg distress ≥ 0.35)")
+    else:
+        st.info("No LONG signals currently active (all tickers below 0.35 threshold).")
+
+
+def _render_table_companies(df: pd.DataFrame, description: str) -> None:
+    st.caption(description)
+
+    # Filter controls
+    c1, c2 = st.columns([2, 1])
+    min_score = c1.slider("Minimum distress score", 0.0, 1.0, 0.0, 0.01,
+                          key="co_score_filter")
+    tickers_available = sorted(
+        {t.strip() for ts in df["tickers"].str.split(",") for t in ts}
+    )
+    ticker_filter = c2.multiselect("Filter by ticker", tickers_available,
+                                   key="co_ticker_filter")
+
+    display = df[df["score"] >= min_score].copy()
+    if ticker_filter:
+        mask = display["tickers"].apply(
+            lambda ts: any(t.strip() in ticker_filter for t in ts.split(","))
+        )
+        display = display[mask]
+
+    display = display.sort_values("score", ascending=False)
+
+    cols_show = ["name", "ch_number", "tickers", "score", "days_late",
+                 "company_status", "period_end", "flags"]
+    st.dataframe(
+        display[cols_show],
+        use_container_width=True,
+        hide_index=True,
+        column_config={
+            "score": st.column_config.ProgressColumn(
+                "score",
+                min_value=0.0,
+                max_value=1.0,
+                format="%.3f",
+            ),
+        },
+    )
+    st.caption(f"{len(display)} companies shown.")
+
+
+def _render_data_sections(config: dict) -> None:
+    """Render live data sections (tabular/chart views of pipeline outputs)."""
+    sections = config.get("data_sections", [])
+    if not sections:
+        return
+
+    results_dir: Path = config.get("results_dir", Path())
+    any_data = any(
+        (results_dir / s["file"]).exists() for s in sections
+    )
+    if not any_data:
+        return
+
+    st.divider()
+    st.subheader("Live Signal Data")
+
+    tabs = [s["title"] for s in sections if (results_dir / s["file"]).exists()]
+    if not tabs:
+        return
+
+    tab_widgets = st.tabs(tabs)
+    tab_idx = 0
+    for section in sections:
+        path = results_dir / section["file"]
+        if not path.exists():
+            continue
+        with tab_widgets[tab_idx]:
+            df = pd.read_csv(path)
+            chart_type = section.get("chart_type", "table")
+            desc = section.get("description", "")
+            if chart_type == "bar_ticker":
+                _render_bar_ticker(df, desc)
+            elif chart_type == "table_companies":
+                _render_table_companies(df, desc)
+            else:
+                st.caption(desc)
+                st.dataframe(df, use_container_width=True, hide_index=True)
+        tab_idx += 1
+
+
 # ── Status badge row ──────────────────────────────────────────────────────────
 
 def _render_status_badges(layers: list[dict]) -> None:
@@ -211,28 +341,103 @@ def _placeholder_gate(layer: dict) -> bool:
 # ── Layer renderers ───────────────────────────────────────────────────────────
 
 def _render_layer1(layer: dict) -> None:
-    has = _layer_header(layer)
-    if not has:
+    # Real results live in the top-level results dir (parent of the layer subdir)
+    top_results  = layer.get("results_dir", Path()).parent
+    metrics_path = top_results / "layer1_metrics.json"
+    curve_path   = top_results / "layer1_equity_curve.csv"
+    events_path  = top_results / "event_study_results.csv"
+    has_real = metrics_path.exists() and curve_path.exists()
+
+    # Pass the right dir so the header badge doesn't say "not run"
+    _layer_header({**layer, "results_dir": top_results if has_real else layer.get("results_dir")})
+
+    if not has_real:
         if not _placeholder_gate(layer):
             return
+        x, curve = _equity_curve()
+        dd = _drawdown_series(curve)
+        cagr   = float(curve[-1] ** (252 / len(curve)) - 1)
+        mdd    = float(dd.min())
+        rets   = np.diff(curve) / curve[:-1]
+        sharpe = float(np.mean(rets) / np.std(rets) * np.sqrt(252))
+        wins   = float(np.mean(rets > 0) * 100)
+        m1, m2, m3, m4, m5 = st.columns(5)
+        m1.metric("Sharpe Ratio", f"{sharpe:.2f}", help="PLACEHOLDER")
+        m2.metric("Max Drawdown", f"{mdd:.1f}%",   help="PLACEHOLDER")
+        m3.metric("Win Rate",     f"{wins:.1f}%",  help="PLACEHOLDER")
+        m4.metric("Total Trades", "247",           help="PLACEHOLDER")
+        m5.metric("CAGR",         f"{cagr:.1%}",  help="PLACEHOLDER")
+        st.plotly_chart(_fig_equity(x, curve), use_container_width=True)
+        st.plotly_chart(_fig_drawdown(x, dd),  use_container_width=True)
+        return
 
-    x, curve = _equity_curve()
-    dd = _drawdown_series(curve)
-    cagr   = float(curve[-1] ** (252 / len(curve)) - 1)
-    mdd    = float(dd.min())
-    rets   = np.diff(curve) / curve[:-1]
-    sharpe = float(np.mean(rets) / np.std(rets) * np.sqrt(252))
-    wins   = float(np.mean(rets > 0) * 100)
+    # ── Real results ──────────────────────────────────────────────────────────
+    metrics  = json.loads(metrics_path.read_text())
+    curve_df = pd.read_csv(curve_path, parse_dates=["date"])
+
+    sharpe = metrics["sharpe"]
+    mdd    = metrics["max_drawdown"]
+    wr     = metrics["win_rate"]
+    trades = metrics["total_trades"]
+    cagr   = metrics["cagr"]
 
     m1, m2, m3, m4, m5 = st.columns(5)
-    m1.metric("Sharpe Ratio",   f"{sharpe:.2f}",  help="PLACEHOLDER")
-    m2.metric("Max Drawdown",   f"{mdd:.1f}%",    help="PLACEHOLDER")
-    m3.metric("Win Rate",       f"{wins:.1f}%",   help="PLACEHOLDER")
-    m4.metric("Total Trades",   "247",            help="PLACEHOLDER")
-    m5.metric("CAGR",           f"{cagr:.1%}",    help="PLACEHOLDER")
+    m1.metric("Sharpe Ratio", f"{sharpe:.2f}")
+    m2.metric("Max Drawdown", f"{mdd:.1f}%")
+    m3.metric("Win Rate",     f"{wr:.1f}%")
+    m4.metric("Total Trades", str(trades))
+    m5.metric("CAGR",         f"{cagr:.2f}%")
 
-    st.plotly_chart(_fig_equity(x, curve), use_container_width=True)
-    st.plotly_chart(_fig_drawdown(x, dd),  use_container_width=True)
+    # Equity curve
+    fig_eq = go.Figure()
+    fig_eq.add_trace(go.Scatter(
+        x=curve_df["date"], y=curve_df["equity"],
+        mode="lines", name="Strategy",
+        line=dict(color="#00d4aa", width=1.5),
+    ))
+    fig_eq.add_hline(y=1.0, line_dash="dot", line_color="rgba(255,255,255,0.2)")
+    fig_eq.update_layout(
+        template=_DARK,
+        title="In-Sample Backtest — Cumulative Abnormal Return vs Peer Basket",
+        xaxis_title="Date", yaxis_title="Cumulative Return (abnormal)",
+        height=280, margin=dict(t=40, b=30, l=50, r=20),
+        showlegend=False,
+    )
+    st.plotly_chart(fig_eq, use_container_width=True)
+
+    # Drawdown
+    eq_arr = curve_df["equity"].values
+    peak   = np.maximum.accumulate(eq_arr)
+    dd_arr = (eq_arr - peak) / peak * 100
+    fig_dd = go.Figure()
+    fig_dd.add_trace(go.Scatter(
+        x=curve_df["date"], y=dd_arr,
+        fill="tozeroy", mode="lines", name="Drawdown",
+        line=dict(color="#ff4b4b", width=1),
+        fillcolor="rgba(255,75,75,0.25)",
+    ))
+    fig_dd.update_layout(
+        template=_DARK, title="Drawdown",
+        xaxis_title="Date", yaxis_title="Drawdown (%)",
+        height=200, margin=dict(t=40, b=30, l=50, r=20),
+        showlegend=False,
+    )
+    st.plotly_chart(fig_dd, use_container_width=True)
+
+    st.caption(metrics.get("annotation", ""))
+
+    # Event study table
+    if events_path.exists():
+        st.markdown("**Event Study — Cumulative Abnormal Returns**")
+        ev_df = pd.read_csv(events_path, parse_dates=["event_date", "entry_date"])
+        ev_disp = ev_df[["source", "event_date", "ticker", "trigger", "note", "n_days",
+                          "car_21", "car_63", "car_126"]].copy()
+        for col in ("car_21", "car_63", "car_126"):
+            ev_disp[col] = ev_disp[col].map(
+                lambda x: f"{x:.1%}" if pd.notna(x) else ""  # noqa: B023
+            )
+        ev_disp["event_date"] = ev_disp["event_date"].dt.date
+        st.dataframe(ev_disp, use_container_width=True, hide_index=True)
 
 
 def _render_layer2(layer: dict, real_sharpe: float = 0.82) -> None:
@@ -394,7 +599,10 @@ def render_strategy_page(config: dict) -> None:
         with st.expander("View Signal Code", expanded=False):
             st.code(signal_file.read_text(), language="python")
 
-    # ── 4. Validation layers ──────────────────────────────────────────────────
+    # ── 4. Live data sections (pipeline outputs) ──────────────────────────────
+    _render_data_sections(config)
+
+    # ── 5. Validation layers ──────────────────────────────────────────────────
     for layer in config["validation_layers"]:
         layer_with_dir = {**layer, "results_dir": results_dir / layer["id"]}
         renderer = _LAYER_RENDERERS.get(layer["id"])

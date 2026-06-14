@@ -1,0 +1,45 @@
+{
+  "ch_number": "11910770",
+  "name": "LOUNGERS LIMITED",
+  "company_type": "ltd",
+  "current_status": "active",
+  "incorporation_date": "2019-03-28",
+  "accounts": [
+    {
+      "period_end": "2020-03-31",
+      "filed_at": "2019-04-01",
+      "due_date": "2020-12-31"
+    },
+    {
+      "period_end": "2020-04-19",
+      "filed_at": "2020-12-19",
+      "due_date": "2021-01-19"
+    },
+    {
+      "period_end": "2021-04-18",
+      "filed_at": "2021-10-29",
+      "due_date": "2022-01-18"
+    },
+    {
+      "period_end": "2022-04-17",
+      "filed_at": "2022-07-20",
+      "due_date": "2023-01-17"
+    },
+    {
+      "period_end": "2023-04-16",
+      "filed_at": "2023-09-25",
+      "due_date": "2024-01-16"
+    },
+    {
+      "period_end": "2024-04-21",
+      "filed_at": "2024-10-09",
+      "due_date": "2025-01-21"
+    },
+    {
+      "period_end": "2025-04-20",
+      "filed_at": "2026-01-09",
+      "due_date": "2026-01-20"
+    }
+  ],
+  "insolvency_date": null
+}

@@ -69,16 +69,7 @@ with tab_portfolio:
 
     display = pd.concat([display, totals_row], ignore_index=True)
 
-    def _color_pnl(val):
-        if isinstance(val, str):
-            if val.startswith("$+") or (val.startswith("+") and not val.startswith("+0")):
-                return "color: #2ecc71"
-            if val.startswith("$-") or val.startswith("-"):
-                return "color: #e74c3c"
-        return ""
-
-    styled = display.style.map(_color_pnl, subset=["Unreal P&L", "Day P&L", "Day %"])
-    st.dataframe(styled, use_container_width=True, hide_index=True)
+    st.dataframe(display, use_container_width=True, hide_index=True)
 
     col1, col2, col3 = st.columns(3)
     col1.metric("Market Value",   f"${totals['market_value']:,.0f}")
@@ -227,7 +218,7 @@ def _render_expander_drivers(r: ValuationResult) -> None:
             hist_display.columns = ["Rev Growth", "EBIT Margin", "Tax Rate",
                                      "D&A %", "CapEx %", "SBC %"][:len(disp_cols)]
             st.dataframe(
-                hist_display.style.format("{:.1%}"),
+                hist_display.map(lambda x: f"{x:.1%}" if pd.notna(x) else ""),
                 use_container_width=True,
             )
 

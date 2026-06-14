@@ -1,0 +1,58 @@
+source,event_date,ticker,trigger,note,score_at_event,entry_date,n_days,car_21,car_63,car_126
+known,2023-01-31,CARD,Paperchase,Paperchase administration Jan 2023 — stationery/greetings sector,,2023-02-01,849,0.069124,0.153065,-0.000756
+known,2023-06-01,HEAD,CPR Realisations Ltd,Carpetright administration Jun 2023 — flooring/carpets sector,,2023-06-02,767,0.018344,-0.108557,-0.257477
+known,2024-08-01,HEAD,CTD Tiles,CTD Tiles administration Aug 2024 — tiles/flooring sector,,2024-08-02,470,0.030226,-0.115235,-0.042092
+known,2025-01-01,MARS,Loungers plc,Loungers go-private Jan 2025 — café-bar removes listed competitor,,2025-01-02,365,-0.04349,-0.098481,-0.079591
+known,2025-01-01,FSTA,Loungers plc,Loungers go-private Jan 2025 — pub/bar sector,,2025-01-02,365,-0.067646,-0.011562,-0.078963
+auto,2013-01-11,HFD,max_distress crossed 0.35,,0.3659,2013-01-14,3389,0.048266,-0.028395,-0.090593
+auto,2013-01-25,BOOT,max_distress crossed 0.35,,1.0,2013-01-28,3379,0.027953,0.069609,-0.02749
+auto,2014-06-13,MARS,max_distress crossed 0.35,,1.0,2014-06-16,3031,0.027673,0.022709,0.043249
+auto,2014-09-19,LSL,max_distress crossed 0.35,,0.3624,2014-09-22,2962,-0.075837,-0.192913,-0.183192
+auto,2015-10-30,ECEL,max_distress crossed 0.35,,1.0,2015-11-02,2680,-0.049794,-0.090141,-0.120313
+auto,2015-10-30,OTB,max_distress crossed 0.35,,1.0,2015-11-02,2680,-0.143496,0.45577,0.318142
+auto,2016-03-18,BOOT,max_distress crossed 0.35,,1.0,2016-03-21,2583,0.010881,-0.016489,0.02024
+auto,2016-03-18,GYM,max_distress crossed 0.35,,0.3517,2016-03-21,2583,0.083258,-0.157896,-0.109865
+auto,2016-07-01,DFS,max_distress crossed 0.35,,1.0,2016-07-04,2512,-0.00536,0.161443,-0.006048
+auto,2017-06-02,MER,max_distress crossed 0.35,,1.0,2017-06-05,2280,-0.042965,-0.127014,-0.154008
+auto,2017-12-15,FORT,max_distress crossed 0.35,,1.0,2017-12-18,2141,-0.059553,0.057478,0.005863
+auto,2018-05-04,NXR,max_distress crossed 0.35,,1.0,2018-05-08,2046,0.045941,0.146162,0.183642
+auto,2018-08-31,MARS,max_distress crossed 0.35,,0.6937,2018-09-03,1964,0.079144,0.194932,0.135803
+auto,2018-12-21,GYM,max_distress crossed 0.35,,0.3659,2018-12-24,1884,-0.234818,-0.237267,-0.162245
+auto,2020-03-27,NXR,max_distress crossed 0.35,,0.3588,2020-03-30,1565,0.119144,-0.071242,-0.012218
+auto,2020-07-17,CRST,max_distress crossed 0.35,,0.3517,2020-07-20,1489,-0.075559,0.163357,0.084578
+auto,2020-08-21,DFS,max_distress crossed 0.35,,0.3659,2020-08-24,1464,0.159103,0.215097,0.061202
+auto,2020-09-18,CARD,max_distress crossed 0.35,,0.3588,2020-09-21,1445,-0.094293,-0.124897,0.200039
+auto,2020-09-18,HEAD,max_distress crossed 0.35,,0.3588,2020-09-21,1445,0.010001,0.035812,0.029866
+auto,2020-09-18,LSL,max_distress crossed 0.35,,0.3588,2020-09-21,1445,0.035049,-0.117509,-0.171908
+auto,2020-12-18,ECEL,max_distress crossed 0.35,,0.3552,2020-12-21,1380,-0.00157,-0.096698,-0.033753
+auto,2020-12-18,HFD,max_distress crossed 0.35,,0.3552,2020-12-21,1380,0.075974,0.070966,0.206521
+auto,2020-12-18,MACF,max_distress crossed 0.35,,0.3552,2020-12-21,1380,-0.038151,-0.042052,-0.013063
+auto,2020-12-18,MER,max_distress crossed 0.35,,0.3552,2020-12-21,1380,0.012288,0.018966,-0.077338
+auto,2020-12-18,OTB,max_distress crossed 0.35,,0.3552,2020-12-21,1380,0.012795,-0.078876,-0.274297
+auto,2020-12-18,SDY,max_distress crossed 0.35,,0.3552,2020-12-21,1380,-0.020106,-0.235703,-0.229378
+auto,2020-12-18,SHI,max_distress crossed 0.35,,0.3552,2020-12-21,1380,-0.048205,0.06731,0.299134
+auto,2020-12-18,VP,max_distress crossed 0.35,,0.3552,2020-12-21,1380,-0.041057,-0.165699,-0.145466
+auto,2021-01-22,SFR,max_distress crossed 0.35,,0.3694,2021-01-25,1358,-0.000627,-0.110957,-0.103039
+auto,2021-08-20,CARD,max_distress crossed 0.35,,0.3624,2021-08-23,1212,-0.030776,4.3e-05,0.029525
+auto,2022-03-25,CRST,max_distress crossed 0.35,,0.3624,2022-03-28,1061,-0.065081,0.058447,-0.067558
+auto,2022-10-28,HEAD,max_distress crossed 0.35,,1.0,2022-10-31,913,0.138747,0.199735,0.050572
+auto,2023-04-07,DFS,max_distress crossed 0.35,,1.0,2023-04-11,802,-0.093974,-0.133579,-0.167691
+auto,2023-05-19,MARS,max_distress crossed 0.35,,0.3588,2023-05-22,775,-0.110823,-0.021601,-0.069967
+auto,2023-06-16,SFR,max_distress crossed 0.35,,1.0,2023-06-19,756,0.015269,-0.135743,-0.149105
+auto,2023-09-29,SDY,max_distress crossed 0.35,,1.0,2023-10-02,682,0.003522,-0.088642,-0.26607
+auto,2023-09-29,VP,max_distress crossed 0.35,,1.0,2023-10-02,682,0.013744,0.071434,-0.031803
+auto,2023-11-17,CARD,max_distress crossed 0.35,,0.3552,2023-11-20,647,-0.150756,-0.186056,-0.208466
+auto,2024-01-19,GYM,max_distress crossed 0.35,,0.3659,2024-01-22,605,0.036234,0.051474,0.12006
+auto,2024-06-07,ECEL,max_distress crossed 0.35,,1.0,2024-06-10,509,-0.017735,0.098873,0.396481
+auto,2024-06-28,CRST,max_distress crossed 0.35,,0.3659,2024-07-01,494,-0.003628,-0.275588,-0.340146
+auto,2024-07-26,SHI,max_distress crossed 0.35,,1.0,2024-07-29,474,-0.122241,-0.07088,-0.372578
+auto,2025-05-30,CARD,max_distress crossed 0.35,,1.0,2025-06-02,262,-0.080682,0.157034,0.132742
+auto,2025-08-01,FORT,max_distress crossed 0.35,,1.0,2025-08-04,217,0.019645,0.009386,-0.046123
+auto,2025-08-22,DFS,max_distress crossed 0.35,,0.3659,2025-08-26,202,-0.014103,0.129237,0.258188
+auto,2025-09-19,NXR,max_distress crossed 0.35,,0.3624,2025-09-22,183,0.148837,0.179263,0.365586
+auto,2025-10-24,FSTA,max_distress crossed 0.35,,0.3729,2025-10-27,158,0.109512,0.150594,0.243874
+auto,2025-12-19,OTB,max_distress crossed 0.35,,0.3588,2025-12-22,118,-0.05566,-0.157899,
+auto,2025-12-19,SDY,max_distress crossed 0.35,,0.3552,2025-12-22,118,0.024814,-0.0369,
+auto,2025-12-19,VP,max_distress crossed 0.35,,0.3552,2025-12-22,118,-0.046989,-0.086499,
+auto,2026-03-20,MACF,max_distress crossed 0.35,,0.3552,2026-03-23,56,0.086517,,
+auto,2026-03-27,MARS,max_distress crossed 0.35,,1.0,2026-03-30,51,-0.0084,,

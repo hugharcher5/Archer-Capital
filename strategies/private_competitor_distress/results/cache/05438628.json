@@ -1,0 +1,110 @@
+{
+  "ch_number": "05438628",
+  "name": "ADMIRAL TAVERNS LIMITED",
+  "company_type": "ltd",
+  "current_status": "active",
+  "incorporation_date": "2005-04-28",
+  "accounts": [
+    {
+      "period_end": "2006-05-31",
+      "filed_at": "2007-06-20",
+      "due_date": "2007-02-28"
+    },
+    {
+      "period_end": "2007-05-31",
+      "filed_at": "2008-04-02",
+      "due_date": "2008-02-29"
+    },
+    {
+      "period_end": "2008-05-31",
+      "filed_at": "2009-08-21",
+      "due_date": "2009-02-28"
+    },
+    {
+      "period_end": "2009-05-31",
+      "filed_at": "2010-03-02",
+      "due_date": "2010-02-28"
+    },
+    {
+      "period_end": "2010-05-31",
+      "filed_at": "2011-02-16",
+      "due_date": "2011-02-28"
+    },
+    {
+      "period_end": "2011-05-28",
+      "filed_at": "2012-01-06",
+      "due_date": "2012-02-28"
+    },
+    {
+      "period_end": "2012-05-26",
+      "filed_at": "2013-03-04",
+      "due_date": "2013-02-26"
+    },
+    {
+      "period_end": "2013-06-01",
+      "filed_at": "2013-11-14",
+      "due_date": "2014-03-01"
+    },
+    {
+      "period_end": "2014-05-31",
+      "filed_at": "2014-12-01",
+      "due_date": "2015-02-28"
+    },
+    {
+      "period_end": "2015-05-30",
+      "filed_at": "2015-12-15",
+      "due_date": "2016-02-29"
+    },
+    {
+      "period_end": "2016-05-28",
+      "filed_at": "2016-12-13",
+      "due_date": "2017-02-28"
+    },
+    {
+      "period_end": "2017-06-03",
+      "filed_at": "2018-01-18",
+      "due_date": "2018-03-03"
+    },
+    {
+      "period_end": "2018-06-02",
+      "filed_at": "2018-12-31",
+      "due_date": "2019-03-02"
+    },
+    {
+      "period_end": "2019-06-01",
+      "filed_at": "2020-02-27",
+      "due_date": "2020-03-01"
+    },
+    {
+      "period_end": "2020-05-30",
+      "filed_at": "2021-04-28",
+      "due_date": "2021-02-28"
+    },
+    {
+      "period_end": "2021-05-29",
+      "filed_at": "2022-01-14",
+      "due_date": "2022-02-28"
+    },
+    {
+      "period_end": "2022-05-29",
+      "filed_at": "2023-05-23",
+      "due_date": "2023-02-28"
+    },
+    {
+      "period_end": "2023-05-28",
+      "filed_at": "2024-03-06",
+      "due_date": "2024-02-28"
+    },
+    {
+      "period_end": "2024-05-26",
+      "filed_at": "2025-02-03",
+      "due_date": "2025-02-26"
+    },
+    {
+      "period_end": "2025-06-01",
+      "filed_at": "2026-02-23",
+      "due_date": "2026-03-01"
+    }
+  ],
+  "insolvency_date": "2026-03-27"
+}

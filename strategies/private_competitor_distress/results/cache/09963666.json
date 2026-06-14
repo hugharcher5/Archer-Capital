@@ -1,0 +1,70 @@
+{
+  "ch_number": "09963666",
+  "name": "FORTERRA PLC",
+  "company_type": "plc",
+  "current_status": "active",
+  "incorporation_date": "2016-01-21",
+  "accounts": [
+    {
+      "period_end": "2016-06-30",
+      "filed_at": "2016-09-30",
+      "due_date": "2016-12-30"
+    },
+    {
+      "period_end": "2016-12-31",
+      "filed_at": "2017-06-02",
+      "due_date": "2017-06-30"
+    },
+    {
+      "period_end": "2017-01-31",
+      "filed_at": "2016-05-16",
+      "due_date": "2017-07-31"
+    },
+    {
+      "period_end": "2017-12-31",
+      "filed_at": "2018-07-09",
+      "due_date": "2018-06-30"
+    },
+    {
+      "period_end": "2018-12-31",
+      "filed_at": "2019-06-04",
+      "due_date": "2019-06-30"
+    },
+    {
+      "period_end": "2019-12-31",
+      "filed_at": "2020-05-19",
+      "due_date": "2020-06-30"
+    },
+    {
+      "period_end": "2020-12-31",
+      "filed_at": "2021-06-23",
+      "due_date": "2021-06-30"
+    },
+    {
+      "period_end": "2021-12-31",
+      "filed_at": "2022-04-08",
+      "due_date": "2022-06-30"
+    },
+    {
+      "period_end": "2022-12-31",
+      "filed_at": "2023-06-09",
+      "due_date": "2023-06-30"
+    },
+    {
+      "period_end": "2023-12-31",
+      "filed_at": "2024-05-28",
+      "due_date": "2024-06-30"
+    },
+    {
+      "period_end": "2024-12-31",
+      "filed_at": "2025-05-27",
+      "due_date": "2025-06-30"
+    },
+    {
+      "period_end": "2025-12-31",
+      "filed_at": "2026-05-31",
+      "due_date": "2026-06-30"
+    }
+  ],
+  "insolvency_date": null
+}

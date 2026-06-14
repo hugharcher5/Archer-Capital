@@ -1,0 +1,55 @@
+{
+  "ch_number": "12338587",
+  "name": "ESQUIRE RETAIL LIMITED",
+  "company_type": "ltd",
+  "current_status": "active",
+  "incorporation_date": "2019-11-28",
+  "accounts": [
+    {
+      "period_end": "2020-11-28",
+      "filed_at": "2023-07-03",
+      "due_date": "2021-08-28"
+    },
+    {
+      "period_end": "2021-11-30",
+      "filed_at": "2022-07-01",
+      "due_date": "2022-08-30"
+    },
+    {
+      "period_end": "2022-05-28",
+      "filed_at": "2024-01-15",
+      "due_date": "2023-02-28"
+    },
+    {
+      "period_end": "2023-05-26",
+      "filed_at": "2024-05-23",
+      "due_date": "2024-02-26"
+    },
+    {
+      "period_end": "2023-05-27",
+      "filed_at": "2024-06-12",
+      "due_date": "2024-02-27"
+    },
+    {
+      "period_end": "2023-05-31",
+      "filed_at": "2024-02-27",
+      "due_date": "2024-02-29"
+    },
+    {
+      "period_end": "2024-05-25",
+      "filed_at": "2025-02-11",
+      "due_date": "2025-02-25"
+    },
+    {
+      "period_end": "2024-06-30",
+      "filed_at": "2025-04-03",
+      "due_date": "2025-03-30"
+    },
+    {
+      "period_end": "2025-06-28",
+      "filed_at": "2026-04-01",
+      "due_date": "2026-03-28"
+    }
+  ],
+  "insolvency_date": "2025-05-30"
+}

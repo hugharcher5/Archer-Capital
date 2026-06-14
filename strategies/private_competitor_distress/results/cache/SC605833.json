@@ -1,0 +1,15 @@
+{
+  "ch_number": "SC605833",
+  "name": "SPICERHAART LIMITED",
+  "company_type": "ltd",
+  "current_status": "active",
+  "incorporation_date": "2018-08-20",
+  "accounts": [
+    {
+      "period_end": "2019-08-31",
+      "filed_at": "2020-06-24",
+      "due_date": "2020-05-31"
+    }
+  ],
+  "insolvency_date": null
+}
