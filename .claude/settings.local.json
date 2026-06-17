@@ -24,7 +24,18 @@
       "Bash(curl -s http://localhost:8501)",
       "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8501/healthz)",
       "Bash(echo \"PID: $! — running in background, cache will populate\")",
-      "Bash(wait)"
+      "Bash(wait)",
+      "Bash(curl -s \"https://coastwatch.pfeg.noaa.gov/erddap/search/index.json?searchFor=OISST&page=1&itemsPerPage=10\")",
+      "Bash(curl -s \"https://coastwatch.pfeg.noaa.gov/erddap/search/index.json?searchFor=OISST+sst&page=1&itemsPerPage=20\")",
+      "Bash(curl -s \"https://coastwatch.pfeg.noaa.gov/erddap/griddap/ncdcOisst21Agg_LonPM180.csv?sst%5B\\(2020-01-01T00:00:00Z\\)%5D%5B\\(0.0\\)%5D%5B\\(58.625\\)%5D%5B\\(5.125\\)%5D\")",
+      "Bash(curl *)",
+      "Bash(venv/bin/pip list *)",
+      "Bash(awk '{print $1,$2,$3,$11}')",
+      "Bash(awk '{print \"pid:\",$2,\"elapsed:\",$10}')",
+      "Bash(awk '{print \"alive pid:\",$2}')",
+      "Bash(awk '{print $2,$10,$11}')",
+      "Bash(ps -o pid,etime,cmd -p 60506)",
+      "Bash(kill 60506)"
     ]
   }
 }

@@ -2113,14 +2113,21 @@ with tab_valuation:
 with tab_strategies:
     from strategies.strategy_page import render_strategy_page
     from strategies.private_competitor_distress.config import STRATEGY_CONFIG
+    from strategies.north_atlantic_salmon.page import render_salmon_page
 
-    _STRATEGY_REGISTRY = {
-        STRATEGY_CONFIG["name"]: STRATEGY_CONFIG,
-    }
+    _SECTIONS = [
+        "North Atlantic Salmon — Research",
+        STRATEGY_CONFIG["name"],
+    ]
 
     selected = st.selectbox(
-        "Select strategy",
-        options=list(_STRATEGY_REGISTRY.keys()),
+        "Select section",
+        options=_SECTIONS,
         key="strategy_select",
     )
-    render_strategy_page(_STRATEGY_REGISTRY[selected])
+
+    if selected == "North Atlantic Salmon — Research":
+        render_salmon_page()
+    else:
+        _STRATEGY_REGISTRY = {STRATEGY_CONFIG["name"]: STRATEGY_CONFIG}
+        render_strategy_page(_STRATEGY_REGISTRY[selected])
