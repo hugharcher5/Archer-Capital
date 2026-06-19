@@ -1,0 +1,75 @@
+{
+  "ch_number": "09002747",
+  "name": "CARD FACTORY PLC",
+  "company_type": "plc",
+  "current_status": "active",
+  "incorporation_date": "2014-04-17",
+  "accounts": [
+    {
+      "period_end": "2015-01-31",
+      "filed_at": "2015-07-07",
+      "due_date": "2015-07-31"
+    },
+    {
+      "period_end": "2015-04-30",
+      "filed_at": "2014-05-21",
+      "due_date": "2015-10-30"
+    },
+    {
+      "period_end": "2016-01-31",
+      "filed_at": "2016-06-27",
+      "due_date": "2016-07-31"
+    },
+    {
+      "period_end": "2016-07-31",
+      "filed_at": "2016-09-19",
+      "due_date": "2017-01-31"
+    },
+    {
+      "period_end": "2017-01-31",
+      "filed_at": "2017-06-22",
+      "due_date": "2017-07-31"
+    },
+    {
+      "period_end": "2018-01-31",
+      "filed_at": "2018-08-01",
+      "due_date": "2018-07-31"
+    },
+    {
+      "period_end": "2019-01-31",
+      "filed_at": "2019-08-28",
+      "due_date": "2019-07-31"
+    },
+    {
+      "period_end": "2020-01-31",
+      "filed_at": "2020-08-07",
+      "due_date": "2020-07-31"
+    },
+    {
+      "period_end": "2021-01-31",
+      "filed_at": "2021-08-22",
+      "due_date": "2021-07-31"
+    },
+    {
+      "period_end": "2022-01-31",
+      "filed_at": "2022-06-28",
+      "due_date": "2022-07-31"
+    },
+    {
+      "period_end": "2023-01-31",
+      "filed_at": "2023-07-05",
+      "due_date": "2023-07-31"
+    },
+    {
+      "period_end": "2024-01-31",
+      "filed_at": "2024-06-27",
+      "due_date": "2024-07-31"
+    },
+    {
+      "period_end": "2025-01-31",
+      "filed_at": "2025-07-11",
+      "due_date": "2025-07-31"
+    }
+  ],
+  "insolvency_date": null
+}

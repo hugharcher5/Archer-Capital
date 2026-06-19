@@ -1,0 +1,70 @@
+{
+  "ch_number": "08775441",
+  "name": "SPRINGPACK LIMITED",
+  "company_type": "ltd",
+  "current_status": "active",
+  "incorporation_date": "2013-11-14",
+  "accounts": [
+    {
+      "period_end": "2014-11-30",
+      "filed_at": "2013-11-14",
+      "due_date": "2015-08-30"
+    },
+    {
+      "period_end": "2014-12-31",
+      "filed_at": "2015-04-29",
+      "due_date": "2015-09-30"
+    },
+    {
+      "period_end": "2015-12-31",
+      "filed_at": "2016-06-09",
+      "due_date": "2016-09-30"
+    },
+    {
+      "period_end": "2016-12-31",
+      "filed_at": "2017-06-19",
+      "due_date": "2017-09-30"
+    },
+    {
+      "period_end": "2017-12-31",
+      "filed_at": "2018-04-25",
+      "due_date": "2018-09-30"
+    },
+    {
+      "period_end": "2018-12-31",
+      "filed_at": "2019-05-23",
+      "due_date": "2019-09-30"
+    },
+    {
+      "period_end": "2019-12-31",
+      "filed_at": "2020-06-12",
+      "due_date": "2020-09-30"
+    },
+    {
+      "period_end": "2020-12-31",
+      "filed_at": "2021-07-22",
+      "due_date": "2021-09-30"
+    },
+    {
+      "period_end": "2021-12-31",
+      "filed_at": "2022-07-27",
+      "due_date": "2022-09-30"
+    },
+    {
+      "period_end": "2022-12-31",
+      "filed_at": "2023-08-04",
+      "due_date": "2023-09-30"
+    },
+    {
+      "period_end": "2023-12-31",
+      "filed_at": "2024-09-16",
+      "due_date": "2024-09-30"
+    },
+    {
+      "period_end": "2024-12-31",
+      "filed_at": "2025-07-31",
+      "due_date": "2025-09-30"
+    }
+  ],
+  "insolvency_date": null
+}

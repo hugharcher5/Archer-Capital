@@ -15,7 +15,6 @@ import scipy.stats
 from scipy.optimize import brentq
 import streamlit as st
 
-from portfolio.data          import fetch_portfolio
 from valuation.montecarlo    import run_valuation
 from valuation.result        import ValuationResult
 from valuation.dcf           import MATURE_MARGIN_DEFAULT, value as _dcf_value
@@ -25,66 +24,7 @@ from valuation.reconcile     import reconcile
 st.set_page_config(page_title="Archer Capital", layout="wide")
 st.title("Archer Capital")
 
-tab_portfolio, tab_valuation, tab_strategies = st.tabs(["Portfolio", "Valuation", "Strategies"])
-
-
-# ══════════════════════════════════════════════════════════════════════════════
-#  PORTFOLIO TAB  (unchanged behaviour)
-# ══════════════════════════════════════════════════════════════════════════════
-
-with tab_portfolio:
-    if st.button("Refresh"):
-        st.cache_data.clear()
-        st.rerun()
-
-    @st.cache_data(ttl=60)
-    def get_portfolio():
-        return fetch_portfolio()
-
-    rows, totals = get_portfolio()
-
-    df = pd.DataFrame(rows)
-
-    display = pd.DataFrame({
-        "Ticker":     df["ticker"],
-        "Last":       df["last"].map("${:,.2f}".format),
-        "Day %":      df["daily_pct"].map("{:+.2f}%".format),
-        "Mkt Value":  df["market_value"].map("${:,.0f}".format),
-        "Cost Basis": df["cost_basis"].map("${:,.0f}".format),
-        "Unreal P&L": df["unreal_pnl"].map("${:+,.0f}".format),
-        "Day P&L":    df["day_pnl"].map("${:+,.0f}".format),
-        "Weight":     df["weight"].map("{:.1f}%".format),
-    })
-
-    totals_row = pd.DataFrame([{
-        "Ticker":     "TOTAL",
-        "Last":       "",
-        "Day %":      "",
-        "Mkt Value":  f"${totals['market_value']:,.0f}",
-        "Cost Basis": f"${totals['cost_basis']:,.0f}",
-        "Unreal P&L": f"${totals['unreal_pnl']:+,.0f}",
-        "Day P&L":    f"${totals['day_pnl']:+,.0f}",
-        "Weight":     "100.0%",
-    }])
-
-    display = pd.concat([display, totals_row], ignore_index=True)
-
-    st.dataframe(display, use_container_width=True, hide_index=True)
-
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Market Value",   f"${totals['market_value']:,.0f}")
-    col2.metric("Unrealized P&L", f"${totals['unreal_pnl']:+,.0f}")
-    col3.metric("Daily P&L",      f"${totals['day_pnl']:+,.0f}")
-
-    st.subheader("Portfolio Weights")
-    fig = px.pie(
-        df, values="weight", names="ticker",
-        hole=0.4,
-        color_discrete_sequence=px.colors.qualitative.Set2,
-    )
-    fig.update_traces(textposition="inside", textinfo="percent+label")
-    fig.update_layout(showlegend=False, margin=dict(t=0, b=0, l=0, r=0), height=350)
-    st.plotly_chart(fig, use_container_width=True)
+tab_strategies, tab_valuation = st.tabs(["Strategies", "Valuation"])
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -2114,8 +2054,10 @@ with tab_strategies:
     from strategies.strategy_page import render_strategy_page
     from strategies.private_competitor_distress.config import STRATEGY_CONFIG
     from strategies.north_atlantic_salmon.page import render_salmon_page
+    from strategies.dcf_tests.page import render_dcf_tests_page
 
     _SECTIONS = [
+        "DCF Tests — Research",
         "North Atlantic Salmon — Research",
         STRATEGY_CONFIG["name"],
     ]
@@ -2126,7 +2068,9 @@ with tab_strategies:
         key="strategy_select",
     )
 
-    if selected == "North Atlantic Salmon — Research":
+    if selected == "DCF Tests — Research":
+        render_dcf_tests_page()
+    elif selected == "North Atlantic Salmon — Research":
         render_salmon_page()
     else:
         _STRATEGY_REGISTRY = {STRATEGY_CONFIG["name"]: STRATEGY_CONFIG}

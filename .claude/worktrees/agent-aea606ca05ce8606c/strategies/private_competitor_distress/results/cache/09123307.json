@@ -1,0 +1,70 @@
+{
+  "ch_number": "09123307",
+  "name": "URBAN&CIVIC WATERBEACH LIMITED",
+  "company_type": "ltd",
+  "current_status": "active",
+  "incorporation_date": "2014-07-09",
+  "accounts": [
+    {
+      "period_end": "2015-07-31",
+      "filed_at": "2014-09-03",
+      "due_date": "2016-04-30"
+    },
+    {
+      "period_end": "2015-09-30",
+      "filed_at": "2016-05-23",
+      "due_date": "2016-06-30"
+    },
+    {
+      "period_end": "2016-09-30",
+      "filed_at": "2017-04-06",
+      "due_date": "2017-06-30"
+    },
+    {
+      "period_end": "2017-09-30",
+      "filed_at": "2018-03-20",
+      "due_date": "2018-06-30"
+    },
+    {
+      "period_end": "2018-09-30",
+      "filed_at": "2019-02-27",
+      "due_date": "2019-06-30"
+    },
+    {
+      "period_end": "2019-09-30",
+      "filed_at": "2020-02-21",
+      "due_date": "2020-06-30"
+    },
+    {
+      "period_end": "2020-09-30",
+      "filed_at": "2021-04-01",
+      "due_date": "2021-06-30"
+    },
+    {
+      "period_end": "2021-09-30",
+      "filed_at": "2022-03-25",
+      "due_date": "2022-06-30"
+    },
+    {
+      "period_end": "2022-09-30",
+      "filed_at": "2023-03-17",
+      "due_date": "2023-06-30"
+    },
+    {
+      "period_end": "2023-09-30",
+      "filed_at": "2024-05-22",
+      "due_date": "2024-06-30"
+    },
+    {
+      "period_end": "2024-09-30",
+      "filed_at": "2025-03-10",
+      "due_date": "2025-06-30"
+    },
+    {
+      "period_end": "2025-09-30",
+      "filed_at": "2026-03-11",
+      "due_date": "2026-06-30"
+    }
+  ],
+  "insolvency_date": null
+}

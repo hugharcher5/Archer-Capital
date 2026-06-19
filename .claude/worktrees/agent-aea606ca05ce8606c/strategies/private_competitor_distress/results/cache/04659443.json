@@ -1,0 +1,120 @@
+{
+  "ch_number": "04659443",
+  "name": "MITCHELLS AND BUTLERS HEALTHCARE TRUSTEE LIMITED",
+  "company_type": "ltd",
+  "current_status": "active",
+  "incorporation_date": "2003-02-07",
+  "accounts": [
+    {
+      "period_end": "2003-09-30",
+      "filed_at": "2004-07-15",
+      "due_date": "2004-06-30"
+    },
+    {
+      "period_end": "2004-09-25",
+      "filed_at": "2005-07-08",
+      "due_date": "2005-06-25"
+    },
+    {
+      "period_end": "2005-10-01",
+      "filed_at": "2006-04-12",
+      "due_date": "2006-07-01"
+    },
+    {
+      "period_end": "2006-09-30",
+      "filed_at": "2007-06-06",
+      "due_date": "2007-06-30"
+    },
+    {
+      "period_end": "2007-09-29",
+      "filed_at": "2008-04-04",
+      "due_date": "2008-06-29"
+    },
+    {
+      "period_end": "2008-09-27",
+      "filed_at": "2009-02-07",
+      "due_date": "2009-06-27"
+    },
+    {
+      "period_end": "2009-09-26",
+      "filed_at": "2010-03-11",
+      "due_date": "2010-06-26"
+    },
+    {
+      "period_end": "2010-09-25",
+      "filed_at": "2011-02-07",
+      "due_date": "2011-06-25"
+    },
+    {
+      "period_end": "2011-09-24",
+      "filed_at": "2012-02-21",
+      "due_date": "2012-06-24"
+    },
+    {
+      "period_end": "2012-09-29",
+      "filed_at": "2013-01-23",
+      "due_date": "2013-06-29"
+    },
+    {
+      "period_end": "2013-09-28",
+      "filed_at": "2014-02-13",
+      "due_date": "2014-06-28"
+    },
+    {
+      "period_end": "2014-09-27",
+      "filed_at": "2014-12-22",
+      "due_date": "2015-06-27"
+    },
+    {
+      "period_end": "2015-09-26",
+      "filed_at": "2016-01-04",
+      "due_date": "2016-06-26"
+    },
+    {
+      "period_end": "2016-09-24",
+      "filed_at": "2017-04-10",
+      "due_date": "2017-06-24"
+    },
+    {
+      "period_end": "2017-09-30",
+      "filed_at": "2018-01-24",
+      "due_date": "2018-06-30"
+    },
+    {
+      "period_end": "2018-09-29",
+      "filed_at": "2019-01-02",
+      "due_date": "2019-06-29"
+    },
+    {
+      "period_end": "2019-09-28",
+      "filed_at": "2020-09-08",
+      "due_date": "2020-06-28"
+    },
+    {
+      "period_end": "2020-09-26",
+      "filed_at": "2021-05-05",
+      "due_date": "2021-06-26"
+    },
+    {
+      "period_end": "2021-09-25",
+      "filed_at": "2022-04-06",
+      "due_date": "2022-06-25"
+    },
+    {
+      "period_end": "2022-09-24",
+      "filed_at": "2023-05-24",
+      "due_date": "2023-06-24"
+    },
+    {
+      "period_end": "2023-09-30",
+      "filed_at": "2024-05-01",
+      "due_date": "2024-06-30"
+    },
+    {
+      "period_end": "2024-09-28",
+      "filed_at": "2025-04-01",
+      "due_date": "2025-06-28"
+    }
+  ],
+  "insolvency_date": null
+}

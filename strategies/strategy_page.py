@@ -589,20 +589,26 @@ def render_strategy_page(config: dict) -> None:
     st.title(config["name"])
     st.markdown(config["description"])
 
-    # ── 2. Status badges ──────────────────────────────────────────────────────
+    # ── 2. Research writeup (if provided) ────────────────────────────────────
+    writeup_file: Path = config.get("writeup_file")
+    if writeup_file and writeup_file.exists():
+        with st.expander("Research Writeup", expanded=False):
+            st.markdown(writeup_file.read_text())
+
+    # ── 3. Status badges ──────────────────────────────────────────────────────
     st.markdown("**Validation pipeline status**")
     _render_status_badges(config["validation_layers"])
 
-    # ── 3. Signal code expander ───────────────────────────────────────────────
+    # ── 4. Signal code expander ───────────────────────────────────────────────
     signal_file: Path = config.get("signal_file")
     if signal_file and signal_file.exists():
         with st.expander("View Signal Code", expanded=False):
             st.code(signal_file.read_text(), language="python")
 
-    # ── 4. Live data sections (pipeline outputs) ──────────────────────────────
+    # ── 5. Live data sections (pipeline outputs) ──────────────────────────────
     _render_data_sections(config)
 
-    # ── 5. Validation layers ──────────────────────────────────────────────────
+    # ── 6. Validation layers ──────────────────────────────────────────────────
     for layer in config["validation_layers"]:
         layer_with_dir = {**layer, "results_dir": results_dir / layer["id"]}
         renderer = _LAYER_RENDERERS.get(layer["id"])

@@ -35,7 +35,10 @@
       "Bash(awk '{print \"alive pid:\",$2}')",
       "Bash(awk '{print $2,$10,$11}')",
       "Bash(ps -o pid,etime,cmd -p 60506)",
-      "Bash(kill 60506)"
+      "Bash(kill 60506)",
+      "Bash(export TIINGO_API_KEY=\"681ca75fb675567fde2cffd98d59908110398d1a\")",
+      "Bash(awk '{print \"CPU:\"$3\"% MEM:\"$4\"%\"}')",
+      "Bash(awk '{print \"Running — PID \"$2\" CPU:\"$3\"% MEM:\"$4\"%\"}')"
     ]
   }
 }

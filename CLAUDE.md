@@ -1,6 +1,6 @@
 # Archer Capital
 
-A personal portfolio tracking and quantitative research tool built in Python.
+A personal quantitative research and DCF valuation tool built in Python.
 
 ## Repository Structure
 

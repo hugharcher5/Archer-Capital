@@ -1,0 +1,65 @@
+{
+  "ch_number": "09524310",
+  "name": "THORTFUL LIMITED",
+  "company_type": "ltd",
+  "current_status": "active",
+  "incorporation_date": "2015-04-02",
+  "accounts": [
+    {
+      "period_end": "2016-04-30",
+      "filed_at": "2016-08-03",
+      "due_date": "2017-01-30"
+    },
+    {
+      "period_end": "2017-04-30",
+      "filed_at": "2018-01-30",
+      "due_date": "2018-01-30"
+    },
+    {
+      "period_end": "2017-12-31",
+      "filed_at": "2018-11-20",
+      "due_date": "2018-09-30"
+    },
+    {
+      "period_end": "2018-04-30",
+      "filed_at": "2018-10-17",
+      "due_date": "2019-01-30"
+    },
+    {
+      "period_end": "2018-12-31",
+      "filed_at": "2019-09-11",
+      "due_date": "2019-09-30"
+    },
+    {
+      "period_end": "2019-12-31",
+      "filed_at": "2020-09-03",
+      "due_date": "2020-09-30"
+    },
+    {
+      "period_end": "2020-12-31",
+      "filed_at": "2021-09-28",
+      "due_date": "2021-09-30"
+    },
+    {
+      "period_end": "2021-12-31",
+      "filed_at": "2022-10-18",
+      "due_date": "2022-09-30"
+    },
+    {
+      "period_end": "2022-12-31",
+      "filed_at": "2023-10-10",
+      "due_date": "2023-09-30"
+    },
+    {
+      "period_end": "2023-12-31",
+      "filed_at": "2024-09-24",
+      "due_date": "2024-09-30"
+    },
+    {
+      "period_end": "2024-12-31",
+      "filed_at": "2025-10-07",
+      "due_date": "2025-09-30"
+    }
+  ],
+  "insolvency_date": null
+}

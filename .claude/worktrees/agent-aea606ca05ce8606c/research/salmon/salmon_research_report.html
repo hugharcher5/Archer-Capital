@@ -1,0 +1,945 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>North Atlantic Salmon: A Quantitative Alpha Search</title>
+<style>
+/* ── Reset + base ───────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: Georgia, 'Times New Roman', Times, serif;
+  font-size: 16px;
+  line-height: 1.65;
+  color: #1a1a1a;
+  background: #fff;
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 48px 32px 80px;
+}
+@media (max-width: 600px) { body { padding: 24px 16px 60px; } }
+
+/* ── Typography ─────────────────────────────────────────────────── */
+h1 {
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 1.9rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  margin-bottom: 6px;
+}
+h2 {
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 1.15rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #333;
+  margin: 2.8rem 0 0.8rem;
+  padding-bottom: 4px;
+  border-bottom: 2px solid #e0e0e0;
+}
+h3 {
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 1rem;
+  font-weight: 700;
+  margin: 1.4rem 0 0.4rem;
+  color: #1a1a1a;
+}
+p { margin: 0.6rem 0; }
+ul, ol { padding-left: 1.5rem; margin: 0.5rem 0; }
+li { margin-bottom: 0.25rem; }
+strong { font-weight: 700; }
+em { font-style: italic; }
+code {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.85em;
+  background: #f4f4f4;
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+pre {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.82rem;
+  background: #f8f8f8;
+  border: 1px solid #e0e0e0;
+  border-left: 3px solid #bbb;
+  padding: 12px 16px;
+  border-radius: 4px;
+  overflow-x: auto;
+  line-height: 1.7;
+  margin: 0.8rem 0;
+}
+
+/* ── Header block ───────────────────────────────────────────────── */
+.report-header {
+  border-bottom: 3px solid #1a1a1a;
+  padding-bottom: 20px;
+  margin-bottom: 32px;
+}
+.report-meta {
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 0.82rem;
+  color: #666;
+  margin-top: 8px;
+}
+.report-meta span { margin-right: 20px; }
+
+/* ── Traffic-light badges ───────────────────────────────────────── */
+.badge {
+  display: inline-block;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  vertical-align: middle;
+  color: #fff;
+  white-space: nowrap;
+}
+.badge-red    { background: #c0392b; }
+.badge-orange { background: #d35400; }
+.badge-amber  { background: #e67e22; }
+.badge-grey   { background: #7f8c8d; }
+
+/* ── Executive summary ──────────────────────────────────────────── */
+.exec-summary {
+  background: #f9f9f9;
+  border: 1px solid #e0e0e0;
+  border-left: 4px solid #1a1a1a;
+  padding: 22px 26px;
+  margin: 24px 0;
+  border-radius: 0 4px 4px 0;
+}
+.exec-summary p { margin: 0.4rem 0; }
+.meta-conclusion {
+  background: #fff8f0;
+  border: 1px solid #e67e22;
+  border-radius: 4px;
+  padding: 14px 18px;
+  margin-top: 14px;
+  font-size: 0.95rem;
+}
+
+/* ── Scoreboard table ───────────────────────────────────────────── */
+.scoreboard {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 0.87rem;
+  margin: 1rem 0;
+}
+.scoreboard th {
+  background: #1a1a1a;
+  color: #fff;
+  text-align: left;
+  padding: 10px 14px;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.scoreboard td {
+  padding: 10px 14px;
+  border-bottom: 1px solid #efefef;
+  vertical-align: top;
+}
+.scoreboard tr:last-child td { border-bottom: none; }
+.scoreboard tr:hover td { background: #fafafa; }
+.scoreboard .col-h { width: 18%; font-weight: 700; }
+.scoreboard .col-status { width: 12%; }
+.scoreboard .col-stat { width: 22%; font-family: 'Courier New', Courier, monospace; font-size: 0.82rem; }
+.scoreboard .col-reason { width: 48%; }
+
+/* ── Hypothesis cards ───────────────────────────────────────────── */
+.hyp-card {
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  padding: 24px 28px;
+  margin: 1.8rem 0;
+  page-break-inside: avoid;
+}
+.hyp-card-header {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.hyp-label {
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+}
+.hyp-title {
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #1a1a1a;
+}
+.hyp-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px 32px;
+  margin-top: 14px;
+}
+@media (max-width: 640px) { .hyp-grid { grid-template-columns: 1fr; } }
+.hyp-field label {
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: #888;
+  display: block;
+  margin-bottom: 3px;
+}
+.hyp-field p { font-size: 0.9rem; margin: 0; }
+.chain {
+  background: #f8f8f8;
+  border: 1px solid #e8e8e8;
+  padding: 12px 16px;
+  border-radius: 4px;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.82rem;
+  line-height: 1.7;
+  white-space: pre;
+  overflow-x: auto;
+}
+.verdict-box {
+  margin-top: 18px;
+  padding: 12px 16px;
+  border-radius: 4px;
+  font-size: 0.88rem;
+}
+.verdict-red    { background: #fdf0ee; border-left: 3px solid #c0392b; }
+.verdict-orange { background: #fef5ee; border-left: 3px solid #d35400; }
+.verdict-amber  { background: #fef9ee; border-left: 3px solid #e67e22; }
+.verdict-grey   { background: #f5f5f5; border-left: 3px solid #7f8c8d; }
+
+/* ── Stat callout ───────────────────────────────────────────────── */
+.stat-callout {
+  font-family: system-ui, -apple-system, sans-serif;
+  text-align: center;
+  margin: 16px 0;
+  padding: 14px;
+  background: #f4f4f4;
+  border-radius: 4px;
+}
+.stat-callout .big-number {
+  font-size: 2rem;
+  font-weight: 800;
+  line-height: 1;
+  display: block;
+}
+.stat-callout .stat-label {
+  font-size: 0.75rem;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-top: 3px;
+  display: block;
+}
+
+/* ── Methodology box ─────────────────────────────────────────────── */
+.methodology-box {
+  background: #f0f4f9;
+  border: 1px solid #b8ccdf;
+  border-radius: 6px;
+  padding: 24px 28px;
+  margin: 2rem 0;
+}
+.methodology-box h3 { color: #1a3a5c; }
+.method-item {
+  border-top: 1px solid #d0dce9;
+  padding: 12px 0 0;
+  margin-top: 12px;
+}
+.method-item:first-of-type { border-top: none; padding-top: 0; margin-top: 0; }
+.method-label {
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #1a5c8c;
+  display: block;
+  margin-bottom: 4px;
+}
+
+/* ── Limitations box ─────────────────────────────────────────────── */
+.limitations-box {
+  background: #fff8f0;
+  border: 1px solid #e8c89a;
+  border-radius: 6px;
+  padding: 22px 26px;
+  margin: 2rem 0;
+}
+.limitations-box h3 { color: #7a4a00; }
+
+/* ── Data sources ────────────────────────────────────────────────── */
+.sources-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 32px;
+}
+@media (max-width: 640px) { .sources-grid { grid-template-columns: 1fr; } }
+.source-entry {
+  border-top: 1px solid #efefef;
+  padding: 10px 0;
+  font-size: 0.88rem;
+}
+.source-entry:first-child { border-top: none; }
+.source-name {
+  font-family: system-ui, -apple-system, sans-serif;
+  font-weight: 700;
+  font-size: 0.82rem;
+  display: block;
+}
+
+/* ── Charts ──────────────────────────────────────────────────────── */
+.chart-container {
+  margin: 1.4rem 0;
+  text-align: center;
+}
+.chart-caption {
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 0.78rem;
+  color: #666;
+  margin-top: 6px;
+  font-style: italic;
+}
+
+/* ── Divider ─────────────────────────────────────────────────────── */
+.divider {
+  border: none;
+  border-top: 1px solid #e0e0e0;
+  margin: 2.4rem 0;
+}
+
+/* ── Print ───────────────────────────────────────────────────────── */
+@media print {
+  body { padding: 0; font-size: 14px; }
+  .hyp-card { page-break-inside: avoid; }
+  h2 { page-break-after: avoid; }
+}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!--  HEADER                                                         -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<div class="report-header">
+  <h1>North Atlantic Salmon:<br>A Quantitative Alpha Search</h1>
+  <div class="report-meta">
+    <span>Archer Capital Research</span>
+    <span>June 2026</span>
+    <span>Five hypotheses &mdash; one pass each &mdash; no parameter tuning</span>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!--  EXECUTIVE SUMMARY                                              -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<h2>Executive Summary</h2>
+
+<div class="exec-summary">
+  <p><strong>Thesis tested.</strong> Norwegian salmon-farmer equities (Mowi, SalMar, Lerøy, Grieg, Bakkafrost) are specialist-covered mid-caps whose core inputs &mdash; weekly lice counts, disease events, ocean temperature, feed prices, and live biomass &mdash; are published as public data. The question is whether any of those inputs, processed rigorously, contains a signal that survives until a trade can be executed.</p>
+
+  <p style="margin-top: 12px;"><strong>Method.</strong> Five independent hypotheses were constructed from first principles, each mapped to a distinct data source and signal chain. Each was run exactly once on the full available history with no iteration or parameter tuning. Results are reported as-is.</p>
+
+  <div style="margin-top: 14px; font-family: system-ui, sans-serif; font-size: 0.88rem;">
+    <table style="width:100%; border-collapse:collapse;">
+      <tr style="border-bottom: 1px solid #ddd;">
+        <td style="padding: 5px 8px; width:24%; font-weight:700;">H1 &mdash; SST Lead-Lag</td>
+        <td style="padding: 5px 8px;"><span class="badge badge-red">No Signal</span></td>
+        <td style="padding: 5px 8px; color:#555;">Best t-stat 1.28; 18 truly independent episodes over 14 years.</td>
+      </tr>
+      <tr style="border-bottom: 1px solid #ddd;">
+        <td style="padding: 5px 8px; font-weight:700;">H2 &mdash; Lice Efficiency</td>
+        <td style="padding: 5px 8px;"><span class="badge badge-orange">Weak Hint</span></td>
+        <td style="padding: 5px 8px; color:#555;">Real signal at lag 0 (t = &minus;1.99); gone at lag 1, the earliest tradeable point.</td>
+      </tr>
+      <tr style="border-bottom: 1px solid #ddd;">
+        <td style="padding: 5px 8px; font-weight:700;">H3 &mdash; Acute Events</td>
+        <td style="padding: 5px 8px;"><span class="badge badge-red">No Signal</span></td>
+        <td style="padding: 5px 8px; color:#555;">t = &minus;0.28 across 17 events; data quality too poor to test the concept.</td>
+      </tr>
+      <tr style="border-bottom: 1px solid #ddd;">
+        <td style="padding: 5px 8px; font-weight:700;">H4 &mdash; Feed-Cost Squeeze</td>
+        <td style="padding: 5px 8px;"><span class="badge badge-orange">Weak Hint</span></td>
+        <td style="padding: 5px 8px; color:#555;">t = 2.49 at lag 5 months; below Bonferroni threshold; backtest Sharpe &minus;0.05.</td>
+      </tr>
+      <tr>
+        <td style="padding: 5px 8px; font-weight:700;">H5 &mdash; Biomass Nowcast</td>
+        <td style="padding: 5px 8px;"><span class="badge badge-amber">Blocked</span></td>
+        <td style="padding: 5px 8px; color:#555;">Strongest concept structurally; blocked on granular biomass data with no public API.</td>
+      </tr>
+    </table>
+  </div>
+
+  <div class="meta-conclusion">
+    <strong>Meta-conclusion.</strong> The mechanism linking lice, disease, and feed costs to salmon-farmer earnings is real and well-understood. What is absent is any exploitable lag between when the data becomes public and when the specialist sell-side community (DNB, Pareto, ABG Sundal Collier) acts on it. Every testable signal either appears simultaneously with the information release or is too small to survive a proper multiple-testing correction. The Norwegian salmon equity market is efficiently covered for the data sources tested.
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!--  SCOREBOARD                                                     -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<h2>Scoreboard</h2>
+<p style="font-size:0.88rem; color:#555; margin-bottom: 12px;">All five hypotheses run once on full data (2012&ndash;2026 where available). No parameters tuned.</p>
+
+<table class="scoreboard">
+  <thead>
+    <tr>
+      <th class="col-h">Hypothesis</th>
+      <th class="col-status">Status</th>
+      <th class="col-stat">Key statistic</th>
+      <th class="col-reason">Why it did not yield an edge</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td class="col-h">H1: Sea-Surface Temperature Lead-Lag</td>
+      <td><span class="badge badge-red">No Signal</span></td>
+      <td>t-stat = 1.28<br>R&sup2; &asymp; 0%</td>
+      <td>Satellite SST anomalies show zero ability to predict relative farmer returns across any lag from 1&ndash;8 weeks. 753 weekly rows collapse to 18 truly independent warm-water episodes.</td>
+    </tr>
+    <tr>
+      <td class="col-h">H2: Relative Lice Efficiency</td>
+      <td><span class="badge badge-orange">Weak Hint</span></td>
+      <td>t = &minus;1.99 at lag 0<br>t = &minus;0.47 at lag 1<br>Sharpe = 0.16</td>
+      <td>Signal collapses after one week. Lag 0 captures the market reacting to Barentswatch simultaneously, not a lead. The earliest tradeable lag (1) has no signal.</td>
+    </tr>
+    <tr>
+      <td class="col-h">H3: Acute Event Detection</td>
+      <td><span class="badge badge-red">No Signal</span></td>
+      <td>t = &minus;0.28<br>n = 17 events</td>
+      <td>Aggregate signal is noise. Event dates were reconstructed from secondary sources, not original Mattilsynet filings, making the analysis unreliable. Mortality sub-group (n=4) is directionally interesting but dominated by one event.</td>
+    </tr>
+    <tr>
+      <td class="col-h">H4: Feed-Cost Squeeze</td>
+      <td><span class="badge badge-orange">Weak Hint</span></td>
+      <td>t = 2.49 at lag 5<br>Bonferroni threshold: 2.81<br>Sharpe = &minus;0.05</td>
+      <td>Fishmeal-to-return signal at 5-month lag is the most economically coherent finding but falls short of the multiple-testing threshold and produces a flat backtest. Only 6 El Niño events since 2005.</td>
+    </tr>
+    <tr>
+      <td class="col-h">H5: Biomass Nowcast</td>
+      <td><span class="badge badge-amber">Blocked</span></td>
+      <td>Pipeline complete;<br>data unavailable</td>
+      <td>Granular biomass data from Fiskeridirektoratet has no public API. SSB discontinued the monthly series in 2019. Structurally the strongest concept of the five; remains untested.</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!--  PER-HYPOTHESIS CARDS                                           -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<h2>Hypothesis Results</h2>
+
+<!-- H1 ─────────────────────────────────────────────────────────── -->
+<div class="hyp-card">
+  <div class="hyp-card-header">
+    <span class="hyp-label">H1</span>
+    <span class="hyp-title">Sea-Surface Temperature as an Early Warning on Lice</span>
+    <span class="badge badge-red">No Signal</span>
+  </div>
+
+  <div class="hyp-grid">
+    <div>
+      <div class="hyp-field">
+        <label>Mechanism</label>
+        <p>Sea lice reproduce faster in warm water. If a production zone's water is warmer than its seasonal average, a lice spike should follow 2&ndash;4 weeks later &mdash; before it appears in the weekly Barentswatch report. Use satellite temperature anomalies to go short the affected farmer before the lice data confirms the problem.</p>
+      </div>
+      <div class="hyp-field" style="margin-top:12px;">
+        <label>Chain of logic</label>
+        <div class="chain">Warmer SST anomaly (NOAA OISST)
+      ↓  2&ndash;4 weeks
+Higher lice density
+      ↓  1&ndash;3 weeks
+Treatment costs spike, quality falls
+      ↓
+Farmer underperforms peer basket</div>
+      </div>
+    </div>
+    <div>
+      <div class="hyp-field">
+        <label>Data</label>
+        <p>NOAA OISST v2.1 daily SST at 0.25&deg; resolution (2012&ndash;2026). Zone-weighted signals built for all 11 Norwegian production zones using farmer-specific zone footprints. 753 weekly observations.</p>
+      </div>
+      <div class="hyp-field" style="margin-top:12px;">
+        <label>What was tested</label>
+        <p>Whether zone-weighted SST anomaly predicted each farmer's relative return (farmer minus equal-weight basket) at horizons of 1&ndash;8 weeks. Sign consistency and t-statistics reported across all farmers and all lags.</p>
+      </div>
+      <div class="hyp-field" style="margin-top:12px;">
+        <label>Results</label>
+        <table style="font-family: system-ui, sans-serif; font-size: 0.82rem; border-collapse: collapse; width: 100%;">
+          <tr><td style="padding: 3px 6px; color:#888; width: 55%;">Best t-statistic</td><td style="padding: 3px 6px; font-weight:700;">1.28</td></tr>
+          <tr style="background:#fafafa;"><td style="padding: 3px 6px; color:#888;">R&sup2; (all tests)</td><td style="padding: 3px 6px; font-weight:700;">&asymp; 0%</td></tr>
+          <tr><td style="padding: 3px 6px; color:#888;">Sign consistency</td><td style="padding: 3px 6px; font-weight:700;">Mixed</td></tr>
+          <tr style="background:#fafafa;"><td style="padding: 3px 6px; color:#888;">True independent obs.</td><td style="padding: 3px 6px; font-weight:700;">18 warm-water episodes</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="verdict-box verdict-red">
+    <strong>Verdict.</strong> No signal. The temperature data shows zero ability to predict which farmer will underperform across any horizon or farmer tested. The unverified middle link (SST &rarr; lice) means we cannot distinguish between a mechanism that is wrong and one that operates too slowly to produce an equity edge. Not worth further development.
+  </div>
+  <div class="hyp-field" style="margin-top: 12px; font-size: 0.85rem; color: #555;">
+    <strong>What would change this verdict:</strong> A confirmed SST &rarr; lice correlation with 2&ndash;4 week lead at zone level, combined with a demonstrated lice &rarr; stock return link at lag 1+. Both links would need to hold independently on out-of-sample data.
+  </div>
+</div>
+
+<!-- H2 ─────────────────────────────────────────────────────────── -->
+<div class="hyp-card">
+  <div class="hyp-card-header">
+    <span class="hyp-label">H2</span>
+    <span class="hyp-title">Relative Lice Efficiency</span>
+    <span class="badge badge-orange">Weak Hint</span>
+  </div>
+
+  <div class="hyp-grid">
+    <div>
+      <div class="hyp-field">
+        <label>Mechanism</label>
+        <p>Do not trade the absolute lice level. Compare each farmer's sites to the other operators in the same production zone. If Mowi's sites in zone 6 carry three times the zone average while SalMar's nearby sites are at the average, that is a company-specific operational warning invisible in headline lice figures. Normalising by local environmental pressure strips the commodity factor.</p>
+      </div>
+      <div class="hyp-field" style="margin-top:12px;">
+        <label>Chain of logic</label>
+        <div class="chain">Farmer A's lice residual rises (vs zone LOO average)
+      ↓
+Operational problem: poor biosecurity or equipment
+      ↓
+Treatment costs spike, fish quality falls
+      ↓
+Earnings disappoint (market has not priced it yet)
+      ↓
+Short farmer A vs basket</div>
+      </div>
+    </div>
+    <div>
+      <div class="hyp-field">
+        <label>Data</label>
+        <p>Barentswatch FishHealth API: 364,953 site-week observations, 1,186 unique sites, 2012&ndash;2026 (687 weeks). Site-to-company mapping via Fiskeridirektoratet: 484 sites mapped across Mowi (200), SalMar (142), Lerøy (122), Grieg (20). Signal: leave-one-out zone residual shifted forward 1 week (publication lag).</p>
+      </div>
+      <div class="hyp-field" style="margin-top:12px;">
+        <label>Results (Test A, pooled OLS)</label>
+        <table style="font-family: system-ui, sans-serif; font-size: 0.82rem; border-collapse: collapse; width: 100%;">
+          <tr style="background: #f4f4f4;">
+            <td style="padding: 3px 6px; color:#888; font-weight:700; width:14%;">Lag</td>
+            <td style="padding: 3px 6px; color:#888; font-weight:700;">t-stat</td>
+            <td style="padding: 3px 6px; color:#888; font-weight:700;">Sign?</td>
+          </tr>
+          <tr><td style="padding: 3px 6px; font-weight:700;">0</td><td style="padding: 3px 6px; color:#c0392b; font-weight:700;">&minus;1.99</td><td style="padding: 3px 6px;">&#10003; Negative</td></tr>
+          <tr style="background:#fafafa;"><td style="padding: 3px 6px;">1</td><td style="padding: 3px 6px; color:#888;">&minus;0.47</td><td style="padding: 3px 6px; color:#888;">noise</td></tr>
+          <tr><td style="padding: 3px 6px;">2</td><td style="padding: 3px 6px; color:#888;">+0.04</td><td style="padding: 3px 6px; color:#888;">noise</td></tr>
+          <tr style="background:#fafafa;"><td style="padding: 3px 6px;">3</td><td style="padding: 3px 6px; color:#888;">+0.34</td><td style="padding: 3px 6px; color:#888;">noise</td></tr>
+          <tr><td style="padding: 3px 6px;">4</td><td style="padding: 3px 6px; color:#888;">+0.86</td><td style="padding: 3px 6px; color:#888;">noise</td></tr>
+        </table>
+        <p style="font-size: 0.78rem; color:#888; margin-top:4px;">Effective n per farmer: &asymp;190 (adj. for r1&asymp;0.55 autocorrelation). Test C Sharpe: 0.16 pre-cost.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- H2 Chart: t-stat by lag -->
+  <div class="chart-container">
+    <svg viewBox="0 0 700 280" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:700px;display:block;margin:0 auto;font-family:system-ui,sans-serif;">
+      <!-- Background -->
+      <rect x="0" y="0" width="700" height="280" fill="white"/>
+
+      <!-- Chart area: x=70..640, y=30..240 -->
+      <!-- Y range: t from +1.5 to -2.5. total = 4.0. px_per_unit = 210/4 = 52.5 -->
+      <!-- y_zero = 30 + (1.5/4)*210 = 30 + 78.75 = 108.75 -->
+
+      <!-- Y-axis gridlines and labels -->
+      <!-- t=+1.5 → y=30 -->
+      <line x1="70" y1="30" x2="640" y2="30" stroke="#f0f0f0" stroke-width="1"/>
+      <text x="62" y="34" text-anchor="end" font-size="10" fill="#aaa">+1.5</text>
+
+      <!-- t=+1.0 → y=30+0.5*52.5=56.25 -->
+      <line x1="70" y1="56" x2="640" y2="56" stroke="#f0f0f0" stroke-width="1"/>
+      <text x="62" y="60" text-anchor="end" font-size="10" fill="#aaa">+1.0</text>
+
+      <!-- t=+0.5 → y=30+1.0*52.5=82.5 -->
+      <line x1="70" y1="83" x2="640" y2="83" stroke="#f0f0f0" stroke-width="1"/>
+      <text x="62" y="87" text-anchor="end" font-size="10" fill="#aaa">+0.5</text>
+
+      <!-- t=0 → y=30+1.5*52.5=108.75 ≈ 109 -->
+      <line x1="70" y1="109" x2="640" y2="109" stroke="#888" stroke-width="1.5"/>
+      <text x="62" y="113" text-anchor="end" font-size="10" fill="#444" font-weight="bold">0</text>
+
+      <!-- t=-0.5 → y=30+2.0*52.5=135 -->
+      <line x1="70" y1="135" x2="640" y2="135" stroke="#f0f0f0" stroke-width="1"/>
+      <text x="62" y="139" text-anchor="end" font-size="10" fill="#aaa">-0.5</text>
+
+      <!-- t=-1.0 → y=30+2.5*52.5=161.25 -->
+      <line x1="70" y1="161" x2="640" y2="161" stroke="#f0f0f0" stroke-width="1"/>
+      <text x="62" y="165" text-anchor="end" font-size="10" fill="#aaa">-1.0</text>
+
+      <!-- t=-1.5 → y=30+3.0*52.5=187.5 : the gate -->
+      <line x1="70" y1="188" x2="640" y2="188" stroke="#e67e22" stroke-width="1.5" stroke-dasharray="5,4"/>
+      <text x="62" y="192" text-anchor="end" font-size="10" fill="#e67e22">-1.5</text>
+      <text x="645" y="192" font-size="9" fill="#e67e22">gate</text>
+
+      <!-- t=-2.0 → y=30+3.5*52.5=213.75 -->
+      <line x1="70" y1="214" x2="640" y2="214" stroke="#f0f0f0" stroke-width="1"/>
+      <text x="62" y="218" text-anchor="end" font-size="10" fill="#aaa">-2.0</text>
+
+      <!-- t=-2.5 → y=240 -->
+      <line x1="70" y1="240" x2="640" y2="240" stroke="#e0e0e0" stroke-width="1"/>
+      <text x="62" y="244" text-anchor="end" font-size="10" fill="#aaa">-2.5</text>
+
+      <!-- Y axis line -->
+      <line x1="70" y1="25" x2="70" y2="245" stroke="#ccc" stroke-width="1"/>
+
+      <!-- BARS: 5 bars, centers at x = 140, 250, 360, 470, 580, bar width = 80 -->
+      <!-- bar y: y_top = y_zero - t*52.5 (for positive), y_bottom = y_zero (for negative, bar goes down) -->
+      <!-- For negative t: rect y=y_zero, height=|t|*52.5 -->
+      <!-- For positive t: rect y=y_zero-t*52.5, height=t*52.5 -->
+
+      <!-- L=0: t=-1.99, bar from y=109 downward, height=1.99*52.5=104.5 -->
+      <rect x="100" y="109" width="80" height="104.5" fill="#c0392b" opacity="0.82" rx="2"/>
+      <text x="140" y="224" text-anchor="middle" font-size="11" fill="#c0392b" font-weight="700">-1.99</text>
+
+      <!-- L=1: t=-0.47, bar from y=109 downward, height=0.47*52.5=24.7 -->
+      <rect x="210" y="109" width="80" height="24.7" fill="#c0392b" opacity="0.30" rx="2"/>
+      <text x="250" y="145" text-anchor="middle" font-size="11" fill="#999">-0.47</text>
+
+      <!-- L=2: t=+0.04, bar from y=109-0.04*52.5=106.9 upward, height=2.1 -->
+      <rect x="320" y="106.9" width="80" height="2.1" fill="#7f8c8d" opacity="0.5" rx="2"/>
+      <text x="360" y="100" text-anchor="middle" font-size="11" fill="#aaa">+0.04</text>
+
+      <!-- L=3: t=+0.34, bar from y=109-0.34*52.5=91.2 upward, height=17.8 -->
+      <rect x="430" y="91.2" width="80" height="17.8" fill="#7f8c8d" opacity="0.5" rx="2"/>
+      <text x="470" y="85" text-anchor="middle" font-size="11" fill="#999">+0.34</text>
+
+      <!-- L=4: t=+0.86, bar from y=109-0.86*52.5=63.8 upward, height=45.2 -->
+      <rect x="540" y="63.8" width="80" height="45.2" fill="#7f8c8d" opacity="0.5" rx="2"/>
+      <text x="580" y="57" text-anchor="middle" font-size="11" fill="#999">+0.86</text>
+
+      <!-- X-axis labels -->
+      <text x="140" y="258" text-anchor="middle" font-size="11" fill="#444">Lag 0</text>
+      <text x="250" y="258" text-anchor="middle" font-size="11" fill="#444">Lag 1</text>
+      <text x="360" y="258" text-anchor="middle" font-size="11" fill="#444">Lag 2</text>
+      <text x="470" y="258" text-anchor="middle" font-size="11" fill="#444">Lag 3</text>
+      <text x="580" y="258" text-anchor="middle" font-size="11" fill="#444">Lag 4</text>
+
+      <!-- Publication lag annotation bracket -->
+      <line x1="250" y1="264" x2="250" y2="272" stroke="#2980b9" stroke-width="1.5"/>
+      <line x1="250" y1="272" x2="390" y2="272" stroke="#2980b9" stroke-width="1.5"/>
+      <text x="285" y="280" text-anchor="start" font-size="9" fill="#2980b9">&#x2191; Earliest tradeable (publication lag)</text>
+
+      <!-- Y-axis title -->
+      <text x="14" y="140" text-anchor="middle" font-size="11" fill="#666" transform="rotate(-90, 14, 135)">t-statistic</text>
+    </svg>
+    <p class="chart-caption">H2 Test A pooled t-statistic by lag. The signal at lag 0 (&minus;1.99) reflects the market reacting simultaneously to the same Barentswatch data. Lag 1 is the earliest a trade could be executed; the signal is gone.</p>
+  </div>
+
+  <div class="verdict-box verdict-orange">
+    <strong>Verdict.</strong> The mechanism is confirmed: relative lice performance predicts relative stock returns. The problem is timing. The Barentswatch report is published Monday mornings and the specialist sell-side processes it immediately. Lag 0 captures their simultaneous reaction. Lag 1, the earliest point at which a retail or independent investor could trade, shows no signal (t = &minus;0.47). Not viable as a systematic strategy without a genuine publication-lag advantage.
+  </div>
+  <div class="hyp-field" style="margin-top: 12px; font-size: 0.85rem; color: #555;">
+    <strong>What would change this verdict:</strong> Evidence that a subset of farms (e.g. those with infrequent reporting or specific sites) exhibits a delayed publication pattern. Alternatively, a correlated signal (satellite observation, weather data) that precedes the lice report by one week.
+  </div>
+</div>
+
+<!-- H3 ─────────────────────────────────────────────────────────── -->
+<div class="hyp-card">
+  <div class="hyp-card-header">
+    <span class="hyp-label">H3</span>
+    <span class="hyp-title">Acute Event Detection</span>
+    <span class="badge badge-red">No Signal</span>
+  </div>
+
+  <div class="hyp-grid">
+    <div>
+      <div class="hyp-field">
+        <label>Mechanism</label>
+        <p>ISA outbreaks (mandatory whole-farm culls), mass mortality events from algal blooms, and de-licing accidents appear in Norwegian Food Safety Authority (Mattilsynet) notices before analysts or news wires process them. Reading those notices in Norwegian at publication time creates a short-term short opportunity in the affected company.</p>
+      </div>
+      <div class="hyp-field" style="margin-top:12px;">
+        <label>Chain of logic</label>
+        <div class="chain">ISA confirmed (Mattilsynet PDF, Monday morning)
+      ↓
+Mandatory cull: sudden, quantified biomass loss
+      ↓
+Stock falls over next 1&ndash;10 days as news spreads
+      ↓
+Short before professional community reacts</div>
+      </div>
+      <div class="hyp-field" style="margin-top:12px;">
+        <label>Results by event type (17 events, CAR at day +1)</label>
+        <table style="font-family:system-ui,sans-serif;font-size:0.82rem;border-collapse:collapse;width:100%;">
+          <tr style="background:#f4f4f4;"><th style="padding:3px 6px;text-align:left;font-weight:700;color:#888;">Type</th><th style="padding:3px 6px;text-align:right;color:#888;">n</th><th style="padding:3px 6px;text-align:right;color:#888;">Mean CAR +1d</th></tr>
+          <tr><td style="padding:3px 6px;">All events</td><td style="padding:3px 6px;text-align:right;">17</td><td style="padding:3px 6px;text-align:right;">&#8722;0.13%</td></tr>
+          <tr style="background:#fafafa;"><td style="padding:3px 6px;">ISA specifically</td><td style="padding:3px 6px;text-align:right;">8</td><td style="padding:3px 6px;text-align:right;">+0.14%</td></tr>
+          <tr><td style="padding:3px 6px;">Mortality events</td><td style="padding:3px 6px;text-align:right;">4</td><td style="padding:3px 6px;text-align:right;color:#c0392b;font-weight:700;">&#8722;2.26%</td></tr>
+          <tr style="background:#fafafa;"><td style="padding:3px 6px;">PD events (CAR 5d)</td><td style="padding:3px 6px;text-align:right;">5</td><td style="padding:3px 6px;text-align:right;">+4.4%</td></tr>
+        </table>
+      </div>
+    </div>
+    <div>
+      <div class="hyp-field">
+        <label>Why the result is unreliable</label>
+        <p>Nearly all 17 events were reconstructed from secondary sources (news articles, annual reports, academic papers) rather than original Mattilsynet filings. This introduces three compounding problems:</p>
+        <ul style="font-size: 0.88rem; margin-top: 6px;">
+          <li><strong>Approximate dates.</strong> An ISA confirmed on March 15 but recorded as "March" adds two weeks of noise to every event window.</li>
+          <li><strong>Attribution uncertainty.</strong> Regional disease notices attributed to the dominant local operator could be wrong.</li>
+          <li><strong>Small sample.</strong> 17 events across 5 correlated stocks provides limited statistical power even with perfect data.</li>
+        </ul>
+      </div>
+      <div class="hyp-field" style="margin-top: 14px;">
+        <label>The only interesting sub-result</label>
+        <p>The 4 mortality events (the 2019 Nordland algal bloom and the 2021 de-licing incident) showed &minus;2.26% mean return at day +1, all four negative (t = &minus;3.05, p = 0.055). Directionally consistent but dominated by one large event, and the approximate dates undermine confidence.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="verdict-box verdict-red">
+    <strong>Verdict.</strong> No reliable signal. The aggregate result is noise. The mortality sub-group is the only directionally consistent finding but is too small and too imprecise to trade on. The concept is structurally sound; the bottleneck is building a structured Mattilsynet data source with exact event dates.
+  </div>
+  <div class="hyp-field" style="margin-top: 12px; font-size: 0.85rem; color: #555;">
+    <strong>What would change this verdict:</strong> A systematic scrape of Mattilsynet's weekly fish-health notices with exact confirmation dates and locality IDs cross-referenced against the Barentswatch site register. This is a data-engineering problem, not an analytical one.
+  </div>
+</div>
+
+<!-- H4 ─────────────────────────────────────────────────────────── -->
+<div class="hyp-card">
+  <div class="hyp-card-header">
+    <span class="hyp-label">H4</span>
+    <span class="hyp-title">Feed-Cost Squeeze via the El Niño / Anchovy / Fishmeal Chain</span>
+    <span class="badge badge-orange">Weak Hint</span>
+  </div>
+
+  <div class="hyp-grid">
+    <div>
+      <div class="hyp-field">
+        <label>Mechanism</label>
+        <p>Salmon feed is the largest single cost in farming. The primary protein ingredient is fishmeal, made from Peruvian anchovies. El Niño disrupts the Peruvian anchovy catch, fishmeal prices spike, and salmon-farmer margins compress months later when feed contracts roll. El Niño climate forecasts are available before the earnings impact materialises.</p>
+      </div>
+      <div class="hyp-field" style="margin-top:12px;">
+        <label>Chain of logic</label>
+        <div class="chain">El Niño develops (NOAA ONI index)
+      ↓  2&ndash;4 months: quota cuts, lower catch
+Fishmeal prices spike
+      ↓  1&ndash;3 months: feed contracts adjust
+Feed costs rise
+      ↓  quarterly lag to earnings
+Farmer margins compressed, stock underperforms</div>
+      </div>
+    </div>
+    <div>
+      <div class="hyp-field">
+        <label>What was tested</label>
+        <p><strong>Test A (climate &rarr; commodity):</strong> NOAA ONI index against fishmeal prices at 0&ndash;12 month lags. No relationship found; only 6 independent El Niño events available since 2005.</p>
+        <p style="margin-top:8px;"><strong>Test B (commodity &rarr; returns):</strong> Monthly fishmeal price change against salmon-farmer relative returns at 0&ndash;9 month lags. Hint at lag 5: &beta; = &minus;0.33, t = 2.49 (rising fishmeal predicts negative returns five months later). Sign consistent across most farmers. Sign flips positive at lag 2, which is suspicious.</p>
+        <p style="margin-top:8px;"><strong>Test C (backtest):</strong> Simple signal using fishmeal rises during active El Niño. Backtest Sharpe = &minus;0.05.</p>
+      </div>
+      <div class="hyp-field" style="margin-top:12px;">
+        <label>Key statistics</label>
+        <table style="font-family:system-ui,sans-serif;font-size:0.82rem;border-collapse:collapse;width:100%;">
+          <tr><td style="padding:3px 6px;color:#888;">Best t-stat (lag 5)</td><td style="padding:3px 6px;font-weight:700;">2.49</td></tr>
+          <tr style="background:#fafafa;"><td style="padding:3px 6px;color:#888;">Bonferroni threshold (10 lags)</td><td style="padding:3px 6px;font-weight:700;">2.81</td></tr>
+          <tr><td style="padding:3px 6px;color:#888;">Backtest Sharpe</td><td style="padding:3px 6px;font-weight:700;">&minus;0.05</td></tr>
+          <tr style="background:#fafafa;"><td style="padding:3px 6px;color:#888;">Independent El Niño events</td><td style="padding:3px 6px;font-weight:700;">6 (since 2005)</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="verdict-box verdict-orange">
+    <strong>Verdict.</strong> The lag-5 result (t = 2.49) is the most economically coherent finding of the five hypotheses. A 5-month transmission lag is plausible if Norwegian farmers typically forward-contract feed on that cycle. However: (a) it falls short of the Bonferroni-corrected threshold of 2.81, (b) the sign flips at lag 2 without explanation, and (c) the backtest Sharpe is &minus;0.05. Filed as a weak and unconfirmed hint.
+  </div>
+  <div class="hyp-field" style="margin-top: 12px; font-size: 0.85rem; color: #555;">
+    <strong>What would change this verdict:</strong> Independent confirmation that the major Norwegian farmers forward-contract feed on 5 to 6 month cycles, which would provide a structural reason to trust the lag. Without that prior, the result is consistent with a multiple-testing artefact.
+  </div>
+</div>
+
+<!-- H5 ─────────────────────────────────────────────────────────── -->
+<div class="hyp-card">
+  <div class="hyp-card-header">
+    <span class="hyp-label">H5</span>
+    <span class="hyp-title">Biomass Nowcast: Forecasting Salmon Supply Before the Market Does</span>
+    <span class="badge badge-amber">Blocked</span>
+  </div>
+
+  <div class="hyp-grid">
+    <div>
+      <div class="hyp-field">
+        <label>Mechanism</label>
+        <p>All salmon in Norwegian sea cages will be harvested in the next 6 to 18 months. Knowing current live biomass per zone plus growth rates produces a harvest supply forecast. Compare that forecast to the Fish Pool salmon-price forward curve: if your forecast implies more supply than the forward implies, sell futures.</p>
+      </div>
+      <div class="hyp-field" style="margin-top:12px;">
+        <label>Chain of logic</label>
+        <div class="chain">Live biomass per site (weekly, Barentswatch)
+      ↓  apply growth model (temperature, feeding)
+Forecast harvest supply (6, 12, 18 months)
+      ↓
+Compare to Fish Pool forward curve
+      ↓
+Forecast &gt; forward price: sell futures
+Forecast &lt; forward price: buy futures</div>
+      </div>
+    </div>
+    <div>
+      <div class="hyp-field">
+        <label>What was built</label>
+        <p>Complete statistical pipeline: salmon price (258 months, SSB), harvest proxy (weekly export volumes, SSB), equity prices (5 tickers), and statistical tests A through D. Ready to run immediately on receipt of the biomass input.</p>
+      </div>
+      <div class="hyp-field" style="margin-top:12px;">
+        <label>What is blocking it</label>
+        <p>Granular biomass data from Fiskeridirektoratet has no public API. The statistics portal is JavaScript-rendered with no data endpoints. Statistics Norway (SSB) shut down the monthly aquaculture series in 2019. A Biomassestatistikk Excel file exists on the Fiskeridirektoratet website but requires manual download. Fish Pool forward prices require a subscription.</p>
+      </div>
+      <div class="hyp-field" style="margin-top:12px;">
+        <label>Structural assessment</label>
+        <p>Strongest concept of the five. Clear supply-demand mechanism, quantifiable input, liquid priced instrument, and the competing analysts rely on the same lagged government statistics. The absence of an API cuts both ways: harder for quant funds to automate as well.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="verdict-box verdict-amber">
+    <strong>Verdict.</strong> Not testable with currently available data. Remains the highest-priority hypothesis structurally. The pipeline would run immediately on receipt of the Fiskeridirektoratet biomass file.
+  </div>
+  <div class="hyp-field" style="margin-top: 12px; font-size: 0.85rem; color: #555;">
+    <strong>What would change this verdict:</strong> Manual download of the Fiskeridirektoratet Biomassestatistikk file plus a Fish Pool forward price subscription. The code is written; the inputs are the only gap.
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!--  METHODOLOGY                                                     -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<h2>How I Avoided Fooling Myself</h2>
+
+<div class="methodology-box">
+  <p style="font-family: system-ui, sans-serif; font-size: 0.88rem; color: #555; margin-bottom: 16px;">The following methodological choices are specific to this project and are documented here to allow a reader to assess the reliability of each result independently.</p>
+
+  <div class="method-item">
+    <span class="method-label">One pass, no tuning</span>
+    <p>Each hypothesis was constructed, coded, and run exactly once on the full available data. No lag, threshold, or parameter was adjusted after seeing initial results. The scoreboard above reflects first-pass outputs.</p>
+  </div>
+
+  <div class="method-item">
+    <span class="method-label">Effective sample size vs calendar weeks</span>
+    <p>Weekly financial and lice data are highly autocorrelated. The 685 to 753 weekly observations per farmer are not independent data points. For H2, each farmer's lice residual has a lag-1 autocorrelation of approximately 0.55, which reduces the effective sample size from ~685 weeks to roughly <strong>180 to 200 independent episodes</strong> per farmer, using the formula n_eff = n &times; (1 &minus; r<sub>1</sub>) / (1 + r<sub>1</sub>). T-statistics are reported alongside n_eff for transparency. The 18 warm-water episodes (H1) and 6 El Niño events (H4) represent analogous effective sample sizes for those tests.</p>
+
+    <!-- Effective sample size visual -->
+    <div class="chart-container" style="margin: 14px 0 6px;">
+      <svg viewBox="0 0 600 90" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:580px;display:block;margin:0 auto;font-family:system-ui,sans-serif;">
+        <rect width="600" height="90" fill="white"/>
+        <text x="10" y="18" font-size="11" fill="#555" font-weight="600">H2 — Mowi signal series</text>
+        <!-- 685 weekly rows bar -->
+        <text x="10" y="38" font-size="10" fill="#888">Weekly rows</text>
+        <rect x="120" y="26" width="410" height="14" fill="#c0392b" opacity="0.25" rx="2"/>
+        <rect x="120" y="26" width="410" height="14" fill="none" stroke="#c0392b" stroke-width="1" rx="2"/>
+        <text x="535" y="38" font-size="10" fill="#444" font-weight="700">685</text>
+        <!-- ~199 independent episodes bar -->
+        <text x="10" y="62" font-size="10" fill="#888">Independent eps.</text>
+        <rect x="120" y="50" width="119" height="14" fill="#c0392b" opacity="0.70" rx="2"/>
+        <text x="535" y="62" font-size="10" fill="#444" font-weight="700">~199</text>
+        <text x="10" y="82" font-size="9" fill="#aaa" font-style="italic">n_eff = n &times; (1 - r&#x2081;) / (1 + r&#x2081;) &nbsp; where r&#x2081; &asymp; 0.55</text>
+      </svg>
+      <p class="chart-caption">685 weekly rows vs approximately 199 independent episodes after adjusting for autocorrelation (r<sub>1</sub> &asymp; 0.55). Interpreting t-statistics at face value using n=685 would substantially overstate confidence.</p>
+    </div>
+  </div>
+
+  <div class="method-item">
+    <span class="method-label">Leave-one-out zone residual (H2)</span>
+    <p>The zone benchmark for each farmer was computed using the lice counts from <em>all other</em> operators' sites in the same production zone that week, excluding the current farmer's own sites. A farmer with 25 sites in a 30-site zone would otherwise partially benchmark against themselves, structurally deflating their own residual. The leave-one-out correction ensures the benchmark is genuinely external. Approximately 15% of farmer-site-weeks were excluded because the farmer was the sole zone occupant that week (LOO undefined).</p>
+  </div>
+
+  <div class="method-item">
+    <span class="method-label">Publication lag as the edge test (H2)</span>
+    <p>The Barentswatch FishHealth report is published weekly on Monday mornings. Lag 0 in the regression tests whether the signal predicts returns <em>in the same week the data is released</em>. This captures the market reacting simultaneously to the same information, not a lead. The minimum tradeable lag is lag 1 (one week forward). Reporting both lags explicitly makes this distinction visible: lag 0 has signal (t = &minus;1.99), lag 1 does not (t = &minus;0.47).</p>
+  </div>
+
+  <div class="method-item">
+    <span class="method-label">Multiple-testing correction (H4)</span>
+    <p>Ten different lags (0&ndash;9 months) were tested in H4 Test B. Testing many hypotheses simultaneously increases the probability of a false positive by chance alone. Applying a Bonferroni correction raises the significance threshold from t &asymp; 2.0 to t = 2.81. The best result (t = 2.49 at lag 5) falls below this threshold. This does not prove the signal is false; it means the available data cannot distinguish it from a multiple-testing artefact.</p>
+  </div>
+
+  <div class="method-item">
+    <span class="method-label">Relative returns throughout</span>
+    <p>All return signals are computed as farmer return minus equal-weight basket return across the four test tickers. This strips the common salmon-price factor (which affects all farmers simultaneously) and isolates company-specific operational variation. A strategy that performs well on absolute returns in a salmon bull market is not informative; one that performs on relative returns is.</p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!--  LIMITATIONS                                                    -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<h2>Honest Limitations</h2>
+
+<div class="limitations-box">
+  <p style="font-family: system-ui, sans-serif; font-size: 0.88rem; color: #7a4a00; margin-bottom: 14px;">The following limitations are disclosed as written. Where a limitation is material to interpreting a specific result, it is noted in the relevant hypothesis card above.</p>
+  <ul style="font-size: 0.9rem;">
+    <li style="margin-bottom: 10px;"><strong>Retroactive FDIR attribution (H2).</strong> The Fiskeridirektoratet site-to-owner mapping reflects current ownership applied retroactively. Sites Mowi acquired from Marine Harvest in 2018 are attributed to Mowi for the full 2012&ndash;2026 history. This is an approximation for the pre-2018 period. The magnitude of the error is bounded by the number of acquired sites (Mowi's Marine Harvest legacy sites represent a known subset) but is not corrected in the current implementation.</li>
+    <li style="margin-bottom: 10px;"><strong>792 unmapped Barentswatch sites (H2).</strong> Of the 1,186 unique sites in the lice dataset, only 394 (the four test farmers' sites) have zone and owner attribution. The remaining 792 sites belong to smaller Norwegian operators and contribute nothing to the zone benchmark. The zone average is therefore computed across the four major farmers only, not the full industry.</li>
+    <li style="margin-bottom: 10px;"><strong>GSF thinness (H2).</strong> Grieg Seafood has only 20 mapped sites, all in production zone 2 (Rogaland). Their signal is the noisiest of the four farmers and is sensitive to individual bad site-weeks. Grieg also divested Finnmark operations around 2020; pre-2020 attribution to GSF in that region may be partially incorrect.</li>
+    <li style="margin-bottom: 10px;"><strong>H3 event dates.</strong> All 17 disease events in H3 were reconstructed from secondary sources, not original Mattilsynet notices. Event dates are approximate (month-level precision for most events), which substantially degrades the event-study analysis. The results should be interpreted as a lower bound on what a clean dataset would show, not a reliable signal estimate.</li>
+    <li style="margin-bottom: 10px;"><strong>H5 is untested.</strong> The biomass nowcast pipeline is complete but has never been run on real biomass data. All statements about it are structural/theoretical, not empirical.</li>
+    <li><strong>No transaction costs or slippage.</strong> All backtest results (H2 Sharpe = 0.16, H4 Sharpe = &minus;0.05) are computed on weekly close prices with no bid-ask spread, borrow cost, or market impact. Oslo Bors mid-cap liquidity means these costs would be non-trivial for any meaningful position size.</li>
+  </ul>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!--  DATA SOURCES                                                   -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<h2>Data Sources</h2>
+
+<div class="sources-grid">
+  <div>
+    <div class="source-entry">
+      <span class="source-name">Barentswatch FishHealth API</span>
+      Weekly adult female lice counts per fish for all active Norwegian aquaculture sites. 364,953 site-week observations, 1,186 sites, 2012&ndash;2026. OAuth2 client credentials required (free registration at developer.barentswatch.no). Used in H2.
+    </div>
+    <div class="source-entry">
+      <span class="source-name">Fiskeridirektoratet (FDIR) Public API</span>
+      Norwegian aquaculture site registry: company-to-site mapping, production zone assignments, entity-level ownership. 484 sites mapped to four test farmers. No authentication required. Used in H2 for site attribution and zone assignment.
+    </div>
+    <div class="source-entry">
+      <span class="source-name">NOAA OISST v2.1 (via CoastWatch ERDDAP)</span>
+      Daily sea-surface temperature at 0.25&deg; resolution. Dataset: ncdcOisst21Agg_LonPM180. Coverage: January 2012 to present. Weekly zone anomalies computed for Norwegian production zones PO1&ndash;PO11. Used in H1.
+    </div>
+    <div class="source-entry">
+      <span class="source-name">NOAA Oceanic Niño Index (ONI)</span>
+      Monthly El Niño and La Niña climate index. Used in H4 to identify active El Niño events since 2005 (6 events identified).
+    </div>
+  </div>
+  <div>
+    <div class="source-entry">
+      <span class="source-name">Yahoo Finance (via yfinance)</span>
+      Weekly adjusted closing prices for MOWI.OL, SALM.OL, LSG.OL, GSF.OL, BAKKA.OL. Coverage: January 2012 to June 2026, 755 weekly observations per ticker. Used in all five hypotheses.
+    </div>
+    <div class="source-entry">
+      <span class="source-name">World Bank Commodity Price Data (Pink Sheet)</span>
+      Monthly fishmeal spot prices in USD per tonne. Used in H4 to measure feed input cost shocks.
+    </div>
+    <div class="source-entry">
+      <span class="source-name">Statistics Norway (SSB)</span>
+      Monthly Norwegian salmon export volumes and prices. 258 monthly observations used as a harvest proxy in H5 (pipeline built and ready).
+    </div>
+    <div class="source-entry">
+      <span class="source-name">Norwegian Food Safety Authority (Mattilsynet)</span>
+      Weekly disease-status notices (PDF, Norwegian). 17 historical events reconstructed from secondary sources for H3. Original structured data not available via API.
+    </div>
+  </div>
+</div>
+
+<hr class="divider">
+
+<div style="font-family: system-ui, sans-serif; font-size: 0.82rem; color: #888; margin-top: 1rem;">
+  <strong style="color: #555;">Reproducibility.</strong>
+  Source code and pipeline scripts are in the <a href="https://github.com/hugharcher5/Archer-Capital" style="color:#2980b9;">Archer Capital GitHub repository</a>. Each hypothesis has a standalone runner:
+  <code>venv/bin/python research/&lt;hypothesis&gt;/run.py</code>.
+  All data sources except Barentswatch (free OAuth2 registration) and Fish Pool forwards (subscription) are publicly accessible without credentials.
+  Data caches are not committed; re-running the scripts will re-fetch from source.
+</div>
+
+</body>
+</html>

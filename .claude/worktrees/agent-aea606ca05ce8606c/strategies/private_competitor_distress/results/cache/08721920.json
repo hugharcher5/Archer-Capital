@@ -1,0 +1,80 @@
+{
+  "ch_number": "08721920",
+  "name": "THE PROPERTY FRANCHISE GROUP PLC",
+  "company_type": "plc",
+  "current_status": "active",
+  "incorporation_date": "2013-10-07",
+  "accounts": [
+    {
+      "period_end": "2013-12-31",
+      "filed_at": "2014-05-21",
+      "due_date": "2014-06-30"
+    },
+    {
+      "period_end": "2014-10-31",
+      "filed_at": "2014-02-14",
+      "due_date": "2015-04-30"
+    },
+    {
+      "period_end": "2014-12-31",
+      "filed_at": "2015-06-23",
+      "due_date": "2015-06-30"
+    },
+    {
+      "period_end": "2015-12-31",
+      "filed_at": "2016-05-06",
+      "due_date": "2016-06-30"
+    },
+    {
+      "period_end": "2016-04-30",
+      "filed_at": "2016-05-11",
+      "due_date": "2016-10-30"
+    },
+    {
+      "period_end": "2016-12-31",
+      "filed_at": "2017-05-22",
+      "due_date": "2017-06-30"
+    },
+    {
+      "period_end": "2017-12-31",
+      "filed_at": "2018-05-24",
+      "due_date": "2018-06-30"
+    },
+    {
+      "period_end": "2018-12-31",
+      "filed_at": "2019-06-05",
+      "due_date": "2019-06-30"
+    },
+    {
+      "period_end": "2019-12-31",
+      "filed_at": "2020-07-10",
+      "due_date": "2020-06-30"
+    },
+    {
+      "period_end": "2020-12-31",
+      "filed_at": "2021-07-08",
+      "due_date": "2021-06-30"
+    },
+    {
+      "period_end": "2021-12-31",
+      "filed_at": "2022-07-04",
+      "due_date": "2022-06-30"
+    },
+    {
+      "period_end": "2022-12-31",
+      "filed_at": "2023-06-28",
+      "due_date": "2023-06-30"
+    },
+    {
+      "period_end": "2023-12-31",
+      "filed_at": "2024-07-04",
+      "due_date": "2024-06-30"
+    },
+    {
+      "period_end": "2024-12-31",
+      "filed_at": "2025-06-12",
+      "due_date": "2025-06-30"
+    }
+  ],
+  "insolvency_date": null
+}

@@ -1,0 +1,175 @@
+{
+  "ch_number": "07236769",
+  "name": "DFS FURNITURE PLC",
+  "company_type": "plc",
+  "current_status": "active",
+  "incorporation_date": "2010-04-27",
+  "accounts": [
+    {
+      "period_end": "2011-04-30",
+      "filed_at": "2010-05-20",
+      "due_date": "2011-10-30"
+    },
+    {
+      "period_end": "2011-07-30",
+      "filed_at": "2011-12-29",
+      "due_date": "2012-01-30"
+    },
+    {
+      "period_end": "2012-07-28",
+      "filed_at": "2013-04-29",
+      "due_date": "2013-01-28"
+    },
+    {
+      "period_end": "2013-07-31",
+      "filed_at": "2014-04-24",
+      "due_date": "2014-01-31"
+    },
+    {
+      "period_end": "2014-08-02",
+      "filed_at": "2015-02-05",
+      "due_date": "2015-02-02"
+    },
+    {
+      "period_end": "2015-08-01",
+      "filed_at": "2016-02-01",
+      "due_date": "2016-02-01"
+    },
+    {
+      "period_end": "2015-12-03",
+      "filed_at": "2015-12-10",
+      "due_date": "2016-06-03"
+    },
+    {
+      "period_end": "2016-06-03",
+      "filed_at": "2016-06-10",
+      "due_date": "2016-12-03"
+    },
+    {
+      "period_end": "2016-07-30",
+      "filed_at": "2017-01-30",
+      "due_date": "2017-01-30"
+    },
+    {
+      "period_end": "2016-12-09",
+      "filed_at": "2017-01-04",
+      "due_date": "2017-06-09"
+    },
+    {
+      "period_end": "2017-06-02",
+      "filed_at": "2017-06-22",
+      "due_date": "2017-12-02"
+    },
+    {
+      "period_end": "2017-07-29",
+      "filed_at": "2018-02-02",
+      "due_date": "2018-01-29"
+    },
+    {
+      "period_end": "2017-12-08",
+      "filed_at": "2017-12-29",
+      "due_date": "2018-06-08"
+    },
+    {
+      "period_end": "2018-06-01",
+      "filed_at": "2018-06-18",
+      "due_date": "2018-12-01"
+    },
+    {
+      "period_end": "2018-07-28",
+      "filed_at": "2019-01-31",
+      "due_date": "2019-01-28"
+    },
+    {
+      "period_end": "2018-12-07",
+      "filed_at": "2019-01-18",
+      "due_date": "2019-06-07"
+    },
+    {
+      "period_end": "2019-05-31",
+      "filed_at": "2019-06-18",
+      "due_date": "2019-11-30"
+    },
+    {
+      "period_end": "2019-06-30",
+      "filed_at": "2019-11-22",
+      "due_date": "2019-12-30"
+    },
+    {
+      "period_end": "2019-07-31",
+      "filed_at": "2018-10-17",
+      "due_date": "2020-01-31"
+    },
+    {
+      "period_end": "2019-12-06",
+      "filed_at": "2019-12-30",
+      "due_date": "2020-06-06"
+    },
+    {
+      "period_end": "2020-06-28",
+      "filed_at": "2020-12-16",
+      "due_date": "2020-12-28"
+    },
+    {
+      "period_end": "2021-06-27",
+      "filed_at": "2021-11-25",
+      "due_date": "2021-12-27"
+    },
+    {
+      "period_end": "2021-11-26",
+      "filed_at": "2021-12-22",
+      "due_date": "2022-05-26"
+    },
+    {
+      "period_end": "2022-04-08",
+      "filed_at": "2022-05-23",
+      "due_date": "2022-10-08"
+    },
+    {
+      "period_end": "2022-06-26",
+      "filed_at": "2022-11-09",
+      "due_date": "2022-12-26"
+    },
+    {
+      "period_end": "2022-09-14",
+      "filed_at": "2022-09-22",
+      "due_date": "2023-03-14"
+    },
+    {
+      "period_end": "2022-12-02",
+      "filed_at": "2022-12-23",
+      "due_date": "2023-06-02"
+    },
+    {
+      "period_end": "2023-04-14",
+      "filed_at": "2023-06-12",
+      "due_date": "2023-10-14"
+    },
+    {
+      "period_end": "2023-06-25",
+      "filed_at": "2023-12-15",
+      "due_date": "2023-12-25"
+    },
+    {
+      "period_end": "2023-11-10",
+      "filed_at": "2023-12-22",
+      "due_date": "2024-05-10"
+    },
+    {
+      "period_end": "2024-04-19",
+      "filed_at": "2024-05-22",
+      "due_date": "2024-10-19"
+    },
+    {
+      "period_end": "2024-06-30",
+      "filed_at": "2024-11-21",
+      "due_date": "2024-12-30"
+    },
+    {
+      "period_end": "2025-06-29",
+      "filed_at": "2025-10-23",
+      "due_date": "2025-12-29"
+    }
+  ],
+  "insolvency_date": null
+}

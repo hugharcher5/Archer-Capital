@@ -1,0 +1,95 @@
+{
+  "ch_number": "08528493",
+  "name": "THE GYM GROUP PLC",
+  "company_type": "plc",
+  "current_status": "active",
+  "incorporation_date": "2013-05-14",
+  "accounts": [
+    {
+      "period_end": "2013-12-31",
+      "filed_at": "2014-09-02",
+      "due_date": "2014-06-30"
+    },
+    {
+      "period_end": "2014-05-31",
+      "filed_at": "2013-06-18",
+      "due_date": "2014-11-30"
+    },
+    {
+      "period_end": "2014-12-31",
+      "filed_at": "2015-05-16",
+      "due_date": "2015-06-30"
+    },
+    {
+      "period_end": "2015-12-31",
+      "filed_at": "2016-06-30",
+      "due_date": "2016-06-30"
+    },
+    {
+      "period_end": "2016-06-30",
+      "filed_at": "2016-09-12",
+      "due_date": "2016-12-30"
+    },
+    {
+      "period_end": "2016-12-31",
+      "filed_at": "2017-06-26",
+      "due_date": "2017-06-30"
+    },
+    {
+      "period_end": "2017-12-31",
+      "filed_at": "2018-07-04",
+      "due_date": "2018-06-30"
+    },
+    {
+      "period_end": "2018-03-31",
+      "filed_at": "2018-04-23",
+      "due_date": "2018-09-30"
+    },
+    {
+      "period_end": "2018-12-31",
+      "filed_at": "2019-07-01",
+      "due_date": "2019-06-30"
+    },
+    {
+      "period_end": "2019-12-31",
+      "filed_at": "2020-06-16",
+      "due_date": "2020-06-30"
+    },
+    {
+      "period_end": "2020-12-31",
+      "filed_at": "2021-05-29",
+      "due_date": "2021-06-30"
+    },
+    {
+      "period_end": "2021-12-31",
+      "filed_at": "2022-07-05",
+      "due_date": "2022-06-30"
+    },
+    {
+      "period_end": "2022-12-31",
+      "filed_at": "2023-06-23",
+      "due_date": "2023-06-30"
+    },
+    {
+      "period_end": "2023-12-31",
+      "filed_at": "2024-06-01",
+      "due_date": "2024-06-30"
+    },
+    {
+      "period_end": "2024-12-31",
+      "filed_at": "2025-05-20",
+      "due_date": "2025-06-30"
+    },
+    {
+      "period_end": "2025-10-31",
+      "filed_at": "2026-01-14",
+      "due_date": "2026-04-30"
+    },
+    {
+      "period_end": "2025-12-31",
+      "filed_at": "2026-05-16",
+      "due_date": "2026-06-30"
+    }
+  ],
+  "insolvency_date": null
+}

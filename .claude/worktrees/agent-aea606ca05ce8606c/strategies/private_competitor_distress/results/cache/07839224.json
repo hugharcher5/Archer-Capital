@@ -1,0 +1,95 @@
+{
+  "ch_number": "07839224",
+  "name": "WE LOVE HOLIDAYS LIMITED",
+  "company_type": "ltd",
+  "current_status": "active",
+  "incorporation_date": "2011-11-08",
+  "accounts": [
+    {
+      "period_end": "2011-12-31",
+      "filed_at": "2012-09-26",
+      "due_date": "2012-09-30"
+    },
+    {
+      "period_end": "2012-11-30",
+      "filed_at": "2011-11-11",
+      "due_date": "2013-08-30"
+    },
+    {
+      "period_end": "2012-12-31",
+      "filed_at": "2013-09-25",
+      "due_date": "2013-09-30"
+    },
+    {
+      "period_end": "2013-12-31",
+      "filed_at": "2014-10-06",
+      "due_date": "2014-09-30"
+    },
+    {
+      "period_end": "2014-10-31",
+      "filed_at": "2015-02-10",
+      "due_date": "2015-07-31"
+    },
+    {
+      "period_end": "2014-12-31",
+      "filed_at": "2014-12-09",
+      "due_date": "2015-09-30"
+    },
+    {
+      "period_end": "2015-10-31",
+      "filed_at": "2016-07-18",
+      "due_date": "2016-07-31"
+    },
+    {
+      "period_end": "2016-10-31",
+      "filed_at": "2017-07-12",
+      "due_date": "2017-07-31"
+    },
+    {
+      "period_end": "2017-10-31",
+      "filed_at": "2018-07-20",
+      "due_date": "2018-07-31"
+    },
+    {
+      "period_end": "2018-10-31",
+      "filed_at": "2019-07-18",
+      "due_date": "2019-07-31"
+    },
+    {
+      "period_end": "2019-10-31",
+      "filed_at": "2020-07-27",
+      "due_date": "2020-07-31"
+    },
+    {
+      "period_end": "2020-10-31",
+      "filed_at": "2021-10-14",
+      "due_date": "2021-07-31"
+    },
+    {
+      "period_end": "2021-10-31",
+      "filed_at": "2022-08-02",
+      "due_date": "2022-07-31"
+    },
+    {
+      "period_end": "2022-10-31",
+      "filed_at": "2023-07-25",
+      "due_date": "2023-07-31"
+    },
+    {
+      "period_end": "2023-10-31",
+      "filed_at": "2024-05-14",
+      "due_date": "2024-07-31"
+    },
+    {
+      "period_end": "2024-10-31",
+      "filed_at": "2025-07-08",
+      "due_date": "2025-07-31"
+    },
+    {
+      "period_end": "2025-10-31",
+      "filed_at": "2026-04-09",
+      "due_date": "2026-07-31"
+    }
+  ],
+  "insolvency_date": null
+}

@@ -1,0 +1,9 @@
+{
+  "sharpe": -0.358,
+  "max_drawdown": -74.2,
+  "win_rate": 48.4,
+  "total_trades": 62,
+  "cagr": -6.48,
+  "tc_bps": 30,
+  "annotation": "ABNORMAL returns vs equal-weighted peer basket. TC=30bps round-trip (placeholder). Threshold=0.35, hold=90d, half-threshold exit=0.175. No parameter tuning \u2014 fixed as specified."
+}

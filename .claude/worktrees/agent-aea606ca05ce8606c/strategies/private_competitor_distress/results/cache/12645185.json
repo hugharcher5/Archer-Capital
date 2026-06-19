@@ -1,0 +1,35 @@
+{
+  "ch_number": "12645185",
+  "name": "OAK FURNITURELAND GROUP LIMITED",
+  "company_type": "ltd",
+  "current_status": "active",
+  "incorporation_date": "2020-06-04",
+  "accounts": [
+    {
+      "period_end": "2021-06-30",
+      "filed_at": "2021-10-14",
+      "due_date": "2022-03-30"
+    },
+    {
+      "period_end": "2022-06-30",
+      "filed_at": "2022-12-20",
+      "due_date": "2023-03-30"
+    },
+    {
+      "period_end": "2023-06-30",
+      "filed_at": "2024-01-30",
+      "due_date": "2024-03-30"
+    },
+    {
+      "period_end": "2024-06-30",
+      "filed_at": "2025-03-10",
+      "due_date": "2025-03-30"
+    },
+    {
+      "period_end": "2025-06-30",
+      "filed_at": "2026-02-25",
+      "due_date": "2026-03-30"
+    }
+  ],
+  "insolvency_date": null
+}

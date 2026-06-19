@@ -1,0 +1,75 @@
+{
+  "ch_number": "09268016",
+  "name": "MJ GLEESON PLC",
+  "company_type": "plc",
+  "current_status": "active",
+  "incorporation_date": "2014-10-16",
+  "accounts": [
+    {
+      "period_end": "2014-12-31",
+      "filed_at": "2015-04-02",
+      "due_date": "2015-06-30"
+    },
+    {
+      "period_end": "2015-06-30",
+      "filed_at": "2016-01-07",
+      "due_date": "2015-12-30"
+    },
+    {
+      "period_end": "2015-10-31",
+      "filed_at": "2014-11-06",
+      "due_date": "2016-04-30"
+    },
+    {
+      "period_end": "2016-06-30",
+      "filed_at": "2016-12-13",
+      "due_date": "2016-12-30"
+    },
+    {
+      "period_end": "2017-06-30",
+      "filed_at": "2018-01-11",
+      "due_date": "2017-12-30"
+    },
+    {
+      "period_end": "2018-06-30",
+      "filed_at": "2018-12-28",
+      "due_date": "2018-12-30"
+    },
+    {
+      "period_end": "2019-06-30",
+      "filed_at": "2019-11-12",
+      "due_date": "2019-12-30"
+    },
+    {
+      "period_end": "2020-06-30",
+      "filed_at": "2020-12-17",
+      "due_date": "2020-12-30"
+    },
+    {
+      "period_end": "2021-06-30",
+      "filed_at": "2021-10-28",
+      "due_date": "2021-12-30"
+    },
+    {
+      "period_end": "2022-06-30",
+      "filed_at": "2022-12-23",
+      "due_date": "2022-12-30"
+    },
+    {
+      "period_end": "2023-06-30",
+      "filed_at": "2023-11-30",
+      "due_date": "2023-12-30"
+    },
+    {
+      "period_end": "2024-06-30",
+      "filed_at": "2024-12-03",
+      "due_date": "2024-12-30"
+    },
+    {
+      "period_end": "2025-06-30",
+      "filed_at": "2025-11-05",
+      "due_date": "2025-12-30"
+    }
+  ],
+  "insolvency_date": null
+}

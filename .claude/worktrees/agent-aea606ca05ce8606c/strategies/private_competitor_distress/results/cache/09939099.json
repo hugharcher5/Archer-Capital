@@ -1,0 +1,65 @@
+{
+  "ch_number": "09939099",
+  "name": "THE LEADERS ROMANS GROUP LIMITED",
+  "company_type": "ltd",
+  "current_status": "active",
+  "incorporation_date": "2016-01-06",
+  "accounts": [
+    {
+      "period_end": "2017-01-31",
+      "filed_at": "2016-01-06",
+      "due_date": "2017-10-31"
+    },
+    {
+      "period_end": "2017-03-31",
+      "filed_at": "2017-10-10",
+      "due_date": "2017-12-31"
+    },
+    {
+      "period_end": "2017-12-31",
+      "filed_at": "2018-09-11",
+      "due_date": "2018-09-30"
+    },
+    {
+      "period_end": "2018-03-31",
+      "filed_at": "2017-08-17",
+      "due_date": "2018-12-31"
+    },
+    {
+      "period_end": "2018-12-31",
+      "filed_at": "2019-09-30",
+      "due_date": "2019-09-30"
+    },
+    {
+      "period_end": "2019-12-31",
+      "filed_at": "2020-12-17",
+      "due_date": "2020-09-30"
+    },
+    {
+      "period_end": "2020-12-31",
+      "filed_at": "2021-10-08",
+      "due_date": "2021-09-30"
+    },
+    {
+      "period_end": "2021-12-31",
+      "filed_at": "2022-09-27",
+      "due_date": "2022-09-30"
+    },
+    {
+      "period_end": "2022-12-31",
+      "filed_at": "2023-10-10",
+      "due_date": "2023-09-30"
+    },
+    {
+      "period_end": "2023-12-31",
+      "filed_at": "2024-09-16",
+      "due_date": "2024-09-30"
+    },
+    {
+      "period_end": "2024-12-31",
+      "filed_at": "2025-10-07",
+      "due_date": "2025-09-30"
+    }
+  ],
+  "insolvency_date": null
+}

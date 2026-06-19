@@ -18,8 +18,9 @@ STRATEGY_CONFIG = {
         "SIC codes to identify which listed companies share a competitive addressable "
         "market with the distressed private entity."
     ),
-    "results_dir": Path(__file__).parent / "results",
-    "signal_file": Path(__file__).parent / "signal.py",
+    "results_dir":  Path(__file__).parent / "results",
+    "signal_file":  Path(__file__).parent / "signal.py",
+    "writeup_file": Path(__file__).parent / "writeup.md",
     "data_sections": [
         {
             "id":          "ticker_signals",
@@ -54,7 +55,7 @@ STRATEGY_CONFIG = {
                 "Proves the strategy has edge on data it was built on. A necessary "
                 "but not sufficient condition — results here can reflect overfitting."
             ),
-            "status":      "in_progress",
+            "status":      "failed",
         },
         {
             "id":          "in_sample_mcpt",

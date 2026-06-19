@@ -1,0 +1,90 @@
+{
+  "ch_number": "NI029649",
+  "name": "B.H.C. LIMITED",
+  "company_type": "ltd",
+  "current_status": "active",
+  "incorporation_date": "1995-06-14",
+  "accounts": [
+    {
+      "period_end": "2010-03-31",
+      "filed_at": "2010-08-04",
+      "due_date": "2010-12-31"
+    },
+    {
+      "period_end": "2011-03-31",
+      "filed_at": "2011-05-25",
+      "due_date": "2011-12-31"
+    },
+    {
+      "period_end": "2012-03-31",
+      "filed_at": "2012-05-28",
+      "due_date": "2012-12-31"
+    },
+    {
+      "period_end": "2013-03-31",
+      "filed_at": "2013-06-04",
+      "due_date": "2013-12-31"
+    },
+    {
+      "period_end": "2014-03-31",
+      "filed_at": "2014-06-09",
+      "due_date": "2014-12-31"
+    },
+    {
+      "period_end": "2015-03-31",
+      "filed_at": "2015-06-04",
+      "due_date": "2015-12-31"
+    },
+    {
+      "period_end": "2016-03-31",
+      "filed_at": "2016-06-07",
+      "due_date": "2016-12-31"
+    },
+    {
+      "period_end": "2017-03-31",
+      "filed_at": "2017-06-22",
+      "due_date": "2017-12-31"
+    },
+    {
+      "period_end": "2018-03-31",
+      "filed_at": "2018-06-26",
+      "due_date": "2018-12-31"
+    },
+    {
+      "period_end": "2019-03-31",
+      "filed_at": "2019-07-24",
+      "due_date": "2019-12-31"
+    },
+    {
+      "period_end": "2020-03-31",
+      "filed_at": "2020-09-10",
+      "due_date": "2020-12-31"
+    },
+    {
+      "period_end": "2021-03-31",
+      "filed_at": "2021-09-08",
+      "due_date": "2021-12-31"
+    },
+    {
+      "period_end": "2022-03-31",
+      "filed_at": "2022-07-08",
+      "due_date": "2022-12-31"
+    },
+    {
+      "period_end": "2023-03-31",
+      "filed_at": "2023-06-20",
+      "due_date": "2023-12-31"
+    },
+    {
+      "period_end": "2024-03-31",
+      "filed_at": "2024-12-19",
+      "due_date": "2024-12-31"
+    },
+    {
+      "period_end": "2025-03-31",
+      "filed_at": "2025-12-16",
+      "due_date": "2025-12-31"
+    }
+  ],
+  "insolvency_date": null
+}

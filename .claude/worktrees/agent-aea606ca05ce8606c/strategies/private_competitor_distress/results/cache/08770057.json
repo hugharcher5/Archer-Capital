@@ -1,0 +1,70 @@
+{
+  "ch_number": "08770057",
+  "name": "JD SPORTS GYMS LIMITED",
+  "company_type": "ltd",
+  "current_status": "active",
+  "incorporation_date": "2013-11-11",
+  "accounts": [
+    {
+      "period_end": "2014-11-30",
+      "filed_at": "2013-11-14",
+      "due_date": "2015-08-30"
+    },
+    {
+      "period_end": "2015-01-31",
+      "filed_at": "2015-08-14",
+      "due_date": "2015-10-31"
+    },
+    {
+      "period_end": "2016-01-30",
+      "filed_at": "2016-10-13",
+      "due_date": "2016-10-30"
+    },
+    {
+      "period_end": "2017-01-28",
+      "filed_at": "2017-09-28",
+      "due_date": "2017-10-28"
+    },
+    {
+      "period_end": "2018-02-03",
+      "filed_at": "2018-08-28",
+      "due_date": "2018-11-03"
+    },
+    {
+      "period_end": "2019-02-02",
+      "filed_at": "2019-10-15",
+      "due_date": "2019-11-02"
+    },
+    {
+      "period_end": "2020-02-01",
+      "filed_at": "2020-11-20",
+      "due_date": "2020-11-01"
+    },
+    {
+      "period_end": "2021-01-30",
+      "filed_at": "2021-11-22",
+      "due_date": "2021-10-30"
+    },
+    {
+      "period_end": "2022-01-29",
+      "filed_at": "2022-11-03",
+      "due_date": "2022-10-29"
+    },
+    {
+      "period_end": "2023-01-28",
+      "filed_at": "2024-04-02",
+      "due_date": "2023-10-28"
+    },
+    {
+      "period_end": "2024-02-03",
+      "filed_at": "2024-11-14",
+      "due_date": "2024-11-03"
+    },
+    {
+      "period_end": "2025-02-01",
+      "filed_at": "2025-10-30",
+      "due_date": "2025-11-01"
+    }
+  ],
+  "insolvency_date": null
+}

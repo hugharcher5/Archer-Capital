@@ -1,0 +1,60 @@
+{
+  "ch_number": "11577650",
+  "name": "EVANS CYCLES LIMITED",
+  "company_type": "ltd",
+  "current_status": "active",
+  "incorporation_date": "2018-09-19",
+  "accounts": [
+    {
+      "period_end": "2019-04-27",
+      "filed_at": "2020-01-30",
+      "due_date": "2020-01-27"
+    },
+    {
+      "period_end": "2019-09-30",
+      "filed_at": "2019-04-24",
+      "due_date": "2020-06-30"
+    },
+    {
+      "period_end": "2020-04-25",
+      "filed_at": "2021-04-27",
+      "due_date": "2021-01-25"
+    },
+    {
+      "period_end": "2021-04-25",
+      "filed_at": "2022-03-30",
+      "due_date": "2022-01-25"
+    },
+    {
+      "period_end": "2022-04-25",
+      "filed_at": "2023-06-12",
+      "due_date": "2023-01-25"
+    },
+    {
+      "period_end": "2023-04-30",
+      "filed_at": "2024-08-06",
+      "due_date": "2024-01-30"
+    },
+    {
+      "period_end": "2024-04-28",
+      "filed_at": "2025-07-08",
+      "due_date": "2025-01-28"
+    },
+    {
+      "period_end": "2024-04-30",
+      "filed_at": "2025-04-29",
+      "due_date": "2025-01-30"
+    },
+    {
+      "period_end": "2025-04-27",
+      "filed_at": "2026-05-11",
+      "due_date": "2026-01-27"
+    },
+    {
+      "period_end": "2025-04-29",
+      "filed_at": "2026-04-28",
+      "due_date": "2026-01-29"
+    }
+  ],
+  "insolvency_date": null
+}

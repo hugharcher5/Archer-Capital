@@ -1,0 +1,2 @@
+rebalance_date,hold_end,period,n_universe,n_delisted,mgmt_long_ret,mgmt_short_ret,mgmt_return,bench_long_ret,bench_short_ret,bench_return,ic_m1,ic_m2,ic_m3,n_mgmt_longs,n_mgmt_shorts
+2015-01-01,2025-10-01,in_sample,10,6,2.463707480631684,-2.497457480631684,-0.03374999999999995,2.463707480631684,-2.497457480631684,-0.03374999999999995,,0.1826578533825355,-0.016271359905146034,10,10
