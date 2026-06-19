@@ -56,7 +56,7 @@ def render_dcf_tests_page() -> None:
             st.markdown("""
 **The central question**
 
-A Monte Carlo DCF that runs 2,000 simulated cash flow paths per ticker is expensive to
+A Monte Carlo DCF that runs 10,000 simulated cash flow paths per ticker is expensive to
 build and expensive to run. The first question any serious researcher must answer before
 defending that complexity is whether it actually outperforms a free multiple that any
 analyst can compute in a spreadsheet. Frankel and Lee (1998) showed that an
