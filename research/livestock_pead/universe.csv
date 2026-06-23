@@ -1,0 +1,9 @@
+ticker,name,listing,livestock_exposed,species_exposure,sales_regions,delisting_date,source_confidence
+PAHC,Phibro Animal Health,NYSE,True,multi,global,,HIGH
+ELAN,Elanco Animal Health,NYSE,True,multi,global,,HIGH
+NEOG,Neogen Corp,NASDAQ,True,multi,global,,MEDIUM
+VIRP.PA,Virbac,Euronext,True,multi,global,,MEDIUM
+VETO.PA,Vetoquinol,Euronext,True,multi,global,,MEDIUM
+DPH.L,Dechra Pharmaceuticals,LSE,True,multi,global,2024-06-30,MEDIUM
+IDXX,IDEXX Laboratories,NASDAQ,False,companion,global,,HIGH
+ZTS,Zoetis,NYSE,False,mixed,global,,MEDIUM

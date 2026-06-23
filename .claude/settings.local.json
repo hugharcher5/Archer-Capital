@@ -38,7 +38,20 @@
       "Bash(kill 60506)",
       "Bash(export TIINGO_API_KEY=\"681ca75fb675567fde2cffd98d59908110398d1a\")",
       "Bash(awk '{print \"CPU:\"$3\"% MEM:\"$4\"%\"}')",
-      "Bash(awk '{print \"Running — PID \"$2\" CPU:\"$3\"% MEM:\"$4\"%\"}')"
+      "Bash(awk '{print \"Running — PID \"$2\" CPU:\"$3\"% MEM:\"$4\"%\"}')",
+      "Bash(awk '{print \"PID:\"$2, \"CPU:\"$3\"%\", \"MEM:\"$4\"%\", \"TIME:\"$10}')",
+      "Bash(awk '{print \"PID:\"$2, \"CPU:\"$3\"%\", \"elapsed:\"$10}' echo \"---\" tail -20 /tmp/claude-1000/-mnt-c-Users-user-Archer-Capital/fe6f4db4-a81b-4256-9407-fe0ddec77947/tasks/b67uqr5q4.output)",
+      "Bash(venv/bin/python3 *)",
+      "Bash(TIINGO_API_KEY=681ca75fb675567fde2cffd98d59908110398d1a venv/bin/python -u research/mgmt_pit/run.py --prefilter-only)",
+      "Bash(TIINGO_API_KEY=681ca75fb675567fde2cffd98d59908110398d1a venv/bin/python -u research/mgmt_pit/run.py)",
+      "Bash(tee /tmp/mgmt_pit_run.log)",
+      "Bash(TIINGO_API_KEY=681ca75fb675567fde2cffd98d59908110398d1a /mnt/c/Users/user/Archer-Capital/venv/bin/python research/mgmt_pit/run.py)",
+      "Bash(kill 7517 7614)",
+      "Bash(ps *)",
+      "Bash(kill 7783)",
+      "Bash(pkill -9 -f \"research/mgmt_pit/run.py\")",
+      "Bash(/mnt/c/Users/user/Archer-Capital/venv/bin/python *)",
+      "Bash(TIINGO_API_KEY=681ca75fb675567fde2cffd98d59908110398d1a PYTHONUNBUFFERED=1 nohup /mnt/c/Users/user/Archer-Capital/venv/bin/python -u /mnt/c/Users/user/Archer-Capital/research/mgmt_pit/run.py)"
     ]
   }
 }

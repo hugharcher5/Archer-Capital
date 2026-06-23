@@ -1,0 +1,11 @@
+notification_date,disease_short,species,country,market_type,cases,culled,source,citation
+2019-03-01,ASF,swine,China (People's Rep. of),major,300000,180000,WAHIS,WAHIS IN 2019-03 ASF CN peak
+2023-01-20,ASF,swine,Sweden,minor,50,30,EU_ADIS,EU ADIS notification 2023-01-20 ASF SE wild boar
+2024-08-01,BTV,ruminant,France,major,10000,0,EU_ADIS,EU ADIS notification 2024-08-01 BTV-3 FR
+2024-08-15,BTV,ruminant,Germany,major,6000,0,EU_ADIS,EU ADIS notification 2024-08-15 BTV-3 DE
+2020-07-01,FMD,cattle,Egypt,minor,20000,18500,EMPRES,EMPRES-i alert FMD EG Jul 2020
+2024-05-15,FMD,cattle,South Africa,minor,8000,7500,EMPRES,EMPRES-i alert FMD ZA May 2024
+2015-05-01,HPAI,poultry,United States of America,major,3900000,3750000,APHIS,"APHIS HPAI confirmed detections, May 2015 H5N2 IA"
+2024-06-15,HPAI,poultry,United States of America,major,4200000,4050000,APHIS,"APHIS HPAI confirmed detections, Jun 2024 H5N1"
+2020-01-01,NCD,poultry,Indonesia,minor,80000,72000,EMPRES,EMPRES-i alert NCD ID Jan 2020
+2021-09-01,NCD,poultry,Mozambique,minor,30000,25000,EMPRES,EMPRES-i alert NCD MZ Sep 2021

@@ -21,15 +21,19 @@ Sections:
 # SECTION 1: Config & imports
 # =============================================================================
 
+import concurrent.futures
 import io
 import json
 import os
 import re
+import socket
 import time
 import zipfile
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional
+
+socket.setdefaulttimeout(25)  # hard OS-level kill for hung TCP connections
 
 import numpy as np
 import pandas as pd
@@ -62,17 +66,19 @@ SIC_EXCLUDE = set(range(6000, 6800))  # financials + real estate
 
 US_EXCHANGES = {"NYSE", "NASDAQ", "AMEX"}
 
+MAX_FETCH_PER_RUN = 3000  # circuit breaker handles rate limits; keep cap above universe size
+
 _TIINGO_LAST_CALL: float = 0.0
 _SEC_LAST_CALL: float = 0.0
 
 
 def _tiingo_get(url: str, params: Optional[dict] = None, timeout: int = 30) -> requests.Response:
-    """Rate-limited GET for Tiingo (2s between calls → ~1800/hr, safe for free tier)."""
+    """Rate-limited GET for Tiingo (5s between calls → ~720/hr, safe for free tier)."""
     global _TIINGO_LAST_CALL
-    wait = 2.0 - (time.time() - _TIINGO_LAST_CALL)
+    wait = 5.0 - (time.time() - _TIINGO_LAST_CALL)
     if wait > 0:
         time.sleep(wait)
-    resp = requests.get(url, params=params, timeout=timeout)
+    resp = requests.get(url, params=params, timeout=(10, 20))
     _TIINGO_LAST_CALL = time.time()
     return resp
 
@@ -83,7 +89,7 @@ def _sec_get(url: str, timeout: int = 30) -> requests.Response:
     wait = 0.2 - (time.time() - _SEC_LAST_CALL)
     if wait > 0:
         time.sleep(wait)
-    resp = requests.get(url, headers={"User-Agent": SEC_UA}, timeout=timeout)
+    resp = requests.get(url, headers={"User-Agent": SEC_UA}, timeout=(10, 30))
     _SEC_LAST_CALL = time.time()
     return resp
 
@@ -321,29 +327,75 @@ def prefetch_tiingo_survivors(survivor_tickers: list) -> None:
     ]
     cached_count = len(survivor_tickers) - len(to_fetch)
 
-    est_seconds = len(to_fetch) * 2.1  # 2s throttle + small overhead
+    deferred = 0
+    if len(to_fetch) > MAX_FETCH_PER_RUN:
+        deferred = len(to_fetch) - MAX_FETCH_PER_RUN
+        to_fetch = to_fetch[:MAX_FETCH_PER_RUN]
+
+    est_seconds = len(to_fetch) * 5.1  # 5s throttle + small overhead
     est_minutes = est_seconds / 60
 
     print(f"\n[Tiingo Prefetch]")
     print(f"  Survivors:        {len(survivor_tickers)}")
     print(f"  Already cached:   {cached_count}")
     print(f"  To fetch:         {len(to_fetch)}")
+    if deferred:
+        print(f"  Deferred:         {deferred} (capped at {MAX_FETCH_PER_RUN}/run)")
     print(f"  Estimated time:   {est_minutes:.0f} min ({est_seconds/3600:.1f} hrs)")
 
     if not to_fetch:
         print("  [Tiingo Prefetch] All already cached — skipping.")
         return
 
+    failed_log = CACHE / "failed_tickers.txt"
+    consecutive_fails = 0
+    MAX_CONSECUTIVE_FAILS = 5
+
     for i, ticker in enumerate(to_fetch):
         if (i + 1) % 50 == 0:
-            elapsed_est = (i + 1) * 1.05
-            remaining_est = (len(to_fetch) - i - 1) * 1.05
+            remaining_est = (len(to_fetch) - i - 1) * 5.1
             print(
                 f"  [Tiingo] {i+1}/{len(to_fetch)} | "
                 f"~{remaining_est/60:.0f} min remaining | "
                 f"last={ticker}"
             )
-        fetch_tiingo_prices(ticker, pd.Timestamp("2000-01-01"), pd.Timestamp.now())
+
+        # One executor per ticker so a timed-out thread doesn't block the next submit.
+        # shutdown(wait=False) abandons hung threads rather than waiting for them.
+        executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+        future = executor.submit(
+            fetch_tiingo_prices,
+            ticker,
+            pd.Timestamp("2000-01-01"),
+            pd.Timestamp.now(),
+        )
+        got_data = False
+        try:
+            future.result(timeout=45)
+            cache_file = CACHE / "tiingo" / f"{ticker}.csv"
+            sentinel = CACHE / "tiingo" / f"{ticker}.EMPTY"
+            got_data = cache_file.exists() or sentinel.exists()
+        except concurrent.futures.TimeoutError:
+            print(f"  [Tiingo] TIMEOUT on {ticker} — skipping.")
+            with open(failed_log, "a") as fh:
+                fh.write(f"{ticker}\tTIMEOUT\n")
+        except Exception as e:
+            print(f"  [Tiingo] ERROR on {ticker}: {type(e).__name__}: {e}")
+            with open(failed_log, "a") as fh:
+                fh.write(f"{ticker}\t{type(e).__name__}\n")
+        finally:
+            executor.shutdown(wait=False)
+
+        if got_data:
+            consecutive_fails = 0
+        else:
+            consecutive_fails += 1
+            if consecutive_fails >= MAX_CONSECUTIVE_FAILS:
+                print(f"\n  [Tiingo Prefetch] STOPPING: {MAX_CONSECUTIVE_FAILS} consecutive "
+                      f"failures — API likely rate-limited or IP blocked.")
+                print(f"  Fetched {i + 1}/{len(to_fetch)} this session. "
+                      f"Re-run later to continue.")
+                return
 
 
 def fetch_tiingo_prices(ticker: str, start: pd.Timestamp, end: pd.Timestamp) -> pd.DataFrame:
@@ -398,31 +450,30 @@ def fetch_tiingo_prices(ticker: str, start: pd.Timestamp, end: pd.Timestamp) -> 
 
     _EMPTY = pd.DataFrame(columns=["date", "open", "high", "low", "close", "volume"])
 
-    # Retry loop: handles 429 rate-limit and transient network errors.
-    # Only 404/400 write a sentinel (permanent absence). Everything else is transient.
-    for attempt in range(4):
+    # Single retry on 429/network error; anything else is treated as transient.
+    # The outer ThreadPoolExecutor in prefetch_tiingo_survivors enforces a hard
+    # per-ticker wall-clock limit, so we keep retries short here.
+    for attempt in range(2):
         try:
             resp = _tiingo_get(url, params=params)
         except Exception as e:
-            # Transient network failure — do NOT write sentinel, just return empty this call.
-            print(f"[Tiingo] Network error for {ticker} (attempt {attempt+1}): {type(e).__name__}")
-            if attempt < 3:
-                time.sleep(30 * (attempt + 1))
-                continue
-            return _EMPTY
+            print(f"[Tiingo] Network error for {ticker}: {type(e).__name__}")
+            return _EMPTY  # caller's ThreadPoolExecutor will log and move on
 
         if resp.status_code == 429:
-            wait = 120 * (attempt + 1)
-            print(f"[Tiingo] 429 rate-limited on {ticker} — sleeping {wait}s...")
-            time.sleep(wait)
-            continue
+            if attempt == 0:
+                print(f"[Tiingo] 429 on {ticker} — sleeping 60s then retrying once...")
+                time.sleep(60)
+                continue
+            # Still 429 after one retry — give up, caller logs to failed_tickers.txt
+            print(f"[Tiingo] 429 on {ticker} persists — skipping.")
+            return _EMPTY
 
         if resp.status_code in (404, 400):
             sentinel.touch()
             return _EMPTY
 
         if resp.status_code != 200:
-            # Other HTTP error — transient, no sentinel
             print(f"[Tiingo] HTTP {resp.status_code} for {ticker}")
             return _EMPTY
 
@@ -437,7 +488,6 @@ def fetch_tiingo_prices(ticker: str, start: pd.Timestamp, end: pd.Timestamp) -> 
 
         break  # success
     else:
-        # All retries exhausted (all were 429 or network errors)
         return _EMPTY
 
     df = pd.DataFrame(data)
@@ -1856,7 +1906,7 @@ def main():
     print(f"  15,620 Tiingo tickers")
     print(f"  → {len(overlap_map):>6,}  after SEC CIK overlap filter")
     print(f"  → {n_survivors:>6,}  after non-financial / non-fund / has-filings filter")
-    est_tiingo_minutes = n_survivors * 1.05 / 60
+    est_tiingo_minutes = min(n_survivors, MAX_FETCH_PER_RUN) * 5.1 / 60
     print(f"  Estimated Tiingo fetch time (new pulls only): ~{est_tiingo_minutes:.0f} min")
     print()
 
