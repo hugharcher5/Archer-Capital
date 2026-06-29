@@ -1,1 +1,1 @@
-rebalance_date,hold_end,period,n_universe,n_delisted,mgmt_long_ret,mgmt_short_ret,mgmt_return,bench_long_ret,bench_short_ret,bench_return,ic_m1,ic_m2,ic_m3,n_mgmt_longs,n_mgmt_shorts
+rebalance_date,hold_end,period,n_universe,n_delisted,composite_long,composite_short,composite_ls,M1_solo_long,M1_solo_short,M1_solo_ls,M2_solo_long,M2_solo_short,M2_solo_ls,M3_solo_long,M3_solo_short,M3_solo_ls,bench_long,bench_short,bench_ls,ic_m1,ic_m2,ic_m3

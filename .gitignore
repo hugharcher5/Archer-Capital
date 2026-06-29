@@ -8,3 +8,13 @@ __pycache__/
 dist/
 build/
 bw_credentials.py
+
+# Large data caches — not version-controlled
+research/mgmt_pit/cache/tiingo/
+research/mgmt_pit/cache/tiingo_adj/
+research/mgmt_pit/cache/sec_facts/
+research/mgmt_pit/cache/sec_subs/
+research/mgmt_pit/cache/form4/
+research/mgmt_pit/cache/*.pkl
+research/mgmt_pit/cache/form4_all.json
+research/mgmt_pit/cache/sec_ticker_cik.json

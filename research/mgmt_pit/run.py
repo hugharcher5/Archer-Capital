@@ -22,6 +22,7 @@ Sections:
 # =============================================================================
 
 import concurrent.futures
+import functools
 import io
 import json
 import os
@@ -57,25 +58,33 @@ for _d in [
     _d.mkdir(parents=True, exist_ok=True)
 
 REBALANCE_DATES = pd.date_range("2015-01-01", "2025-10-01", freq="QS")
-IN_SAMPLE_END = pd.Timestamp("2022-01-01")
+IN_SAMPLE_END = pd.Timestamp("2021-01-01")
 OUT_SAMPLE_END = pd.Timestamp("2025-10-01")
 
 MCAP_MIN, MCAP_MAX = 100e6, 2e9
 DOLLAR_VOL_MIN = 1e6  # $1M/day average
 SIC_EXCLUDE = set(range(6000, 6800))  # financials + real estate
 
-US_EXCHANGES = {"NYSE", "NASDAQ", "AMEX"}
+NEEDED_CONCEPTS = [
+    "CommonStockSharesOutstanding",
+    "EntityCommonStockSharesOutstanding",
+    "OperatingIncomeLoss",
+    "IncomeTaxExpenseBenefit",
+    "IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest",
+    "Assets",
+    "LiabilitiesCurrent",
+]
 
-MAX_FETCH_PER_RUN = 3000  # circuit breaker handles rate limits; keep cap above universe size
+US_EXCHANGES = {"NYSE", "NASDAQ", "AMEX"}
 
 _TIINGO_LAST_CALL: float = 0.0
 _SEC_LAST_CALL: float = 0.0
 
 
 def _tiingo_get(url: str, params: Optional[dict] = None, timeout: int = 30) -> requests.Response:
-    """Rate-limited GET for Tiingo (5s between calls → ~720/hr, safe for free tier)."""
+    """Rate-limited GET for Tiingo (1.5s between calls → ~2400/hr, Power tier)."""
     global _TIINGO_LAST_CALL
-    wait = 5.0 - (time.time() - _TIINGO_LAST_CALL)
+    wait = 1.5 - (time.time() - _TIINGO_LAST_CALL)
     if wait > 0:
         time.sleep(wait)
     resp = requests.get(url, params=params, timeout=(10, 20))
@@ -327,20 +336,13 @@ def prefetch_tiingo_survivors(survivor_tickers: list) -> None:
     ]
     cached_count = len(survivor_tickers) - len(to_fetch)
 
-    deferred = 0
-    if len(to_fetch) > MAX_FETCH_PER_RUN:
-        deferred = len(to_fetch) - MAX_FETCH_PER_RUN
-        to_fetch = to_fetch[:MAX_FETCH_PER_RUN]
-
-    est_seconds = len(to_fetch) * 5.1  # 5s throttle + small overhead
+    est_seconds = len(to_fetch) * 1.7  # 1.5s throttle + overhead
     est_minutes = est_seconds / 60
 
     print(f"\n[Tiingo Prefetch]")
     print(f"  Survivors:        {len(survivor_tickers)}")
     print(f"  Already cached:   {cached_count}")
     print(f"  To fetch:         {len(to_fetch)}")
-    if deferred:
-        print(f"  Deferred:         {deferred} (capped at {MAX_FETCH_PER_RUN}/run)")
     print(f"  Estimated time:   {est_minutes:.0f} min ({est_seconds/3600:.1f} hrs)")
 
     if not to_fetch:
@@ -353,7 +355,7 @@ def prefetch_tiingo_survivors(survivor_tickers: list) -> None:
 
     for i, ticker in enumerate(to_fetch):
         if (i + 1) % 50 == 0:
-            remaining_est = (len(to_fetch) - i - 1) * 5.1
+            remaining_est = (len(to_fetch) - i - 1) * 1.7
             print(
                 f"  [Tiingo] {i+1}/{len(to_fetch)} | "
                 f"~{remaining_est/60:.0f} min remaining | "
@@ -398,118 +400,271 @@ def prefetch_tiingo_survivors(survivor_tickers: list) -> None:
                 return
 
 
+_PRICE_CACHE: dict[str, pd.DataFrame] = {}
+_PRICE_EMPTY = pd.DataFrame(columns=["date", "open", "high", "low", "close", "volume"])
+_PRICE_SENTINEL_TICKERS: set[str] = set()
+
+
+def _load_prices_into_memory(ticker: str) -> pd.DataFrame:
+    """Load a ticker's full price history into _PRICE_CACHE from disk. Called once per ticker."""
+    if ticker in _PRICE_CACHE:
+        return _PRICE_CACHE[ticker]
+    if ticker in _PRICE_SENTINEL_TICKERS:
+        return _PRICE_EMPTY
+
+    sentinel = CACHE / "tiingo" / f"{ticker}.EMPTY"
+    if sentinel.exists():
+        _PRICE_SENTINEL_TICKERS.add(ticker)
+        return _PRICE_EMPTY
+
+    cache_file = CACHE / "tiingo" / f"{ticker}.csv"
+    if cache_file.exists():
+        df = pd.read_csv(cache_file, parse_dates=["date"])
+        _PRICE_CACHE[ticker] = df
+        return df
+
+    return _PRICE_EMPTY
+
+
+_PRICES_CONSOLIDATED = CACHE / "prices_all.pkl"
+
+
+def preload_all_prices(tickers: list[str]) -> None:
+    """Bulk-load all cached price CSVs into memory. Uses consolidated pickle if available."""
+    print(f"[Preload] Loading {len(tickers)} price files into memory...")
+    t0 = time.time()
+
+    if _PRICES_CONSOLIDATED.exists():
+        import pickle
+        with open(_PRICES_CONSOLIDATED, "rb") as f:
+            data = pickle.load(f)
+        _PRICE_CACHE.update(data.get("prices", {}))
+        _PRICE_SENTINEL_TICKERS.update(data.get("sentinels", set()))
+        elapsed = time.time() - t0
+        print(f"[Preload] Prices done in {elapsed:.1f}s — {len(_PRICE_CACHE)} from consolidated cache")
+        new_count = 0
+        for t in tickers:
+            if t not in _PRICE_CACHE and t not in _PRICE_SENTINEL_TICKERS:
+                _load_prices_into_memory(t)
+                new_count += 1
+        if new_count:
+            print(f"[Preload] +{new_count} new price files from individual CSVs")
+        return
+
+    for t in tickers:
+        _load_prices_into_memory(t)
+    elapsed = time.time() - t0
+    print(f"[Preload] Prices done in {elapsed:.1f}s — {len(_PRICE_CACHE)} loaded, "
+          f"{len(_PRICE_SENTINEL_TICKERS)} empty sentinels (individual CSVs)")
+
+    if _PRICE_CACHE:
+        import pickle
+        print("[Preload] Saving consolidated price cache...")
+        t1 = time.time()
+        with open(_PRICES_CONSOLIDATED, "wb") as f:
+            pickle.dump({"prices": dict(_PRICE_CACHE), "sentinels": set(_PRICE_SENTINEL_TICKERS)}, f,
+                        protocol=pickle.HIGHEST_PROTOCOL)
+        print(f"[Preload] Consolidated price cache saved in {time.time()-t1:.1f}s")
+
+
+_FACTS_CONSOLIDATED = CACHE / "sec_facts_trimmed.json"
+
+
+def preload_all_sec_facts(ciks: list[int]) -> None:
+    """Bulk-load SEC facts JSONs into memory, trimmed to NEEDED_CONCEPTS only."""
+    print(f"[Preload] Loading SEC facts for {len(ciks)} CIKs (trimmed to {len(NEEDED_CONCEPTS)} concepts)...")
+    t0 = time.time()
+
+    if _FACTS_CONSOLIDATED.exists():
+        with open(_FACTS_CONSOLIDATED) as f:
+            raw = json.load(f)
+        for k, v in raw.items():
+            _FACTS_CACHE[int(k)] = v
+        loaded = sum(1 for v in raw.values() if v is not None)
+        elapsed = time.time() - t0
+        print(f"[Preload] SEC facts done in {elapsed:.1f}s — {loaded} from consolidated cache")
+        # Load any CIKs not in consolidated cache
+        missing = [c for c in ciks if c not in _FACTS_CACHE]
+        if missing:
+            extra = 0
+            for cik in missing:
+                cache_file = CACHE / "sec_facts" / f"{cik}.json"
+                if not cache_file.exists():
+                    _FACTS_CACHE[cik] = None
+                    continue
+                try:
+                    with open(cache_file) as f:
+                        full = json.load(f)
+                    trimmed = {"facts": {"us-gaap": {}}}
+                    us_gaap = full.get("facts", {}).get("us-gaap", {})
+                    for concept in NEEDED_CONCEPTS:
+                        if concept in us_gaap:
+                            trimmed["facts"]["us-gaap"][concept] = us_gaap[concept]
+                    _FACTS_CACHE[cik] = trimmed
+                    extra += 1
+                except Exception:
+                    _FACTS_CACHE[cik] = None
+            if extra:
+                print(f"[Preload] +{extra} new SEC facts from individual files")
+        return
+
+    loaded = 0
+    for cik in ciks:
+        if cik in _FACTS_CACHE:
+            continue
+        cache_file = CACHE / "sec_facts" / f"{cik}.json"
+        if not cache_file.exists():
+            _FACTS_CACHE[cik] = None
+            continue
+        try:
+            with open(cache_file) as f:
+                full = json.load(f)
+            trimmed = {"facts": {"us-gaap": {}}}
+            us_gaap = full.get("facts", {}).get("us-gaap", {})
+            for concept in NEEDED_CONCEPTS:
+                if concept in us_gaap:
+                    trimmed["facts"]["us-gaap"][concept] = us_gaap[concept]
+            _FACTS_CACHE[cik] = trimmed
+            loaded += 1
+        except Exception:
+            _FACTS_CACHE[cik] = None
+    elapsed = time.time() - t0
+    print(f"[Preload] SEC facts done in {elapsed:.1f}s — {loaded} loaded (individual files)")
+
+    if loaded > 0:
+        print("[Preload] Saving consolidated SEC facts cache...")
+        t1 = time.time()
+        serializable = {str(k): v for k, v in _FACTS_CACHE.items()}
+        with open(_FACTS_CONSOLIDATED, "w") as f:
+            json.dump(serializable, f)
+        print(f"[Preload] Consolidated SEC facts saved in {time.time()-t1:.1f}s")
+
+
+_SUBS_CONSOLIDATED = CACHE / "sec_subs_all.json"
+
+
+def preload_all_submissions(ciks: list[int]) -> None:
+    """Bulk-load SEC submissions JSONs into memory. Uses consolidated cache if available."""
+    print(f"[Preload] Loading SEC submissions for {len(ciks)} CIKs...")
+    t0 = time.time()
+
+    if _SUBS_CONSOLIDATED.exists():
+        with open(_SUBS_CONSOLIDATED) as f:
+            raw = json.load(f)
+        for k, v in raw.items():
+            _SUBS_CACHE[int(k)] = v
+        loaded = sum(1 for v in raw.values() if v is not None)
+        elapsed = time.time() - t0
+        print(f"[Preload] SEC submissions done in {elapsed:.1f}s — {loaded} from consolidated cache")
+        missing = [c for c in ciks if c not in _SUBS_CACHE]
+        if missing:
+            extra = 0
+            for cik in missing:
+                cache_file = CACHE / "sec_subs" / f"{cik}.json"
+                if not cache_file.exists():
+                    _SUBS_CACHE[cik] = None
+                    continue
+                try:
+                    with open(cache_file) as f:
+                        _SUBS_CACHE[cik] = json.load(f)
+                    extra += 1
+                except Exception:
+                    _SUBS_CACHE[cik] = None
+            if extra:
+                print(f"[Preload] +{extra} new SEC submissions from individual files")
+        return
+
+    loaded = 0
+    for cik in ciks:
+        if cik in _SUBS_CACHE:
+            continue
+        cache_file = CACHE / "sec_subs" / f"{cik}.json"
+        if not cache_file.exists():
+            _SUBS_CACHE[cik] = None
+            continue
+        try:
+            with open(cache_file) as f:
+                _SUBS_CACHE[cik] = json.load(f)
+            loaded += 1
+        except Exception:
+            _SUBS_CACHE[cik] = None
+    elapsed = time.time() - t0
+    print(f"[Preload] SEC submissions done in {elapsed:.1f}s — {loaded} loaded (individual files)")
+
+    if loaded > 0:
+        print("[Preload] Saving consolidated SEC submissions cache...")
+        t1 = time.time()
+        serializable = {str(k): v for k, v in _SUBS_CACHE.items()}
+        with open(_SUBS_CONSOLIDATED, "w") as f:
+            json.dump(serializable, f)
+        print(f"[Preload] Consolidated SEC submissions saved in {time.time()-t1:.1f}s")
+
+
+_FORM4_MEM_CACHE: dict[str, list] = {}
+
+
+_FORM4_CONSOLIDATED = CACHE / "form4_all.json"
+
+
+def preload_all_form4() -> None:
+    """Bulk-load all cached Form 4 JSONs into memory. Uses consolidated cache if available."""
+    print("[Preload] Loading Form 4 cache...")
+    t0 = time.time()
+
+    if _FORM4_CONSOLIDATED.exists():
+        with open(_FORM4_CONSOLIDATED) as f:
+            data = json.load(f)
+        _FORM4_MEM_CACHE.update(data)
+        elapsed = time.time() - t0
+        print(f"[Preload] Form 4 done in {elapsed:.1f}s — {len(data)} filings from consolidated cache")
+        # Also pick up any new individual files not in the consolidated cache
+        form4_dir = CACHE / "form4"
+        new_count = 0
+        for fp in form4_dir.iterdir():
+            if fp.suffix == ".json" and fp.stem not in _FORM4_MEM_CACHE:
+                try:
+                    with open(fp) as fh:
+                        _FORM4_MEM_CACHE[fp.stem] = json.load(fh)
+                    new_count += 1
+                except Exception:
+                    pass
+        if new_count:
+            print(f"[Preload] +{new_count} new Form 4 files from individual cache")
+        return
+
+    form4_dir = CACHE / "form4"
+    loaded = 0
+    for fp in form4_dir.iterdir():
+        if fp.suffix == ".json":
+            try:
+                with open(fp) as fh:
+                    _FORM4_MEM_CACHE[fp.stem] = json.load(fh)
+                loaded += 1
+            except Exception:
+                pass
+    elapsed = time.time() - t0
+    print(f"[Preload] Form 4 done in {elapsed:.1f}s — {loaded} filings loaded (individual files)")
+
+    if loaded > 0:
+        print("[Preload] Saving consolidated Form 4 cache for faster future loads...")
+        t1 = time.time()
+        with open(_FORM4_CONSOLIDATED, "w") as f:
+            json.dump(_FORM4_MEM_CACHE, f)
+        print(f"[Preload] Consolidated cache saved in {time.time()-t1:.1f}s")
+
+
 def fetch_tiingo_prices(ticker: str, start: pd.Timestamp, end: pd.Timestamp) -> pd.DataFrame:
     """
     Fetch Tiingo daily prices for ticker in [start, end].
-    Checks cache/tiingo/{ticker}.csv first.
+    Uses in-memory cache (populated by preload_all_prices or on first access).
     Uses `close` field (NOT adjClose).
-    Returns DataFrame with columns [date, open, high, low, close, volume].
-    Empty DataFrame if unavailable.
     """
-    cache_file = CACHE / "tiingo" / f"{ticker}.csv"
-    sentinel = CACHE / "tiingo" / f"{ticker}.EMPTY"
+    full_df = _load_prices_into_memory(ticker)
+    if full_df.empty:
+        return _PRICE_EMPTY
 
-    # If we already know it's a dead end, return empty
-    if sentinel.exists():
-        return pd.DataFrame(columns=["date", "open", "high", "low", "close", "volume"])
-
-    now = pd.Timestamp.now()
-    needs_fetch = True
-
-    if cache_file.exists():
-        mtime = pd.Timestamp(datetime.fromtimestamp(cache_file.stat().st_mtime))
-        age_days = (now - mtime).days
-        # Use cache if fresh (≤30 days) or if the file has data
-        cached_df = pd.read_csv(cache_file, parse_dates=["date"])
-        if len(cached_df) == 0:
-            needs_fetch = age_days > 30
-        else:
-            # Check if cache covers the requested range
-            max_cached = cached_df["date"].max()
-            # If the end of the request is within the cached range, no need to re-fetch
-            if end <= max_cached or age_days <= 30:
-                needs_fetch = False
-
-        if not needs_fetch:
-            mask = (cached_df["date"] >= start) & (cached_df["date"] <= end)
-            return cached_df[mask].copy().reset_index(drop=True)
-
-    # Fetch from API — always pull full history to maximise cache utility
-    if not TIINGO_KEY:
-        raise EnvironmentError("TIINGO_API_KEY not set.")
-
-    fetch_start = "2000-01-01"
-    fetch_end = now.strftime("%Y-%m-%d")
-    url = f"https://api.tiingo.com/tiingo/daily/{ticker}/prices"
-    params = {
-        "startDate": fetch_start,
-        "endDate": fetch_end,
-        "token": TIINGO_KEY,
-        "columns": "date,open,high,low,close,volume,splitFactor,divCash",
-    }
-
-    _EMPTY = pd.DataFrame(columns=["date", "open", "high", "low", "close", "volume"])
-
-    # Single retry on 429/network error; anything else is treated as transient.
-    # The outer ThreadPoolExecutor in prefetch_tiingo_survivors enforces a hard
-    # per-ticker wall-clock limit, so we keep retries short here.
-    for attempt in range(2):
-        try:
-            resp = _tiingo_get(url, params=params)
-        except Exception as e:
-            print(f"[Tiingo] Network error for {ticker}: {type(e).__name__}")
-            return _EMPTY  # caller's ThreadPoolExecutor will log and move on
-
-        if resp.status_code == 429:
-            if attempt == 0:
-                print(f"[Tiingo] 429 on {ticker} — sleeping 60s then retrying once...")
-                time.sleep(60)
-                continue
-            # Still 429 after one retry — give up, caller logs to failed_tickers.txt
-            print(f"[Tiingo] 429 on {ticker} persists — skipping.")
-            return _EMPTY
-
-        if resp.status_code in (404, 400):
-            sentinel.touch()
-            return _EMPTY
-
-        if resp.status_code != 200:
-            print(f"[Tiingo] HTTP {resp.status_code} for {ticker}")
-            return _EMPTY
-
-        try:
-            data = resp.json()
-        except Exception:
-            return _EMPTY
-
-        if not data:
-            sentinel.touch()
-            return _EMPTY
-
-        break  # success
-    else:
-        return _EMPTY
-
-    df = pd.DataFrame(data)
-
-    # Normalise columns — Tiingo returns camelCase
-    col_map = {}
-    for c in df.columns:
-        col_map[c] = c.lower()
-    df = df.rename(columns=col_map)
-
-    # Date normalisation
-    df["date"] = pd.to_datetime(df["date"], utc=True).dt.tz_localize(None)
-    df["date"] = df["date"].dt.normalize()
-
-    needed = [c for c in ["date", "open", "high", "low", "close", "volume", "splitfactor", "divcash"] if c in df.columns]
-    df = df[needed].drop_duplicates("date").sort_values("date").reset_index(drop=True)
-
-    # Persist full history to cache
-    df.to_csv(cache_file, index=False)
-
-    mask = (df["date"] >= start) & (df["date"] <= end)
-    return df[mask].copy().reset_index(drop=True)
+    mask = (full_df["date"] >= start) & (full_df["date"] <= end)
+    return full_df[mask].copy().reset_index(drop=True)
 
 
 def get_last_close_on_or_before(ticker: str, as_of: pd.Timestamp) -> Optional[float]:
@@ -606,77 +761,101 @@ def _cik_str(cik: int) -> str:
     return str(cik).zfill(10)
 
 
+_FACTS_CACHE: dict[int, Optional[dict]] = {}
+
+
 def fetch_company_facts(cik: int) -> Optional[dict]:
     """
     Fetch SEC XBRL company facts.
-    Cached at cache/sec_facts/{cik}.json.
-    Returns parsed dict or None.
+    In-memory cache → disk cache → SEC API.
     """
+    if cik in _FACTS_CACHE:
+        return _FACTS_CACHE[cik]
+
     cache_file = CACHE / "sec_facts" / f"{cik}.json"
 
     if cache_file.exists():
         with open(cache_file) as f:
-            return json.load(f)
+            data = json.load(f)
+        _FACTS_CACHE[cik] = data
+        return data
 
     url = f"https://data.sec.gov/api/xbrl/companyfacts/CIK{_cik_str(cik)}.json"
     try:
         resp = _sec_get(url)
     except Exception as e:
         print(f"[SEC] company_facts network error for CIK {cik}: {e}")
+        _FACTS_CACHE[cik] = None
         return None
 
     if resp.status_code == 404:
+        _FACTS_CACHE[cik] = None
         return None
 
     if resp.status_code != 200:
         print(f"[SEC] company_facts HTTP {resp.status_code} for CIK {cik}")
+        _FACTS_CACHE[cik] = None
         return None
 
     try:
         data = resp.json()
     except Exception:
+        _FACTS_CACHE[cik] = None
         return None
 
     with open(cache_file, "w") as f:
         json.dump(data, f)
 
+    _FACTS_CACHE[cik] = data
     return data
+
+
+_SUBS_CACHE: dict[int, Optional[dict]] = {}
 
 
 def fetch_submissions(cik: int) -> Optional[dict]:
     """
     Fetch SEC submissions (includes all filings, form 4 data).
-    Cached at cache/sec_subs/{cik}.json.
-    Returns parsed dict or None.
+    In-memory cache → disk cache → SEC API.
     """
+    if cik in _SUBS_CACHE:
+        return _SUBS_CACHE[cik]
+
     cache_file = CACHE / "sec_subs" / f"{cik}.json"
 
     if cache_file.exists():
         with open(cache_file) as f:
-            return json.load(f)
+            data = json.load(f)
+        _SUBS_CACHE[cik] = data
+        return data
 
     url = f"https://data.sec.gov/submissions/CIK{_cik_str(cik)}.json"
     try:
         resp = _sec_get(url)
     except Exception as e:
         print(f"[SEC] submissions network error for CIK {cik}: {e}")
+        _SUBS_CACHE[cik] = None
         return None
 
     if resp.status_code == 404:
+        _SUBS_CACHE[cik] = None
         return None
 
     if resp.status_code != 200:
         print(f"[SEC] submissions HTTP {resp.status_code} for CIK {cik}")
+        _SUBS_CACHE[cik] = None
         return None
 
     try:
         data = resp.json()
     except Exception:
+        _SUBS_CACHE[cik] = None
         return None
 
     with open(cache_file, "w") as f:
         json.dump(data, f)
 
+    _SUBS_CACHE[cik] = data
     return data
 
 
@@ -688,92 +867,54 @@ def get_gaap_value_pit(
 ) -> tuple:
     """
     Return the most recent value for a GAAP concept where filed_date ≤ as_of_date.
-    Handles both 'instant' (balance sheet) and 'duration' (income) forms.
+    Prefers annual periods (300-400 day span) for duration concepts.
     Returns (value, period_end_date, filed_date) or (None, None, None).
-
-    For duration concepts, prefer the most recent annual (12M) period.
-    For instant concepts, take the most recent filing.
+    Uses string comparison on YYYY-MM-DD dates to avoid pd.Timestamp overhead.
     """
     try:
         units_dict = facts["facts"][namespace][concept]["units"]
     except (KeyError, TypeError):
         return (None, None, None)
 
-    # Collect all data points (across unit types, usually USD or shares)
-    records = []
-    for unit_label, entries in units_dict.items():
+    as_of_str = as_of_date.strftime("%Y-%m-%d")
+    best_any = None       # (filed_str, end_str, val)
+    best_annual = None
+    has_duration = False
+
+    for entries in units_dict.values():
         for entry in entries:
             filed = entry.get("filed")
             end = entry.get("end")
             val = entry.get("val")
-            form = entry.get("form", "")
             if filed is None or end is None or val is None:
                 continue
-            try:
-                filed_ts = pd.Timestamp(filed)
-                end_ts = pd.Timestamp(end)
-            except Exception:
+            if filed > as_of_str:
                 continue
-            # PIT filter: only use filings available on or before as_of_date
-            if filed_ts > as_of_date:
-                continue
-            records.append({
-                "val": val,
-                "end": end_ts,
-                "filed": filed_ts,
-                "form": form,
-                "unit": unit_label,
-            })
 
-    if not records:
-        return (None, None, None)
-
-    df = pd.DataFrame(records)
-
-    # For duration concepts, try to find annual periods (start/end span ~12M)
-    # The XBRL data has 'start' field for duration entries
-    has_start = any("start" in e for entries in units_dict.values() for e in entries)
-
-    if has_start:
-        # Re-collect with start field
-        records2 = []
-        for unit_label, entries in units_dict.items():
-            for entry in entries:
-                filed = entry.get("filed")
-                end = entry.get("end")
-                start = entry.get("start")
-                val = entry.get("val")
-                if filed is None or end is None or val is None:
-                    continue
+            start = entry.get("start")
+            period_days = 0
+            if start:
+                has_duration = True
                 try:
-                    filed_ts = pd.Timestamp(filed)
-                    end_ts = pd.Timestamp(end)
-                    start_ts = pd.Timestamp(start) if start else None
+                    ed = int(end[:4]) * 10000 + int(end[5:7]) * 100 + int(end[8:10])
+                    sd = int(start[:4]) * 10000 + int(start[5:7]) * 100 + int(start[8:10])
+                    y1, m1, d1 = int(end[:4]), int(end[5:7]), int(end[8:10])
+                    y0, m0, d0 = int(start[:4]), int(start[5:7]), int(start[8:10])
+                    period_days = (y1 - y0) * 365 + (m1 - m0) * 30 + (d1 - d0)
                 except Exception:
-                    continue
-                if filed_ts > as_of_date:
-                    continue
-                period_days = (end_ts - start_ts).days if start_ts else 0
-                records2.append({
-                    "val": val,
-                    "end": end_ts,
-                    "filed": filed_ts,
-                    "form": entry.get("form", ""),
-                    "unit": unit_label,
-                    "period_days": period_days,
-                })
+                    pass
 
-        if records2:
-            df = pd.DataFrame(records2)
-            # Prefer annual (10-K, ~365 days). Allow 300-400 day range.
-            annual = df[(df["period_days"] >= 300) & (df["period_days"] <= 400)]
-            if not annual.empty:
-                df = annual
+            sort_key = (filed, end)
+            if best_any is None or sort_key > best_any[0]:
+                best_any = (sort_key, float(val), end, filed)
+            if 300 <= period_days <= 400:
+                if best_annual is None or sort_key > best_annual[0]:
+                    best_annual = (sort_key, float(val), end, filed)
 
-    # Sort by filed desc, then end desc — take most recent
-    df = df.sort_values(["filed", "end"], ascending=False)
-    best = df.iloc[0]
-    return (float(best["val"]), best["end"], best["filed"])
+    winner = best_annual if (has_duration and best_annual is not None) else best_any
+    if winner is None:
+        return (None, None, None)
+    return (winner[1], pd.Timestamp(winner[2]), pd.Timestamp(winner[3]))
 
 
 def get_gaap_value_pit_2yr_ago(
@@ -783,64 +924,59 @@ def get_gaap_value_pit_2yr_ago(
     namespace: str = "us-gaap",
 ) -> tuple:
     """
-    Same as get_gaap_value_pit but returns the value whose period_end is approximately
-    2 fiscal years (24 months) before the most-recent period_end.
+    Return the value whose period_end is ~2 fiscal years before the most recent.
     Returns (value, period_end_date, filed_date) or (None, None, None).
     """
-    # First get the most recent value to find the anchor period_end
     val_now, end_now, filed_now = get_gaap_value_pit(facts, concept, as_of_date, namespace)
     if end_now is None:
         return (None, None, None)
 
-    # Target: period end ~2 years before end_now
     target_end = end_now - pd.DateOffset(years=2)
-    window_start = target_end - pd.Timedelta(days=120)
-    window_end = target_end + pd.Timedelta(days=120)
+    win_start_str = (target_end - pd.Timedelta(days=120)).strftime("%Y-%m-%d")
+    win_end_str = (target_end + pd.Timedelta(days=120)).strftime("%Y-%m-%d")
+    as_of_str = as_of_date.strftime("%Y-%m-%d")
 
     try:
         units_dict = facts["facts"][namespace][concept]["units"]
     except (KeyError, TypeError):
         return (None, None, None)
 
-    records = []
-    for unit_label, entries in units_dict.items():
+    best_any = None
+    best_annual = None
+
+    for entries in units_dict.values():
         for entry in entries:
             filed = entry.get("filed")
             end = entry.get("end")
-            start = entry.get("start")
             val = entry.get("val")
             if filed is None or end is None or val is None:
                 continue
-            try:
-                filed_ts = pd.Timestamp(filed)
-                end_ts = pd.Timestamp(end)
-                start_ts = pd.Timestamp(start) if start else None
-            except Exception:
+            if filed > as_of_str:
                 continue
-            if filed_ts > as_of_date:
+            if not (win_start_str <= end <= win_end_str):
                 continue
-            if not (window_start <= end_ts <= window_end):
-                continue
-            period_days = (end_ts - start_ts).days if start_ts else 0
-            records.append({
-                "val": val,
-                "end": end_ts,
-                "filed": filed_ts,
-                "period_days": period_days,
-            })
 
-    if not records:
+            start = entry.get("start")
+            period_days = 0
+            if start:
+                try:
+                    y1, m1, d1 = int(end[:4]), int(end[5:7]), int(end[8:10])
+                    y0, m0, d0 = int(start[:4]), int(start[5:7]), int(start[8:10])
+                    period_days = (y1 - y0) * 365 + (m1 - m0) * 30 + (d1 - d0)
+                except Exception:
+                    pass
+
+            sort_key = (filed, end)
+            if best_any is None or sort_key > best_any[0]:
+                best_any = (sort_key, float(val), end, filed)
+            if 300 <= period_days <= 400:
+                if best_annual is None or sort_key > best_annual[0]:
+                    best_annual = (sort_key, float(val), end, filed)
+
+    winner = best_annual if best_annual is not None else best_any
+    if winner is None:
         return (None, None, None)
-
-    df = pd.DataFrame(records)
-    # Prefer annual
-    annual = df[(df["period_days"] >= 300) & (df["period_days"] <= 400)]
-    if not annual.empty:
-        df = annual
-
-    df = df.sort_values(["filed", "end"], ascending=False)
-    best = df.iloc[0]
-    return (float(best["val"]), best["end"], best["filed"])
+    return (winner[1], pd.Timestamp(winner[2]), pd.Timestamp(winner[3]))
 
 
 def get_sic_code(cik: int, submissions: dict) -> Optional[int]:
@@ -892,11 +1028,16 @@ def parse_form4_xml(cik: int, accn: str, doc: str) -> list:
     Returns list of dicts with keys: date, shares, price, action (A or D).
     """
     accn_nodash = accn.replace("-", "")
-    cache_file = CACHE / "form4" / f"{accn_nodash}.json"
 
+    if accn_nodash in _FORM4_MEM_CACHE:
+        return _FORM4_MEM_CACHE[accn_nodash]
+
+    cache_file = CACHE / "form4" / f"{accn_nodash}.json"
     if cache_file.exists():
         with open(cache_file) as f:
-            return json.load(f)
+            data = json.load(f)
+        _FORM4_MEM_CACHE[accn_nodash] = data
+        return data
 
     if not doc:
         return []
@@ -996,6 +1137,7 @@ def parse_form4_xml(cik: int, accn: str, doc: str) -> list:
 
     with open(cache_file, "w") as f:
         json.dump(transactions, f)
+    _FORM4_MEM_CACHE[accn_nodash] = transactions
 
     return transactions
 
@@ -1016,28 +1158,21 @@ def compute_m1_insider_buying(
     if shares_outstanding is None or shares_outstanding <= 0:
         return 0.0
 
-    window_start = as_of_date - pd.DateOffset(months=6)
+    window_start_str = (as_of_date - pd.DateOffset(months=6)).strftime("%Y-%m-%d")
+    as_of_str = as_of_date.strftime("%Y-%m-%d")
     filings = fetch_form4_filings(cik, submissions)
 
     net_shares = 0.0
     parsed_any = False
 
     for accn, filed_date_str, doc in filings:
-        try:
-            filed_ts = pd.Timestamp(filed_date_str)
-        except Exception:
-            continue
-
-        if not (window_start <= filed_ts <= as_of_date):
+        if not (window_start_str <= filed_date_str <= as_of_str):
             continue
 
         txns = parse_form4_xml(cik, accn, doc)
         for txn in txns:
-            try:
-                txn_date = pd.Timestamp(txn["date"])
-            except Exception:
-                continue
-            if not (window_start <= txn_date <= as_of_date):
+            txn_date = txn.get("date", "")
+            if not (window_start_str <= txn_date <= as_of_str):
                 continue
             parsed_any = True
             if txn["action"] == "A":
@@ -1059,19 +1194,21 @@ def build_universe(
     rebalance_date: pd.Timestamp,
     tiingo_tickers: pd.DataFrame,
     prefilter_df: pd.DataFrame,
+    cik_sic_map: dict = None,
 ) -> pd.DataFrame:
     """
     Build the investable universe as of rebalance_date.
     prefilter_df: output of build_sec_prefilter() — only survivors are considered.
+    cik_sic_map: pre-computed ticker→(cik, sic) map (avoids recomputing each period).
     Returns DataFrame with columns:
       [ticker, cik, mcap, price, shares, sic, avg_dvol]
     """
     print(f"\n[Universe] Building universe for {rebalance_date.date()}")
 
-    # Pre-filter survivors: build a ticker→(cik, sic) map from prefilter results
-    survivors = prefilter_df[prefilter_df["passed"]][["ticker", "cik", "sic"]].copy()
-    survivors_set = set(survivors["ticker"].tolist())
-    cik_sic_map = {row["ticker"]: (int(row["cik"]), row["sic"]) for _, row in survivors.iterrows()}
+    if cik_sic_map is None:
+        survivors = prefilter_df[prefilter_df["passed"]][["ticker", "cik", "sic"]].copy()
+        cik_sic_map = {row["ticker"]: (int(row["cik"]), row["sic"]) for _, row in survivors.iterrows()}
+    survivors_set = set(cik_sic_map.keys())
 
     # Step 1: filter Tiingo tickers active on rebalance_date AND in prefilter survivors
     active = tiingo_tickers[
@@ -1301,21 +1438,14 @@ def compute_returns(
     universe_df: pd.DataFrame,
     hold_start: pd.Timestamp,
     hold_end: pd.Timestamp,
-    tiingo_tickers: pd.DataFrame,
+    delisted_map: dict,
 ) -> pd.DataFrame:
     """
     Compute holding period returns for each ticker in universe_df.
     Handles delistings using last available close as terminal value.
-    Adds columns: entry_price, exit_price, raw_return, delisted, delisting_date.
+    delisted_map: ticker → endDate (pre-computed once from tiingo_tickers).
     """
     df = universe_df.copy()
-
-    # Build a map of ticker → endDate for delistings
-    delisted_map = {}
-    for _, row in tiingo_tickers.iterrows():
-        end = row["endDate"]
-        if pd.notna(end) and end < hold_end:
-            delisted_map[row["ticker"]] = end
 
     entry_prices = []
     exit_prices = []
@@ -1350,8 +1480,8 @@ def compute_returns(
         entry_price = float(entry_candidates.iloc[0]["close"])
 
         # Check if delisted during hold period
-        is_delisted = ticker in delisted_map
         delist_date = delisted_map.get(ticker, pd.NaT)
+        is_delisted = pd.notna(delist_date) and delist_date < hold_end
 
         if is_delisted and pd.notna(delist_date):
             # Exit at last available close before/on delist_date
@@ -1401,59 +1531,64 @@ def build_portfolio(
     period: str,
 ) -> dict:
     """
-    Build long/short portfolios for management strategy and benchmark.
-    period: 'in_sample' or 'out_of_sample'
-
-    Returns dict with:
-      mgmt_longs, mgmt_shorts, bench_longs, bench_shorts,
-      mgmt_long_weights, mgmt_short_weights, bench_long_weights, bench_short_weights
+    Build long/short portfolios for composite, each primitive signal, and benchmark.
+    Returns dict keyed by strategy name with (longs, shorts, long_weights, short_weights).
     """
     df = signals_df.dropna(subset=["raw_return"]).copy()
 
+    sort_keys = {
+        "composite": "m_score",
+        "M1_solo": "M1_rank",
+        "M2_solo": "M2_rank",
+        "M3_solo": "M3_rank",
+        "bench": "earnings_yield",
+    }
+
+    result = {"n_universe": len(df)}
+
     if len(df) == 0:
-        return {
-            "mgmt_longs": [], "mgmt_shorts": [],
-            "bench_longs": [], "bench_shorts": [],
-            "mgmt_long_weights": {}, "mgmt_short_weights": {},
-            "bench_long_weights": {}, "bench_short_weights": {},
-            "n_universe": 0,
-        }
+        for name in sort_keys:
+            result[name] = {"longs": [], "shorts": [], "long_w": {}, "short_w": {}}
+        return result
 
     n = len(df)
-    top_n = max(int(np.ceil(n * 0.20)), 30)
-    bottom_n = max(int(np.ceil(n * 0.20)), 30)
+    top_n = min(max(int(np.ceil(n * 0.20)), 20), n)
+    bottom_n = min(max(int(np.ceil(n * 0.20)), 20), n)
 
-    # Clamp to universe size
-    top_n = min(top_n, n)
-    bottom_n = min(bottom_n, n)
+    for name, col in sort_keys.items():
+        sorted_df = df.sort_values(col, ascending=False)
+        longs = sorted_df.iloc[:top_n]["ticker"].tolist()
+        shorts = sorted_df.iloc[-bottom_n:]["ticker"].tolist()
+        result[name] = {
+            "longs": longs,
+            "shorts": shorts,
+            "long_w": {t: 1.0 / len(longs) for t in longs},
+            "short_w": {t: 1.0 / len(shorts) for t in shorts},
+        }
 
-    # Management strategy: sort by m_score
-    df_sorted_mgmt = df.sort_values("m_score", ascending=False)
-    mgmt_longs = df_sorted_mgmt.iloc[:top_n]["ticker"].tolist()
-    mgmt_shorts = df_sorted_mgmt.iloc[-bottom_n:]["ticker"].tolist()
+    return result
 
-    # Benchmark strategy: sort by earnings_yield
-    df_sorted_bench = df.sort_values("earnings_yield", ascending=False)
-    bench_longs = df_sorted_bench.iloc[:top_n]["ticker"].tolist()
-    bench_shorts = df_sorted_bench.iloc[-bottom_n:]["ticker"].tolist()
 
-    # Equal weights
-    mgmt_long_weights = {t: 1.0 / len(mgmt_longs) for t in mgmt_longs}
-    mgmt_short_weights = {t: 1.0 / len(mgmt_shorts) for t in mgmt_shorts}
-    bench_long_weights = {t: 1.0 / len(bench_longs) for t in bench_longs}
-    bench_short_weights = {t: 1.0 / len(bench_shorts) for t in bench_shorts}
+TURNOVER_RATE = 0.50
+SPREAD_MIN_BPS = 20
+SPREAD_MAX_BPS = 100
+BORROW_MIN_ANNUAL = 0.005
+BORROW_MAX_ANNUAL = 0.02
 
-    return {
-        "mgmt_longs": mgmt_longs,
-        "mgmt_shorts": mgmt_shorts,
-        "bench_longs": bench_longs,
-        "bench_shorts": bench_shorts,
-        "mgmt_long_weights": mgmt_long_weights,
-        "mgmt_short_weights": mgmt_short_weights,
-        "bench_long_weights": bench_long_weights,
-        "bench_short_weights": bench_short_weights,
-        "n_universe": n,
-    }
+
+def _mcap_scaled_spread(mcap: float) -> float:
+    """One-way half-spread in decimal, scaled linearly by mcap within $100M–$2B."""
+    frac = (mcap - MCAP_MIN) / (MCAP_MAX - MCAP_MIN)
+    frac = max(0.0, min(1.0, frac))
+    bps = SPREAD_MAX_BPS + (SPREAD_MIN_BPS - SPREAD_MAX_BPS) * frac
+    return bps / 10000.0
+
+
+def _mcap_scaled_borrow(mcap: float) -> float:
+    """Annual borrow cost in decimal, scaled linearly by mcap."""
+    frac = (mcap - MCAP_MIN) / (MCAP_MAX - MCAP_MIN)
+    frac = max(0.0, min(1.0, frac))
+    return BORROW_MAX_ANNUAL + (BORROW_MIN_ANNUAL - BORROW_MAX_ANNUAL) * frac
 
 
 def _compute_portfolio_return(
@@ -1463,34 +1598,41 @@ def _compute_portfolio_return(
     is_short: bool = False,
 ) -> float:
     """
-    Compute weighted portfolio return.
-    Transaction costs:
-      - Long:  75bps one-way = 150bps round-trip → quarterly cost = 1.50%
-      - Short: 75bps one-way + 37.5bps borrow per quarter → quarterly cost = 1.875%
-    (Simplified: apply cost to full turnover each period since we rebalance quarterly.)
+    Compute weighted portfolio return with mcap-scaled transaction costs.
+    Spread: 20–100bps one-way, linearly scaled by mcap.
+    Borrow: 0.5–2% annual on shorts, linearly scaled by mcap.
+    Turnover: ~50% quarterly.
     """
-    TC_LONG = 0.0150   # 150 bps round-trip
-    TC_SHORT = 0.01875  # 187.5 bps round-trip + borrow
-
     ret_map = returns_df.set_index("ticker")["raw_return"].to_dict()
+    mcap_map = returns_df.set_index("ticker")["mcap"].to_dict()
 
     if not tickers:
         return 0.0
 
-    total = 0.0
+    gross_ret = 0.0
+    total_cost = 0.0
+    total_w = 0.0
+
     for t in tickers:
         r = ret_map.get(t, np.nan)
         if np.isnan(r):
             continue
         w = weights.get(t, 0.0)
-        total += w * r
+        mc = mcap_map.get(t, (MCAP_MIN + MCAP_MAX) / 2)
+
+        gross_ret += w * r
+
+        spread = _mcap_scaled_spread(mc)
+        tc = TURNOVER_RATE * 2 * spread * w
+        if is_short:
+            tc += (_mcap_scaled_borrow(mc) / 4) * w
+        total_cost += tc
+        total_w += w
 
     if is_short:
-        total = -total - TC_SHORT
+        return -gross_ret - total_cost
     else:
-        total = total - TC_LONG
-
-    return total
+        return gross_ret - total_cost
 
 
 # =============================================================================
@@ -1505,6 +1647,17 @@ def run_backtest(tiingo_tickers: pd.DataFrame, prefilter_df: pd.DataFrame) -> di
     period_records = []
     universe_audit = []
     n_rebalance = len(REBALANCE_DATES)
+
+    # Pre-compute delisted_map once (ticker → endDate)
+    delisted_map = {}
+    for _, row in tiingo_tickers.iterrows():
+        end = row["endDate"]
+        if pd.notna(end):
+            delisted_map[row["ticker"]] = end
+
+    # Pre-compute cik_sic_map once from prefilter
+    survivors = prefilter_df[prefilter_df["passed"]][["ticker", "cik", "sic"]].copy()
+    cik_sic_map = {row["ticker"]: (int(row["cik"]), row["sic"]) for _, row in survivors.iterrows()}
 
     for i, rebalance_date in enumerate(REBALANCE_DATES):
         # Determine hold end (next rebalance date)
@@ -1525,7 +1678,7 @@ def run_backtest(tiingo_tickers: pd.DataFrame, prefilter_df: pd.DataFrame) -> di
 
         # Step 1: Universe
         try:
-            universe_df = build_universe(rebalance_date, tiingo_tickers, prefilter_df)
+            universe_df = build_universe(rebalance_date, tiingo_tickers, prefilter_df, cik_sic_map)
         except Exception as e:
             print(f"  [ERROR] build_universe failed: {e}")
             continue
@@ -1543,7 +1696,7 @@ def run_backtest(tiingo_tickers: pd.DataFrame, prefilter_df: pd.DataFrame) -> di
 
         # Step 3: Returns
         try:
-            returns_df = compute_returns(signals_df, rebalance_date, hold_end, tiingo_tickers)
+            returns_df = compute_returns(signals_df, rebalance_date, hold_end, delisted_map)
         except Exception as e:
             print(f"  [ERROR] compute_returns failed: {e}")
             continue
@@ -1570,51 +1723,35 @@ def run_backtest(tiingo_tickers: pd.DataFrame, prefilter_df: pd.DataFrame) -> di
             print(f"  [ERROR] build_portfolio failed: {e}")
             continue
 
-        # Step 5: Period returns
-        mgmt_long_ret = _compute_portfolio_return(
-            returns_df, portfolio["mgmt_longs"], portfolio["mgmt_long_weights"], is_short=False
-        )
-        mgmt_short_ret = _compute_portfolio_return(
-            returns_df, portfolio["mgmt_shorts"], portfolio["mgmt_short_weights"], is_short=True
-        )
-        mgmt_return = mgmt_long_ret + mgmt_short_ret
-
-        bench_long_ret = _compute_portfolio_return(
-            returns_df, portfolio["bench_longs"], portfolio["bench_long_weights"], is_short=False
-        )
-        bench_short_ret = _compute_portfolio_return(
-            returns_df, portfolio["bench_shorts"], portfolio["bench_short_weights"], is_short=True
-        )
-        bench_return = bench_long_ret + bench_short_ret
-
-        # Per-signal IC (correlation with next-period return)
-        valid = returns_df.dropna(subset=["raw_return"])
-        ic_m1 = valid["M1"].corr(valid["raw_return"]) if "M1" in valid.columns else np.nan
-        ic_m2 = valid["M2"].corr(valid["raw_return"]) if "M2" in valid.columns else np.nan
-        ic_m3 = valid["M3"].corr(valid["raw_return"]) if "M3" in valid.columns else np.nan
-
+        # Step 5: Period returns for all strategies
+        strat_names = ["composite", "M1_solo", "M2_solo", "M3_solo", "bench"]
         record = {
             "rebalance_date": rebalance_date,
             "hold_end": hold_end,
             "period": period,
             "n_universe": n_total,
             "n_delisted": n_delisted,
-            "mgmt_long_ret": mgmt_long_ret,
-            "mgmt_short_ret": mgmt_short_ret,
-            "mgmt_return": mgmt_return,
-            "bench_long_ret": bench_long_ret,
-            "bench_short_ret": bench_short_ret,
-            "bench_return": bench_return,
-            "ic_m1": ic_m1,
-            "ic_m2": ic_m2,
-            "ic_m3": ic_m3,
-            "n_mgmt_longs": len(portfolio["mgmt_longs"]),
-            "n_mgmt_shorts": len(portfolio["mgmt_shorts"]),
         }
+
+        for sname in strat_names:
+            p = portfolio[sname]
+            long_ret = _compute_portfolio_return(returns_df, p["longs"], p["long_w"], is_short=False)
+            short_ret = _compute_portfolio_return(returns_df, p["shorts"], p["short_w"], is_short=True)
+            record[f"{sname}_long"] = long_ret
+            record[f"{sname}_short"] = short_ret
+            record[f"{sname}_ls"] = long_ret + short_ret
+
+        valid = returns_df.dropna(subset=["raw_return"])
+        record["ic_m1"] = valid["M1"].corr(valid["raw_return"]) if "M1" in valid.columns else np.nan
+        record["ic_m2"] = valid["M2"].corr(valid["raw_return"]) if "M2" in valid.columns else np.nan
+        record["ic_m3"] = valid["M3"].corr(valid["raw_return"]) if "M3" in valid.columns else np.nan
+
         period_records.append(record)
 
-        print(f"  [Result] Mgmt L/S: {mgmt_return:.3%} | Bench L/S: {bench_return:.3%}")
-        print(f"  [IC] M1: {ic_m1:.3f}  M2: {ic_m2:.3f}  M3: {ic_m3:.3f}")
+        print(f"  [Result] Composite: {record['composite_ls']:.3%} | "
+              f"M1: {record['M1_solo_ls']:.3%} | M2: {record['M2_solo_ls']:.3%} | "
+              f"M3: {record['M3_solo_ls']:.3%} | Bench: {record['bench_ls']:.3%}")
+        print(f"  [IC] M1: {record['ic_m1']:.3f}  M2: {record['ic_m2']:.3f}  M3: {record['ic_m3']:.3f}")
 
     return {
         "period_records": period_records,
@@ -1684,10 +1821,7 @@ def deflated_sharpe_threshold(n_trials: int, n_obs: int) -> float:
     return dsr_threshold
 
 
-def print_results(backtest_results: dict) -> None:
-    """
-    Print comprehensive backtest results to console.
-    """
+def print_results(backtest_results: dict, in_sample_only: bool = False) -> None:
     records = backtest_results["period_records"]
     audit = backtest_results["universe_audit"]
 
@@ -1698,137 +1832,134 @@ def print_results(backtest_results: dict) -> None:
     df = pd.DataFrame(records)
     audit_df = pd.DataFrame(audit)
 
-    # =========================================================
-    print("\n" + "=" * 70)
-    print("PRE-CHECK SUMMARY")
-    print("=" * 70)
-    print(f"  Total rebalance periods computed:    {len(df)}")
-    print(f"  In-sample periods (2015–2022):       {(df['period']=='in_sample').sum()}")
-    print(f"  Out-of-sample periods (2022–2025):   {(df['period']=='out_of_sample').sum()}")
-    if not audit_df.empty:
-        avg_univ = audit_df["n_universe"].mean()
-        avg_del = audit_df["n_delisted"].mean()
-        print(f"  Avg universe size per period:        {avg_univ:.0f}")
-        print(f"  Avg delistings per period:           {avg_del:.1f}")
-
-    # =========================================================
-    print("\n" + "=" * 70)
-    print("SURVIVORSHIP AUDIT — Per Period")
-    print("=" * 70)
-    if not audit_df.empty:
-        print(f"  {'Date':<14} {'N_Universe':>11} {'N_Delisted':>11} {'%_Delisted':>11}  {'Period'}")
-        print(f"  {'-'*14} {'-'*11} {'-'*11} {'-'*11}  {'-'*15}")
-        for _, r in audit_df.iterrows():
-            print(
-                f"  {str(r['rebalance_date'].date()):<14} "
-                f"{r['n_universe']:>11.0f} "
-                f"{r['n_delisted']:>11.0f} "
-                f"{r['pct_delisted']:>10.1%}  "
-                f"{r['period']}"
-            )
-
-    # =========================================================
-    print("\n" + "=" * 70)
-    print("IN-SAMPLE PERFORMANCE (2015-01-01 to 2022-01-01)")
-    print("=" * 70)
-
     is_df = df[df["period"] == "in_sample"]
     os_df = df[df["period"] == "out_of_sample"]
 
-    def _print_strategy_metrics(label: str, series: pd.Series, n_trials: int = 1) -> None:
-        m = compute_metrics(series)
-        print(f"\n  {label}")
-        print(f"    Annualized Return:  {m['ann_return']:>9.2%}")
-        print(f"    Annualized Sharpe:  {m['ann_sharpe']:>9.3f}")
-        print(f"    T-Statistic:        {m['t_stat']:>9.3f}")
-        print(f"    Max Drawdown:       {m['max_drawdown']:>9.2%}")
-        print(f"    Win Rate:           {m['win_rate']:>9.1%}")
-        print(f"    N Quarters:         {m['n']:>9d}")
+    N_TRIALS = 4
 
-        if n_trials > 1 and m["n"] > 1:
-            try:
-                dsr_thr = deflated_sharpe_threshold(n_trials, m["n"])
-                obs_sr_ann = m["ann_sharpe"]
-                obs_sr_q = obs_sr_ann / np.sqrt(4)  # quarterly Sharpe
-                print(f"    Deflated SR threshold (N_trials={n_trials}): {dsr_thr:.3f} (annualized: {dsr_thr*2:.3f})")
-                clears = "YES" if obs_sr_q > dsr_thr else "NO"
-                print(f"    Clears DSR threshold? {clears}")
-            except Exception:
-                pass
+    strat_info = [
+        ("Composite", "composite_ls"),
+        ("M1 Solo",   "M1_solo_ls"),
+        ("M2 Solo",   "M2_solo_ls"),
+        ("M3 Solo",   "M3_solo_ls"),
+        ("Bench(EY)", "bench_ls"),
+    ]
 
-    _print_strategy_metrics(
-        "MANAGEMENT STRATEGY (M1+M2+M3 L/S)",
-        is_df["mgmt_return"] if not is_df.empty else pd.Series(dtype=float),
-        n_trials=3,  # 3 signals
-    )
-    _print_strategy_metrics(
-        "BENCHMARK STRATEGY (Earnings Yield L/S)",
-        is_df["bench_return"] if not is_df.empty else pd.Series(dtype=float),
-    )
+    # ── Summary table ────────────────────────────────────────────────
+    def _summary_table(label: str, sub_df: pd.DataFrame, apply_dsr: bool) -> None:
+        print(f"\n{'='*90}")
+        print(f"  {label}")
+        print(f"{'='*90}")
 
-    # =========================================================
-    print("\n" + "=" * 70)
-    print("OUT-OF-SAMPLE PERFORMANCE (2022-01-01 to 2025-10-01)")
-    print("=" * 70)
+        bench_series = sub_df["bench_ls"] if not sub_df.empty else pd.Series(dtype=float)
+        bench_mean_q = bench_series.mean() if len(bench_series) > 0 else 0.0
 
-    _print_strategy_metrics(
-        "MANAGEMENT STRATEGY (M1+M2+M3 L/S)",
-        os_df["mgmt_return"] if not os_df.empty else pd.Series(dtype=float),
-        n_trials=1,  # locked thresholds, pure OOS
-    )
-    _print_strategy_metrics(
-        "BENCHMARK STRATEGY (Earnings Yield L/S)",
-        os_df["bench_return"] if not os_df.empty else pd.Series(dtype=float),
-    )
+        hdr = (f"  {'Strategy':<14} {'AnnRet':>8} {'Sharpe':>8} {'t-stat':>8} "
+               f"{'Alpha':>8} {'Alpha-t':>8} {'MaxDD':>8} {'WinR':>6} {'N':>4}")
+        print(hdr)
+        print(f"  {'-'*14} {'-'*8} {'-'*8} {'-'*8} {'-'*8} {'-'*8} {'-'*8} {'-'*6} {'-'*4}")
 
-    # =========================================================
-    print("\n" + "=" * 70)
-    print("PER-SIGNAL BREAKDOWN — Information Coefficient (IC)")
-    print("  IC = cross-sectional correlation of signal with next-period return")
-    print("=" * 70)
+        for sname, col in strat_info:
+            s = sub_df[col].dropna() if not sub_df.empty else pd.Series(dtype=float)
+            m = compute_metrics(s)
 
-    for sig_label, col in [("M1 (Net Insider Buying)", "ic_m1"), ("M2 (No Dilution)", "ic_m2"), ("M3 (ROIC Improving)", "ic_m3")]:
-        if col not in df.columns:
-            continue
-        ic_is = is_df[col].dropna()
-        ic_os = os_df[col].dropna()
-        mean_ic_is = ic_is.mean() if len(ic_is) > 0 else np.nan
-        mean_ic_os = ic_os.mean() if len(ic_os) > 0 else np.nan
-        t_ic_is = (ic_is.mean() / (ic_is.std() / np.sqrt(len(ic_is)))) if len(ic_is) > 1 else np.nan
-        print(f"\n  {sig_label}")
-        print(f"    Mean IC (in-sample):     {mean_ic_is:>8.4f}  (t={t_ic_is:.2f}, N={len(ic_is)})")
-        print(f"    Mean IC (out-of-sample): {mean_ic_os:>8.4f}  (N={len(ic_os)})")
+            alpha_q = s - bench_series if len(s) == len(bench_series) else pd.Series(dtype=float)
+            alpha_ann = ((1 + alpha_q.mean()) ** 4 - 1) if len(alpha_q) > 0 else np.nan
+            alpha_t = (alpha_q.mean() / (alpha_q.std(ddof=1) / np.sqrt(len(alpha_q)))) if len(alpha_q) > 1 and alpha_q.std(ddof=1) > 0 else np.nan
 
-    # =========================================================
-    print("\n" + "=" * 70)
-    print("DEFLATED SHARPE — Multiple Testing Note")
-    print("=" * 70)
-    print("  N signal variations tested: 3 (M1, M2, M3)")
-    print("  Note: The composite m_score was not optimized post-hoc;")
-    print("  it is an equal-weight combination decided a priori.")
-    print("  Deflated SR thresholds applied above assume N_trials=3 for in-sample.")
-    print("  Out-of-sample Sharpe is NOT deflated (zero look-ahead).")
+            print(f"  {sname:<14} {m['ann_return']:>7.2%} {m['ann_sharpe']:>8.3f} "
+                  f"{m['t_stat']:>8.3f} {alpha_ann:>7.2%} {alpha_t:>8.3f} "
+                  f"{m['max_drawdown']:>7.2%} {m['win_rate']:>5.1%} {m['n']:>4d}")
 
-    # =========================================================
-    print("\n" + "=" * 70)
+        if apply_dsr:
+            print(f"\n  Deflated Sharpe Ratio (N_trials={N_TRIALS}):")
+            for sname, col in strat_info:
+                if col == "bench_ls":
+                    continue
+                s = sub_df[col].dropna() if not sub_df.empty else pd.Series(dtype=float)
+                m = compute_metrics(s)
+                if m["n"] > 1:
+                    try:
+                        dsr_thr = deflated_sharpe_threshold(N_TRIALS, m["n"])
+                        obs_sr_q = m["ann_sharpe"] / np.sqrt(4)
+                        clears = "YES" if obs_sr_q > dsr_thr else "NO"
+                        print(f"    {sname:<14} obs_SR_q={obs_sr_q:.3f}  threshold={dsr_thr:.3f}  clears={clears}")
+                    except Exception:
+                        pass
+
+    # ── IC table ─────────────────────────────────────────────────────
+    def _ic_table(label: str, sub_df: pd.DataFrame) -> None:
+        print(f"\n  {label} — Information Coefficients")
+        print(f"  {'Signal':<28} {'Mean IC':>9} {'IC t-stat':>10} {'N':>5}")
+        print(f"  {'-'*28} {'-'*9} {'-'*10} {'-'*5}")
+        for sig_label, col in [("M1 (Net Insider Buying)", "ic_m1"),
+                               ("M2 (No Dilution)", "ic_m2"),
+                               ("M3 (ROIC Improving)", "ic_m3")]:
+            if col not in sub_df.columns:
+                continue
+            ic = sub_df[col].dropna()
+            mean_ic = ic.mean() if len(ic) > 0 else np.nan
+            t_ic = (ic.mean() / (ic.std(ddof=1) / np.sqrt(len(ic)))) if len(ic) > 1 and ic.std(ddof=1) > 0 else np.nan
+            print(f"  {sig_label:<28} {mean_ic:>9.4f} {t_ic:>10.3f} {len(ic):>5d}")
+
+    # ── Survivorship audit ─────────────────────────────────────────
+    def _survivorship_audit(label: str, sub_audit: pd.DataFrame) -> None:
+        if sub_audit.empty:
+            return
+        print(f"\n{'='*90}")
+        print(f"  SURVIVORSHIP AUDIT — {label}")
+        print(f"{'='*90}")
+        total_names = int(sub_audit["n_universe"].sum())
+        total_delisted = int(sub_audit["n_delisted"].sum())
+        print(f"  Total name-periods: {total_names}")
+        print(f"  Total delistings retained (returns to last close): {total_delisted}")
+        print(f"  Per-period breakdown:")
+        print(f"    {'Date':<12} {'Universe':>9} {'Delisted':>9} {'Pct':>7}")
+        print(f"    {'-'*12} {'-'*9} {'-'*9} {'-'*7}")
+        for _, r in sub_audit.iterrows():
+            print(f"    {str(r['rebalance_date'].date()):<12} "
+                  f"{int(r['n_universe']):>9d} {int(r['n_delisted']):>9d} "
+                  f"{r['pct_delisted']:>6.1%}")
+        first_row = sub_audit.iloc[0]
+        first_n = int(first_row["n_universe"])
+        first_del = int(sub_audit["n_delisted"].sum())
+        print(f"\n  Of {first_n} names at {str(first_row['rebalance_date'].date())}, "
+              f"{first_del} later delisted across all periods — all retained with returns to delisting date.")
+
+    # ── Print ────────────────────────────────────────────────────────
+    print(f"\n  Periods: {len(is_df)} IS" + (f", {len(os_df)} OOS" if not in_sample_only else ""))
+    if not audit_df.empty:
+        print(f"  Avg universe: {audit_df['n_universe'].mean():.0f}  |  "
+              f"Avg delistings/period: {audit_df['n_delisted'].mean():.1f}")
+
+    is_audit = audit_df[audit_df["period"] == "in_sample"] if not audit_df.empty else pd.DataFrame()
+    _survivorship_audit("In-Sample", is_audit)
+
+    _summary_table("IN-SAMPLE (2015-01-01 to 2021-01-01)", is_df, apply_dsr=True)
+    _ic_table("In-Sample", is_df)
+
+    if not in_sample_only and not os_df.empty:
+        _summary_table("WALK-FORWARD (2021-01-01 to 2025-10-01)", os_df, apply_dsr=False)
+        _ic_table("Walk-Forward", os_df)
+
+    # ── Per-period log ───────────────────────────────────────────────
+    print(f"\n{'='*90}")
     print("QUARTERLY RETURNS LOG")
-    print("=" * 70)
-    print(f"  {'Date':<14} {'Mgmt L/S':>10} {'Bench L/S':>10} {'IC_M1':>8} {'IC_M2':>8} {'IC_M3':>8}  {'Period'}")
-    print(f"  {'-'*14} {'-'*10} {'-'*10} {'-'*8} {'-'*8} {'-'*8}  {'-'*15}")
-    for _, r in df.iterrows():
-        print(
-            f"  {str(r['rebalance_date'].date()):<14} "
-            f"{r['mgmt_return']:>9.2%}  "
-            f"{r['bench_return']:>9.2%}  "
-            f"{r.get('ic_m1', np.nan):>7.3f}  "
-            f"{r.get('ic_m2', np.nan):>7.3f}  "
-            f"{r.get('ic_m3', np.nan):>7.3f}  "
-            f"{r['period']}"
-        )
+    print(f"{'='*90}")
+    print(f"  {'Date':<12} {'Comp':>7} {'M1':>7} {'M2':>7} {'M3':>7} {'Bench':>7} {'IC1':>6} {'IC2':>6} {'IC3':>6}  {'Period'}")
+    print(f"  {'-'*12} {'-'*7} {'-'*7} {'-'*7} {'-'*7} {'-'*7} {'-'*6} {'-'*6} {'-'*6}  {'-'*13}")
+    show_df = is_df if in_sample_only else df
+    for _, r in show_df.iterrows():
+        print(f"  {str(r['rebalance_date'].date()):<12} "
+              f"{r['composite_ls']:>6.2%} {r['M1_solo_ls']:>6.2%} "
+              f"{r['M2_solo_ls']:>6.2%} {r['M3_solo_ls']:>6.2%} "
+              f"{r['bench_ls']:>6.2%} "
+              f"{r.get('ic_m1', np.nan):>5.3f} {r.get('ic_m2', np.nan):>5.3f} "
+              f"{r.get('ic_m3', np.nan):>5.3f}  {r['period']}")
 
 
 def save_results(backtest_results: dict) -> None:
-    """Save results CSVs to results/ directory."""
+    """Save results CSVs and trial registry to results/ directory."""
     records = backtest_results["period_records"]
     audit = backtest_results["universe_audit"]
 
@@ -1850,18 +1981,79 @@ def save_results(backtest_results: dict) -> None:
         print(f"[Output] Saved {is_path}")
         print(f"[Output] Saved {os_path}")
 
+    # Trial registry: one row per experiment with summary metrics
+    if records:
+        is_df = pd.DataFrame(records)
+        is_df = is_df[is_df["period"] == "in_sample"]
+        trial_rows = []
+        for trial_id, (label, col) in enumerate([
+            ("E1_M1_InsiderConviction", "M1_solo_ls"),
+            ("E2_M2_NonDilution", "M2_solo_ls"),
+            ("E3_M3_ROICImprovement", "M3_solo_ls"),
+            ("E4_Composite_M1M2M3", "composite_ls"),
+        ], start=1):
+            s = is_df[col].dropna()
+            m = compute_metrics(s)
+            bench_s = is_df["bench_ls"].dropna()
+            alpha_q = s - bench_s if len(s) == len(bench_s) else pd.Series(dtype=float)
+            alpha_ann = ((1 + alpha_q.mean()) ** 4 - 1) if len(alpha_q) > 0 else np.nan
+            alpha_t = (alpha_q.mean() / (alpha_q.std(ddof=1) / np.sqrt(len(alpha_q)))) if len(alpha_q) > 1 and alpha_q.std(ddof=1) > 0 else np.nan
+            try:
+                dsr_thr = deflated_sharpe_threshold(4, m["n"])
+                obs_sr_q = m["ann_sharpe"] / np.sqrt(4) if not np.isnan(m["ann_sharpe"]) else np.nan
+                clears_dsr = obs_sr_q > dsr_thr if not np.isnan(obs_sr_q) else False
+            except Exception:
+                dsr_thr = np.nan
+                obs_sr_q = np.nan
+                clears_dsr = False
+            ic_col = {"E1_M1_InsiderConviction": "ic_m1", "E2_M2_NonDilution": "ic_m2",
+                       "E3_M3_ROICImprovement": "ic_m3", "E4_Composite_M1M2M3": None}[label]
+            if ic_col and ic_col in is_df.columns:
+                ic_series = is_df[ic_col].dropna()
+                mean_ic = ic_series.mean() if len(ic_series) > 0 else np.nan
+                ic_t = (ic_series.mean() / (ic_series.std(ddof=1) / np.sqrt(len(ic_series)))) if len(ic_series) > 1 and ic_series.std(ddof=1) > 0 else np.nan
+            else:
+                mean_ic = np.nan
+                ic_t = np.nan
+            trial_rows.append({
+                "trial_id": trial_id,
+                "experiment": label,
+                "ann_return": m["ann_return"],
+                "ann_sharpe": m["ann_sharpe"],
+                "t_stat_return": m["t_stat"],
+                "alpha_vs_bench": alpha_ann,
+                "alpha_t_stat": alpha_t,
+                "mean_ic": mean_ic,
+                "ic_t_stat": ic_t,
+                "max_drawdown": m["max_drawdown"],
+                "win_rate": m["win_rate"],
+                "n_periods": m["n"],
+                "dsr_threshold": dsr_thr,
+                "obs_sr_q": obs_sr_q,
+                "clears_dsr": clears_dsr,
+                "timestamp": datetime.now().isoformat(),
+            })
+        trial_df = pd.DataFrame(trial_rows)
+        trial_path = RESULTS / "trial_registry.csv"
+        trial_df.to_csv(trial_path, index=False)
+        print(f"[Output] Saved trial registry: {trial_path}")
+
 
 # =============================================================================
 # MAIN
 # =============================================================================
 
 def main():
+    global REBALANCE_DATES
+
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument("--test", action="store_true",
                         help="Run one period (2015-Q1) with a small ticker sample to validate end-to-end.")
     parser.add_argument("--prefilter-only", action="store_true",
                         help="Run SEC pre-filter only — stop before the Tiingo pull.")
+    parser.add_argument("--in-sample-only", action="store_true",
+                        help="Run in-sample periods only (2015–2021). No walk-forward.")
     args = parser.parse_args()
 
     print("=" * 70)
@@ -1906,7 +2098,7 @@ def main():
     print(f"  15,620 Tiingo tickers")
     print(f"  → {len(overlap_map):>6,}  after SEC CIK overlap filter")
     print(f"  → {n_survivors:>6,}  after non-financial / non-fund / has-filings filter")
-    est_tiingo_minutes = min(n_survivors, MAX_FETCH_PER_RUN) * 5.1 / 60
+    est_tiingo_minutes = n_survivors * 1.7 / 60
     print(f"  Estimated Tiingo fetch time (new pulls only): ~{est_tiingo_minutes:.0f} min")
     print()
 
@@ -1932,7 +2124,6 @@ def main():
 
     if args.test:
         # In test mode: use a tiny curated sample including known delisted names
-        global REBALANCE_DATES
         REBALANCE_DATES = pd.DatetimeIndex([pd.Timestamp("2015-01-01")])
         test_seed = ["SUNE", "OUTR", "KATE", "BONT", "CPLA",
                      "AAPL", "MSFT", "WMT", "CVS", "HOG",
@@ -1952,15 +2143,43 @@ def main():
 
     prefetch_tiingo_survivors(survivor_tickers)
 
+    # ── Step 4b: Preload ALL cached data into memory ─────────────────────────────
+    print("\n[Step 4b] Preloading ALL cached data into memory...")
+    preload_all_prices(survivor_tickers)
+
+    passed_df = prefilter_df[prefilter_df["passed"]]
+    ticker_to_cik = dict(zip(passed_df["ticker"], passed_df["cik"].astype(int)))
+    survivor_ciks = [ticker_to_cik[t] for t in survivor_tickers if t in ticker_to_cik]
+    preload_all_sec_facts(survivor_ciks)
+    preload_all_submissions(survivor_ciks)
+    preload_all_form4()
+
+    if args.in_sample_only:
+        REBALANCE_DATES = pd.date_range("2015-01-01", IN_SAMPLE_END, freq="QS")
+        # Exclude the boundary itself (IS ends strictly before IN_SAMPLE_END)
+        REBALANCE_DATES = REBALANCE_DATES[REBALANCE_DATES < IN_SAMPLE_END]
+        print(f"  [IS-only] Restricted to {len(REBALANCE_DATES)} in-sample periods.")
+
     # ── Step 5: Backtest ─────────────────────────────────────────────────────────
-    print("\n[Step 5] Running backtest (all data cached)...")
+    print("\n[Step 5] Running backtest (all data in memory)...")
+    t_start = time.time()
     backtest_results = run_backtest(tiingo_tickers, prefilter_df)
+    t_elapsed = time.time() - t_start
+    print(f"\n[Step 5] Backtest completed in {t_elapsed:.1f}s ({t_elapsed/60:.1f} min)")
 
     print("\n[Step 6] Printing results...")
-    print_results(backtest_results)
+    print_results(backtest_results, in_sample_only=args.in_sample_only)
 
     print("\n[Step 7] Saving results...")
     save_results(backtest_results)
+
+    # Update consolidated Form 4 cache with newly fetched filings
+    if _FORM4_MEM_CACHE:
+        print("\n[Step 8] Updating consolidated caches for next run...")
+        t_cache = time.time()
+        with open(_FORM4_CONSOLIDATED, "w") as f:
+            json.dump(_FORM4_MEM_CACHE, f)
+        print(f"  Form 4 consolidated cache updated ({len(_FORM4_MEM_CACHE)} entries, {time.time()-t_cache:.1f}s)")
 
     print("\n[Done]")
 
