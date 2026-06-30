@@ -51,7 +51,20 @@
       "Bash(kill 7783)",
       "Bash(pkill -9 -f \"research/mgmt_pit/run.py\")",
       "Bash(/mnt/c/Users/user/Archer-Capital/venv/bin/python *)",
-      "Bash(TIINGO_API_KEY=681ca75fb675567fde2cffd98d59908110398d1a PYTHONUNBUFFERED=1 nohup /mnt/c/Users/user/Archer-Capital/venv/bin/python -u /mnt/c/Users/user/Archer-Capital/research/mgmt_pit/run.py)"
+      "Bash(TIINGO_API_KEY=681ca75fb675567fde2cffd98d59908110398d1a PYTHONUNBUFFERED=1 nohup /mnt/c/Users/user/Archer-Capital/venv/bin/python -u /mnt/c/Users/user/Archer-Capital/research/mgmt_pit/run.py)",
+      "Bash(kill 3787)",
+      "Bash(pkill -f \"research/mgmt_pit/run.py\")",
+      "Bash(awk '{print $3, $4, $6}')",
+      "Bash(env)",
+      "Bash(TIINGO_API_KEY=681ca75fb675567fde2cffd98d59908110398d1a PYTHONUNBUFFERED=1 venv/bin/python *)",
+      "Bash(kill 1346)",
+      "Bash(awk '{print $3,$4,$11}')",
+      "Bash(awk '{print \"CPU:\",$3,\"MEM:\",$4,\"TIME:\",$10}')",
+      "Bash(awk '{print \"PID:\",$2,\"CPU:\",$3,\"%MEM:\",$4,\"TIME:\",$10}')",
+      "Bash(awk '{print \"PID:\",$2,\"CPU:\",$3,\"%MEM:\",$4,\"CPUTIME:\",$10}')",
+      "Bash(awk '{print \"CPU:\",$3,\"%MEM:\",$4,\"CPUTIME:\",$10}')",
+      "Bash(awk '{print \"alive\"}')",
+      "Bash(awk '{print \"PID:\"$2,\"CPU:\"$3,\"%MEM:\"$4}')"
     ]
   }
 }
