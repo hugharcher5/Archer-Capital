@@ -18,3 +18,7 @@ research/mgmt_pit/cache/form4/
 research/mgmt_pit/cache/*.pkl
 research/mgmt_pit/cache/form4_all.json
 research/mgmt_pit/cache/sec_ticker_cik.json
+research/*/cache/
+cache/
+*.pkl
+*.json
