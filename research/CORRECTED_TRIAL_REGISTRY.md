@@ -1,10 +1,21 @@
 # CORRECTED TRIAL REGISTRY
 
-**Generated:** 2026-07-06  
+**Generated:** 2026-07-06 · **Russell-1 added:** 2026-07-08  
 **Verified against:** source files in `/mnt/c/Users/user/Archer-Capital/research/`  
-**In-sample window:** 2015-01-01 → 2021-01-01  
+**In-sample window:** 2015-01-01 → 2021-01-01 (Russell-1 uses its own annual-cycle window, 2016–2023 — see its detail section)  
 **DSR gate:** Deflated Sharpe Ratio, cumulative independent-trial count  
 **Universe:** US small/mid-cap equities (SEC XBRL + Tiingo)
+
+> **Known staleness (as of 2026-07-08):** this document's DSR Accounting Table and Master
+> Results Table only go up to DSR #13 (S7), then jump to #17 (Russell-1). **Trials #14
+> (S8, residual short-term reversal), #15 (S10, Amihud illiquidity), #16 (S11, accruals
+> quality), and the S3-SA walk-forward (#8b-WF)** were all run and logged to
+> `research/trial_registry.csv` after this document was last generated, but have not been
+> backfilled into Sections 2–4 here. Section 5's S1–S10 status table below still marks S8
+> and S10 as **PENDING**, which is now incorrect — both are complete (FAIL DSR). Treat
+> `research/trial_registry.csv` as the authoritative, currently up-to-date source for any
+> trial not detailed in this document; this markdown file is a narrative companion, not
+> the source of truth.
 
 ---
 
@@ -50,6 +61,9 @@ N_TRIALS counts cumulative independent trials; family members reuse the same tri
 | 11 | S2 | PEAD post-earnings drift | 11 | 72 (monthly calendar-time) | 0.1574 | 0.545 | FAIL |
 | 12 | S5 | Asset growth | 12 | 24 (quarterly) | 0.2823 | 0.550 | FAIL |
 | 13 | S7 | IVOL-conditional value (double-sort) | 13 | 24 (quarterly) | 0.2911 | 0.567 | FAIL |
+| 17 | Russell-1 | Pre-effective-date anticipatory drift (new independent family: Russell Reconstitution) | 17 | 8 (annual cycles) | n/a (event study) | n/a (event study) | FAIL (CAAR t=+0.416, not significant) |
+
+**Gap in this table (DSR #14–16):** S8 (residual short-term reversal), S10 (Amihud illiquidity), and the S3-SA walk-forward were run and logged to `research/trial_registry.csv` (trials #14, #15, #8b-WF) after this document was last generated, but have not yet been backfilled into this table — see Section 8 (Open Items) and the divergence note at the top of this document. S11 (accruals, trial #16) is also missing. Russell-1 is DSR #17 in `trial_registry.csv`'s cumulative count, which already reflects S8/S10/S11 as prior independent trials — the jump from #13 to #17 here is a gap in this document, not a gap in the actual trial count.
 
 **Notes on DSR accounting:**
 - H1 (livestock event study) is an event-study design; the stop criterion was wrong-sign CAAR, not SR vs DSR threshold. H1 adds to the independent-trial count as trial #5 regardless.
@@ -82,6 +96,9 @@ All numbers from source files; `[BUG-PENDING]` marks values contaminated by the 
 | S2 | −4.74% | 4,079 | −36.59% | −2.864 | −93.2% | +0.0368 | 7.555 | −0.104 | FAIL (−0.827 < 0.157) |
 | S5 | +0.62% | 613 | −5.46% | −0.340 | −34.8% | −0.0099 | −0.517 | −0.160 | FAIL (−0.170 < 0.282) |
 | S7 | −6.52% | 882 | −14.70% | −0.544 | −70.1% | +0.0358 | 1.356 | −0.085 | FAIL (−0.272 < 0.291) |
+| Russell-1 | +0.64%/cycle | 50 (flat) | +0.14%/cycle | +0.032 | −10.2% | n/a | n/a | n/a | FAIL (CAAR t=+0.416, not significant) |
+
+**Russell-1 note:** Gross/Net/Sharpe/MaxDD are the abnormal-return-vs-IWM series across 8 annual cycles (2016–2023), not a quarterly L/S strategy — comparability with the rows above is limited (see Section 4 detail). Sharpe/MaxDD are computed post-hoc for completeness; the trial's actual significance test is the CAAR t-stat, matching H1's convention. IC/Beta are n/a — this is a long-only basket-vs-benchmark event study, not a cross-sectional rank strategy.
 
 **S3-A cost estimate:** Not explicitly stored in trial_registry; estimated from annual cost structure. Bid-ask and borrow costs are lower at annual frequency due to reduced turnover, approximately 320 bps/year based on the decay pattern from quarterly (390 bps) to semiannual (318 bps).
 
@@ -239,6 +256,19 @@ All numbers from source files; `[BUG-PENDING]` marks values contaminated by the 
 - **DSR:** per_period_sr = −0.272, threshold = 0.291 (N=13, n=24) → FAIL
 - **Source:** `ivol_value/results/s7_period_returns.csv`, `research/trial_registry.csv` row 15
 - **Note:** The double-sort reduces the effective universe substantially (top-tercile IVOL subset only). IC is positive but weak (t=1.36). Gross return is negative, suggesting the interaction hypothesis (value × IVOL) does not produce reliable alpha in this universe.
+
+### Russell-1 — Pre-Effective-Date Anticipatory Drift (Trial #17, New Independent Family: Russell Reconstitution)
+- **Hypothesis:** Stocks confirmed for addition to a Russell US Index (Microcap→2000 or 2000→1000 migration, or new-to-index via IPO) drift upward between the preliminary-list announcement date and the reconstitution effective date, as traders anticipate forced mechanical buying from index-benchmarked funds. Pure-flow hypothesis, no fundamental mechanism.
+- **Design:** Event study (same class as H1), not a Sharpe/DSR-gated L/S strategy. Equal-weight, long-only basket of ALL confirmed Russell 3000 additions per cycle. Entry: first trading day after that year's preliminary list was publicly posted. Exit: the historical effective date (last Friday of June, except 2023's schedule shift to June 23). Benchmark: IWM (iShares Russell 2000 ETF) adjClose return over the identical window.
+- **Cycles:** 8 annual cycles, 2016–2023 (in-sample). 2024–2025 reserved untouched holdout, NOT unlocked (see recommendation below). **2015 excluded** — the only recoverable documents at `russell.com/documents/indexes/*.pdf` are press-release "highlights" summaries (6–7 rows of prose), not ticker-level tables, confirmed by direct parse. *Addendum:* a later session found a working alternate source for 2015 (an archived HTML tool page with real `<table>` elements, not a PDF) — 147 R3000 additions / 153 deletions / 244 Microcap additions recovered and cached at `research/russell_reconstitution/cache/2015_addendum/`, but **not yet wired into the backtest** (would need a documented proxy decision, since only a final list — no preliminary — survives for that year).
+- **CAAR (gross, abnormal vs IWM):** +0.6374% | **t-stat:** +0.416 | **two-sided p-value:** 0.6900 | **CAAR (net of 50bps round-trip):** +0.1374%
+- **Win rate:** 62.5% (5/8 cycles)
+- **Sharpe (net, abnormal-vs-IWM):** +0.032 | **CALMAR:** +0.014 | **Max drawdown:** −10.2% — computed post-hoc for reference only. Not a native fit: 8 non-overlapping annual points with ~2–4 week holding windows each (no continuous market exposure between cycles), so these ratios carry unusually little statistical weight. An absolute-basket-return variant (not vs. benchmark) gives Sharpe −0.057 / CALMAR −0.024 / MaxDD −15.9% — reported here for completeness since the two framings disagree in sign.
+- **Cost model:** Flat 50bps round-trip per name, charged once per cycle (one entry + one exit; buy-and-hold, no rebalancing) — deliberately lighter than the $100M–$2B core universe's cap-tiered formula (up to 100bps ceiling) since Russell-eligible names are index-liquidity-screened. See `run_backtest.py` docstring for full rationale.
+- **Coverage:** mean 87.4% of confirmed additions priced (Tiingo); mean 38.9% of confirmed additions fall inside the standard $100M–$2B core-program universe — Russell 3000 additions span a much wider market-cap range than the rest of this program's screened universe, by design (this trial intentionally tests the full R3000 addition set, not just the $100M–$2B slice).
+- **Falsification diagnostics:** Concentration — 2022 is the largest single-cycle contributor (34.5% of total |abnormal return|, a −15.4% basket / −8.9% abnormal return that year) but stays under the 40% flag threshold. Decay check — corr(year, abnormal_ret) = −0.152, flat/no clear crowding-out trend over 2016–2023. Sign-convention audit — basket built exclusively from `list_kind='additions'` files, no deletions used; PASS by construction.
+- **Source:** `research/russell_reconstitution/results/russell1_cycle_results.csv`, `research/russell_reconstitution/results/russell1_ticker_returns.csv`, `research/trial_registry.csv` (study=`russell1_anticipatory_drift`, trial #17). Data acquisition: FTSE Russell primary-source PDFs archived via Wayback Machine CDX (`research/russell_reconstitution/acquire.py`, `parse.py`, `cycle_calendar.py` — full sourcing notes in `research/russell_reconstitution/README.md`).
+- **Verdict / recommendation:** CAAR t=+0.416 is far from the 1.96 significance threshold — no reliable pre-effective-date drift detected in-sample. **Recommendation: do NOT unlock the 2024–2025 holdout** — this baseline shows nothing to confirm. This result is also the load-bearing prerequisite check for Russell-2 (post-effective-date reversal): a reversal trade requires a confirmed overshoot to reverse, and none was found, so Russell-2 was not run.
 
 ---
 

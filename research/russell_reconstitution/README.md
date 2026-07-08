@@ -65,3 +65,32 @@ used in the primary test).
   `results/russell1_universe.csv`, one row per (year, ticker) (Phase 2c)
 - `fetch_prices.py` -- Tiingo adjClose/close fetch for all tickers + IWM benchmark (Phase 3)
 - `run_backtest.py` -- event-study backtest, CAAR stats, diagnostics (Phase 4-5)
+- `log_to_main_registry.py` -- completes the "trial-registry logging" step named in
+  run_backtest.py's own docstring but not implemented there; logs to the main
+  `research/trial_registry.csv` as trial #17, new independent family "Russell
+  Reconstitution".
+
+## Addendum: 2015 IS recoverable after all (found in a later session)
+
+The exclusion note above says only "highlights"/press-release PDFs survive for
+2015 -- true for the `russell.com/documents/indexes/*.pdf` paths this pipeline
+checked. But a **separate URL path** does have real ticker-level data for 2015:
+the live tool page `russell.com/indexes/americas/tools-resources/reconstitution/
+additions-deletions.page` was archived with server-rendered HTML `<table>`
+elements (`id="Russell3000AddTable"`, `"Russell3000DeleteTable"`,
+`"RussellMicrocapAddTable"`, presumably `"RussellMicrocapDeleteTable"` too),
+not a PDF. Confirmed by direct fetch + `pandas.read_html`:
+147 R3000 additions / 153 R3000 deletions / 244 Microcap additions, real
+company/symbol/sector rows, at Wayback snapshot `20150627172039` (2015-06-27,
+one day after the actual 2015-06-26 effective date -- so this is a FINAL list,
+not preliminary; no snapshot exists in the archive between the 2015-06-12
+preliminary announcement and the effective date, so no genuine 2015
+preliminary list has been found).
+
+Raw snapshot saved at `cache/2015_addendum/additions-deletions_20150627172039.html`
+for whoever picks this up. **Not yet wired into `cycle_calendar.py` /
+`build_universe.py` / the backtest** -- adding a 9th (2015) cycle changes the
+in-sample N and is a deliberate methodology decision, not something to graft
+on silently. If you want to add it: 2015 would be FINAL-only (no preliminary
+leg), which doesn't fit this trial's entry/exit design without a documented
+proxy decision (same class of caveat as the 2016/2018 proxy notes above).

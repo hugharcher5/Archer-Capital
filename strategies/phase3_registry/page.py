@@ -414,6 +414,41 @@ _TRIALS = [
             "an Amihud-style premium as the mechanism. Beta −0.011 (near zero)."
         ),
     },
+    {
+        "id": "Russell-1",
+        "name": "Pre-Effective-Date Anticipatory Drift (Russell Reconstitution)",
+        "dsr_num": "17 (new family)",
+        "result": "FAIL",
+        "bug_pending": False,
+        "ic": "n/a",
+        "ic_t": "n/a",
+        "gross": "+0.64%/cycle",
+        "cost_bps": "50 (flat, one round-trip/name/cycle)",
+        "net": "+0.14%/cycle",
+        "sharpe": "+0.032",
+        "calmar": "+0.014",
+        "max_dd": "−10.2%",
+        "beta": "n/a",
+        "dsr_obs": "n/a (event study)",
+        "dsr_threshold": "n/a (event study)",
+        "n_periods": "8 cycles (2016–2023)",
+        "caar_note": "CAAR (abnormal vs IWM, gross): +0.64% | t = +0.416 | win rate 62.5% (5/8)",
+        "explanation": (
+            "First trial in a new independent family. Hypothesis: stocks confirmed for "
+            "addition to a Russell US index drift upward between the preliminary-list "
+            "announcement and the effective date, as funds anticipate forced index buying. "
+            "Equal-weight long-only basket of confirmed R3000 additions, held T+1 after the "
+            "preliminary post to the historical effective date, vs IWM benchmark. "
+            "CAAR t=+0.416 — not significant; no reliable drift detected. Sharpe/CALMAR "
+            "(+0.032 / +0.014, abnormal-vs-IWM) are near zero and shown for completeness "
+            "only — this is an event-study design (8 non-overlapping annual points, "
+            "~2-4 week windows), not a continuous strategy, so these ratios carry little "
+            "weight. 2022 (−8.9% abnormal) is the largest single-cycle contributor (34.5% "
+            "of total |abnormal return|) but stays under the 40% concentration flag. 2015 "
+            "excluded (no ticker table recoverable at the time; a later addendum found one, "
+            "not yet wired in). 2024–2025 holdout NOT unlocked — baseline shows nothing."
+        ),
+    },
 ]
 
 # S3 group is handled separately (three variants under one grouped section)
@@ -860,6 +895,18 @@ def render_phase3_registry_page() -> None:
     )
     for t in _OPEN_ENDED_TRIALS:
         _render_open_ended_card(t)
+
+    st.divider()
+
+    # ── Russell-1 (new family: Russell Reconstitution) ────────────────────────
+    russell1 = next(t for t in _TRIALS if t["id"] == "Russell-1")
+    st.subheader("Russell-1 — Event Study: Pre-Effective-Date Anticipatory Drift")
+    st.caption(
+        "DSR #17 (new independent family: Russell Reconstitution)  |  Event study — "
+        "CAAR t-stat significance test, not an SR gate  |  Sourced via Wayback-archived "
+        "FTSE Russell reconstitution PDFs (2016–2023); 2024–2025 reserved holdout untouched."
+    )
+    _render_trial_card(russell1)
 
     st.divider()
 

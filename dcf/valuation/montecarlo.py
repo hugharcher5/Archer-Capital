@@ -719,7 +719,7 @@ def run_valuation(
 
     # Realised correlation from the 5 primary sampled inputs
     _smp = _extras['samples']
-    _corr_mat = np.row_stack([
+    _corr_mat = np.vstack([
         _smp['revenue_growth'],
         _smp['ebit_margin'],
         _smp['terminal_g'],
