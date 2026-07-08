@@ -2055,10 +2055,14 @@ with tab_strategies:
     from strategies.private_competitor_distress.config import STRATEGY_CONFIG
     from strategies.north_atlantic_salmon.page import render_salmon_page
     from strategies.dcf_tests.page import render_dcf_tests_page
+    from strategies.phase3_registry.page import render_phase3_registry_page
+    from strategies.phase3_registry.summary_page import render_phase3_summary_page
 
     _SECTIONS = [
         "DCF Tests — Research",
         "North Atlantic Salmon — Research",
+        "Phase 3 — Results Summary",
+        "Phase 3 — Signal Research Registry",
         STRATEGY_CONFIG["name"],
     ]
 
@@ -2072,6 +2076,10 @@ with tab_strategies:
         render_dcf_tests_page()
     elif selected == "North Atlantic Salmon — Research":
         render_salmon_page()
+    elif selected == "Phase 3 — Results Summary":
+        render_phase3_summary_page()
+    elif selected == "Phase 3 — Signal Research Registry":
+        render_phase3_registry_page()
     else:
         _STRATEGY_REGISTRY = {STRATEGY_CONFIG["name"]: STRATEGY_CONFIG}
         render_strategy_page(_STRATEGY_REGISTRY[selected])
