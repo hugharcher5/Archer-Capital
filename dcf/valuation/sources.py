@@ -9,6 +9,7 @@ from __future__ import annotations
 import math
 import os
 import json
+import urllib.parse
 import urllib.request
 import urllib.error
 from dataclasses import dataclass, field
@@ -85,18 +86,28 @@ def fetch_yahoo(ticker: str) -> SourceData:
 
 
 # ── Financial Modeling Prep fetcher ───────────────────────────────────────────
+# NOTE: FMP retired all /api/v3/* endpoints for non-legacy accounts on 2025-08-31
+# (they now 403 with "Legacy Endpoint ... no longer supported"). This fetcher
+# targets the current /stable/ API, which uses `?symbol=` instead of a path
+# segment but otherwise returns the same field names for the statements we use.
 
-_FMP_BASE = "https://financialmodelingprep.com/api/v3"
+_FMP_BASE = "https://financialmodelingprep.com/stable"
 
 
-def _fmp_get(endpoint: str, api_key: str) -> list[dict]:
-    url = f"{_FMP_BASE}/{endpoint}?limit=5&apikey={api_key}"
+def _fmp_get(endpoint: str, symbol: str, api_key: str) -> list[dict]:
+    q = urllib.parse.urlencode({"symbol": symbol, "limit": 5, "apikey": api_key})
+    url = f"{_FMP_BASE}/{endpoint}?{q}"
     try:
         req = urllib.request.Request(url, headers={"User-Agent": "archer-capital/1.0"})
         with urllib.request.urlopen(req, timeout=15) as resp:
             data = json.loads(resp.read().decode())
     except urllib.error.HTTPError as e:
-        raise RuntimeError(f"FMP HTTP {e.code} for {endpoint}") from e
+        try:
+            detail = e.read().decode(errors="replace").strip()
+        except Exception:
+            detail = ""
+        suffix = f": {detail}" if detail else ""
+        raise RuntimeError(f"FMP HTTP {e.code} for {endpoint}{suffix}") from e
     except Exception as e:
         raise RuntimeError(f"FMP request failed ({endpoint}): {e}") from e
 
@@ -347,9 +358,9 @@ def fetch_fmp(ticker: str) -> SourceData:
         )
 
     print(f"  [FMP] Fetching {ticker}…", end=" ", flush=True)
-    inc = _fmp_get(f"income-statement/{ticker}", api_key)
-    bs  = _fmp_get(f"balance-sheet-statement/{ticker}", api_key)
-    cf  = _fmp_get(f"cash-flow-statement/{ticker}", api_key)
+    inc = _fmp_get("income-statement", ticker, api_key)
+    bs  = _fmp_get("balance-sheet-statement", ticker, api_key)
+    cf  = _fmp_get("cash-flow-statement", ticker, api_key)
     print(f"got {len(inc)} income / {len(bs)} balance / {len(cf)} cashflow rows")
 
     if not inc:

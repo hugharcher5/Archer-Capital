@@ -32,19 +32,25 @@ tab_strategies, tab_valuation = st.tabs(["Strategies", "Valuation"])
 # ══════════════════════════════════════════════════════════════════════════════
 
 @st.cache_data(show_spinner=False, ttl=3600)
-def _cached_valuation(ticker: str) -> ValuationResult:
+def _cached_valuation(ticker: str) -> tuple[ValuationResult, dict[str, str]]:
     sources = []
-    for fetcher in (fetch_yahoo, fetch_fmp, fetch_edgar):
+    # source_status records "ok" or the failure reason per source, so a dropped
+    # source never looks identical to a successful full reconciliation in the UI.
+    source_status: dict[str, str] = {}
+    for name, fetcher in (("Yahoo", fetch_yahoo), ("FMP", fetch_fmp), ("EDGAR", fetch_edgar)):
         try:
             sources.append(fetcher(ticker))
-        except Exception:
-            pass
+            source_status[name] = "ok"
+        except Exception as e:
+            source_status[name] = str(e)
     if len(sources) >= 2:
         recon = reconcile(sources)
-        return run_valuation(ticker, n_sims=10_000,
+        result = run_valuation(ticker, n_sims=10_000,
                              sigma_cross=recon.sigma_cross,
                              reconcile_result=recon)
-    return run_valuation(ticker, n_sims=10_000)
+    else:
+        result = run_valuation(ticker, n_sims=10_000)
+    return result, source_status
 
 
 def _fmt_pct(v: float, decimals: int = 1) -> str:
@@ -2033,16 +2039,27 @@ with tab_valuation:
         if ticker:
             try:
                 with st.spinner(f"Running Monte Carlo DCF for {ticker}: fetching data and running 10,000 simulations…"):
-                    result = _cached_valuation(ticker)
+                    result, source_status = _cached_valuation(ticker)
                 st.session_state["val_result"] = result
+                st.session_state["val_source_status"] = source_status
             except Exception as exc:
                 st.error(f"**Valuation failed for {ticker}**: {exc}")
                 # Clear any stale result so the old ticker's output isn't shown
                 st.session_state.pop("val_result", None)
+                st.session_state.pop("val_source_status", None)
         else:
             st.warning("Enter a ticker symbol first.")
 
     if "val_result" in st.session_state:
+        status = st.session_state.get("val_source_status", {})
+        failed = {name: reason for name, reason in status.items() if reason != "ok"}
+        if failed:
+            n_ok = len(status) - len(failed)
+            detail = "  ".join(f"**{name}**: {reason}" for name, reason in failed.items())
+            st.warning(
+                f"⚠ Data source degraded — this valuation reconciles **{n_ok} of "
+                f"{len(status)}** intended sources.  {detail}"
+            )
         _render_valuation(st.session_state["val_result"])
 
 
