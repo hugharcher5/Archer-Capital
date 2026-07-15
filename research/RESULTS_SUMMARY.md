@@ -1,4 +1,13 @@
-# RESULTS SUMMARY — Archer Capital Quantitative Research Program
+> **SUPERSEDED (2026-07-12) — see `research/CORRECTED_TRIAL_REGISTRY.md` for the
+> current canonical registry.** This file was discovered during a registry
+> consolidation pass (it predates and overlaps `CORRECTED_TRIAL_REGISTRY.md`,
+> covering only trials through S10/#15 and already stale — e.g. it lists S10 as
+> "PENDING" when it has long since completed). Its content (particularly the S8
+> write-up) has been folded into the canonical file's Section 4. Do not add new
+> trials here. Before creating any new registry file, check whether one already
+> exists.
+
+# RESULTS SUMMARY — Archer Capital Quantitative Research Program (SUPERSEDED)
 
 **Generated:** 2026-07-06  
 **Universe:** US small/mid-cap equities (SEC XBRL + Tiingo)  

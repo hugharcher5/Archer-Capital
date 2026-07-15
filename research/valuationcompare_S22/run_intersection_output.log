@@ -1,0 +1,211 @@
+[Step 1] Loading Tiingo universe metadata...
+[Tiingo] Loaded 15,620 tickers from cache.
+
+[Step 2] Loading SEC pre-filter...
+[PreFilter] 6,692 screened, 3,300 survivors.
+
+[Step 3a] Preloading raw close prices...
+[Preload] Raw prices: 3,300 tickers in 8.7s
+
+[Step 3b] Preloading adjClose prices...
+[AdjPreload] 3,300 tickers in 2.7s
+
+[Step 4] Preloading GP-style shares facts (3,300 CIKs)...
+[Preload] GP facts: 2,010/3,300 CIKs in 4.0s
+
+[Step 5] Preloading S22 valuation facts...
+[S22Facts] 2,010/3,300 loaded from trimmed cache in 125.8s
+
+[01/24] 2015-01-01 -> 2015-04-01
+  [Universe] 2015-01-01 -> 354 names
+  [Universe] n=354  intersection(all 4 valid)=169
+  [dcf] full ret=+6.51% n=45  | inter ret=+8.07% n=34
+  [pe ] full ret=-1.38% n=44  | inter ret=+2.35% n=34
+  [ps ] full ret=+0.27% n=62  | inter ret=+3.53% n=34
+  [pb ] full ret=-0.01% n=69  | inter ret=+2.11% n=34
+
+[02/24] 2015-04-01 -> 2015-07-01
+  [Universe] 2015-04-01 -> 349 names
+  [Universe] n=349  intersection(all 4 valid)=166
+  [dcf] full ret=-1.22% n=46  | inter ret=+1.59% n=34
+  [pe ] full ret=-0.39% n=46  | inter ret=-0.94% n=34
+  [ps ] full ret=-1.50% n=64  | inter ret=+1.16% n=34
+  [pb ] full ret=+0.19% n=68  | inter ret=+0.63% n=34
+
+[03/24] 2015-07-01 -> 2015-10-01
+  [Universe] 2015-07-01 -> 390 names
+  [Universe] n=390  intersection(all 4 valid)=181
+  [dcf] full ret=-16.03% n=51  | inter ret=-14.87% n=37
+  [pe ] full ret=-15.95% n=51  | inter ret=-15.16% n=37
+  [ps ] full ret=-18.95% n=70  | inter ret=-16.87% n=37
+  [pb ] full ret=-19.61% n=75  | inter ret=-18.44% n=37
+
+[04/24] 2015-10-01 -> 2016-01-01
+  [Universe] 2015-10-01 -> 417 names
+  [Universe] n=417  intersection(all 4 valid)=204
+  [dcf] full ret=+4.98% n=56  | inter ret=+7.12% n=41
+  [pe ] full ret=+5.44% n=56  | inter ret=+6.08% n=41
+  [ps ] full ret=+0.99% n=76  | inter ret=+5.75% n=41
+  [pb ] full ret=-0.36% n=80  | inter ret=+3.53% n=41
+
+[05/24] 2016-01-01 -> 2016-04-01
+  [Universe] 2016-01-01 -> 397 names
+  [Universe] n=397  intersection(all 4 valid)=192
+  [dcf] full ret=+3.59% n=52  | inter ret=+5.01% n=39
+  [pe ] full ret=+6.98% n=52  | inter ret=+5.57% n=39
+  [ps ] full ret=+13.49% n=70  | inter ret=+10.34% n=39
+  [pb ] full ret=+5.14% n=76  | inter ret=+4.35% n=39
+
+[06/24] 2016-04-01 -> 2016-07-01
+  [Universe] 2016-04-01 -> 401 names
+  [Universe] n=401  intersection(all 4 valid)=188
+  [dcf] full ret=+7.48% n=55  | inter ret=+5.22% n=38
+  [pe ] full ret=+5.18% n=51  | inter ret=+5.48% n=38
+  [ps ] full ret=+7.46% n=74  | inter ret=+9.71% n=38
+  [pb ] full ret=+11.22% n=76  | inter ret=+11.68% n=38
+
+[07/24] 2016-07-01 -> 2016-10-01
+  [Universe] 2016-07-01 -> 411 names
+  [Universe] n=411  intersection(all 4 valid)=182
+  [dcf] full ret=+11.65% n=54  | inter ret=+12.05% n=37
+  [pe ] full ret=+10.61% n=50  | inter ret=+8.04% n=37
+  [ps ] full ret=+17.05% n=74  | inter ret=+13.31% n=37
+  [pb ] full ret=+17.94% n=78  | inter ret=+14.51% n=37
+
+[08/24] 2016-10-01 -> 2017-01-01
+  [Universe] 2016-10-01 -> 388 names
+  [Universe] n=388  intersection(all 4 valid)=171
+  [dcf] full ret=+8.56% n=50  | inter ret=+9.77% n=34
+  [pe ] full ret=+12.58% n=48  | inter ret=+13.30% n=34
+  [ps ] full ret=+14.43% n=70  | inter ret=+14.75% n=34
+  [pb ] full ret=+11.21% n=73  | inter ret=+15.82% n=34
+
+[09/24] 2017-01-01 -> 2017-04-01
+  [Universe] 2017-01-01 -> 382 names
+  [Universe] n=382  intersection(all 4 valid)=167
+  [dcf] full ret=+2.77% n=50  | inter ret=+0.70% n=34
+  [pe ] full ret=-1.11% n=44  | inter ret=-0.38% n=34
+  [ps ] full ret=+1.23% n=68  | inter ret=-3.69% n=34
+  [pb ] full ret=+5.45% n=72  | inter ret=+1.11% n=34
+
+[10/24] 2017-04-01 -> 2017-07-01
+  [Universe] 2017-04-01 -> 401 names
+  [Universe] n=401  intersection(all 4 valid)=178
+  [dcf] full ret=+2.34% n=52  | inter ret=+1.87% n=36
+  [pe ] full ret=+3.88% n=48  | inter ret=+1.27% n=36
+  [ps ] full ret=+0.23% n=73  | inter ret=-4.54% n=36
+  [pb ] full ret=+0.60% n=75  | inter ret=-4.25% n=36
+
+[11/24] 2017-07-01 -> 2017-10-01
+  [Universe] 2017-07-01 -> 427 names
+  [Universe] n=427  intersection(all 4 valid)=186
+  [dcf] full ret=-1.05% n=55  | inter ret=+0.34% n=37
+  [pe ] full ret=+7.03% n=49  | inter ret=+3.78% n=37
+  [ps ] full ret=+7.06% n=76  | inter ret=+2.03% n=37
+  [pb ] full ret=+6.41% n=80  | inter ret=+0.73% n=37
+
+[12/24] 2017-10-01 -> 2018-01-01
+  [Universe] 2017-10-01 -> 396 names
+  [Universe] n=396  intersection(all 4 valid)=173
+  [dcf] full ret=+5.19% n=51  | inter ret=+2.24% n=35
+  [pe ] full ret=+4.58% n=45  | inter ret=+3.73% n=35
+  [ps ] full ret=+10.87% n=71  | inter ret=+5.51% n=35
+  [pb ] full ret=+3.67% n=75  | inter ret=+4.70% n=35
+
+[13/24] 2018-01-01 -> 2018-04-01
+  [Universe] 2018-01-01 -> 417 names
+  [Universe] n=417  intersection(all 4 valid)=179
+  [dcf] full ret=-2.67% n=53  | inter ret=-3.12% n=36
+  [pe ] full ret=-2.19% n=46  | inter ret=-2.44% n=36
+  [ps ] full ret=-4.00% n=74  | inter ret=-4.11% n=36
+  [pb ] full ret=-5.89% n=78  | inter ret=-1.93% n=36
+
+[14/24] 2018-04-01 -> 2018-07-01
+  [Universe] 2018-04-01 -> 429 names
+  [Universe] n=429  intersection(all 4 valid)=182
+  [dcf] full ret=+14.61% n=55  | inter ret=+13.93% n=37
+  [pe ] full ret=+13.82% n=49  | inter ret=+15.04% n=37
+  [ps ] full ret=+12.63% n=77  | inter ret=+13.48% n=37
+  [pb ] full ret=+12.51% n=80  | inter ret=+13.65% n=37
+
+[15/24] 2018-07-01 -> 2018-10-01
+  [Universe] 2018-07-01 -> 444 names
+  [Universe] n=444  intersection(all 4 valid)=175
+  [dcf] full ret=-2.06% n=55  | inter ret=-1.76% n=35
+  [pe ] full ret=-6.85% n=48  | inter ret=-11.04% n=35
+  [ps ] full ret=-2.93% n=78  | inter ret=-4.06% n=35
+  [pb ] full ret=-1.65% n=83  | inter ret=-0.11% n=35
+
+[16/24] 2018-10-01 -> 2019-01-01
+  [Universe] 2018-10-01 -> 428 names
+  [Universe] n=428  intersection(all 4 valid)=163
+  [dcf] full ret=-21.38% n=51  | inter ret=-23.64% n=33
+  [pe ] full ret=-23.29% n=46  | inter ret=-22.07% n=33
+  [ps ] full ret=-25.36% n=75  | inter ret=-20.82% n=33
+  [pb ] full ret=-25.36% n=80  | inter ret=-21.90% n=33
+
+[17/24] 2019-01-01 -> 2019-04-01
+  [Universe] 2019-01-01 -> 465 names
+  [Universe] n=465  intersection(all 4 valid)=185
+  [dcf] full ret=+9.67% n=57  | inter ret=+6.55% n=37
+  [pe ] full ret=+12.46% n=53  | inter ret=+9.17% n=37
+  [ps ] full ret=+15.09% n=83  | inter ret=+10.32% n=37
+  [pb ] full ret=+15.57% n=89  | inter ret=+12.07% n=37
+
+[18/24] 2019-04-01 -> 2019-07-01
+  [Universe] 2019-04-01 -> 438 names
+  [Universe] n=438  intersection(all 4 valid)=165
+  [dcf] full ret=-8.66% n=53  | inter ret=-7.25% n=33
+  [pe ] full ret=-9.52% n=49  | inter ret=-10.94% n=33
+  [ps ] full ret=-5.26% n=82  | inter ret=-9.06% n=33
+  [pb ] full ret=-9.74% n=83  | inter ret=-11.34% n=33
+
+[19/24] 2019-07-01 -> 2019-10-01
+  [Universe] 2019-07-01 -> 451 names
+  [Universe] n=451  intersection(all 4 valid)=167
+  [dcf] full ret=-5.40% n=54  | inter ret=-4.98% n=34
+  [pe ] full ret=-3.13% n=51  | inter ret=+1.21% n=34
+  [ps ] full ret=-2.76% n=84  | inter ret=-2.45% n=34
+  [pb ] full ret=-8.06% n=85  | inter ret=-0.35% n=34
+
+[20/24] 2019-10-01 -> 2020-01-01
+  [Universe] 2019-10-01 -> 447 names
+  [Universe] n=447  intersection(all 4 valid)=169
+  [dcf] full ret=+15.38% n=55  | inter ret=+14.54% n=34
+  [pe ] full ret=+10.12% n=51  | inter ret=+15.04% n=34
+  [ps ] full ret=+12.85% n=84  | inter ret=+14.40% n=34
+  [pb ] full ret=+20.20% n=83  | inter ret=+14.54% n=34
+
+[21/24] 2020-01-01 -> 2020-04-01
+  [Universe] 2020-01-01 -> 423 names
+  [Universe] n=423  intersection(all 4 valid)=152
+  [dcf] full ret=-35.27% n=51  | inter ret=-36.71% n=31
+  [pe ] full ret=-50.91% n=47  | inter ret=-43.12% n=31
+  [ps ] full ret=-50.80% n=80  | inter ret=-50.50% n=31
+  [pb ] full ret=-50.91% n=79  | inter ret=-47.63% n=31
+
+[22/24] 2020-04-01 -> 2020-07-01
+  [Universe] 2020-04-01 -> 506 names
+  [Universe] n=506  intersection(all 4 valid)=221
+  [dcf] full ret=+53.68% n=66  | inter ret=+58.29% n=44
+  [pe ] full ret=+62.35% n=64  | inter ret=+54.68% n=44
+  [ps ] full ret=+68.24% n=98  | inter ret=+66.72% n=44
+  [pb ] full ret=+60.64% n=97  | inter ret=+56.48% n=44
+
+[23/24] 2020-07-01 -> 2020-10-01
+  [Universe] 2020-07-01 -> 486 names
+  [Universe] n=486  intersection(all 4 valid)=193
+  [dcf] full ret=+4.41% n=62  | inter ret=+1.52% n=39
+  [pe ] full ret=+11.67% n=56  | inter ret=+10.99% n=39
+  [ps ] full ret=+15.99% n=92  | inter ret=+13.09% n=39
+  [pb ] full ret=+7.75% n=92  | inter ret=+8.90% n=39
+
+[24/24] 2020-10-01 -> 2021-01-01
+  [Universe] 2020-10-01 -> 483 names
+  [Universe] n=483  intersection(all 4 valid)=180
+  [dcf] full ret=+36.91% n=61  | inter ret=+33.62% n=36
+  [pe ] full ret=+46.22% n=52  | inter ret=+46.12% n=36
+  [ps ] full ret=+44.72% n=91  | inter ret=+39.99% n=36
+  [pb ] full ret=+42.44% n=91  | inter ret=+43.95% n=36
+
+[Saved] -> /mnt/c/Users/user/Archer-Capital/research/valuationcompare_S22/results/s22_{signal}_intersection.csv (x4), s22_{signal}_full_crosscheck.csv (x4), s22_all_signal_snapshots.csv

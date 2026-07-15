@@ -1,0 +1,17 @@
+=== Loading universe names (SEC canonical titles) ===
+2015 universe: 363 names, 362 resolved from company_tickers.json
+2020 universe: 420 names, 419 resolved from company_tickers.json
+
+=== Loading 13F accessions (filing-date gated) ===
+2015: 4050 accessions with FILING_DATE<=2015-01-01
+2020: 5334 accessions with FILING_DATE<=2020-01-01
+
+=== Loading unique issuer names from INFOTABLE ===
+2015: 162529 unique issuer names held
+2020: 148824 unique issuer names held
+
+=== Fuzzy matching (this may take a couple minutes) ===
+
+2015: 299/363 universe names matched >= 90.0 (82.4%) against 363 names with a resolvable SEC title
+
+2020: 365/420 universe names matched >= 90.0 (86.9%) against 420 names with a resolvable SEC title

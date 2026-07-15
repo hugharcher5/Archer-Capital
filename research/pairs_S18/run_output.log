@@ -1,0 +1,73 @@
+[Step 1] Loading Tiingo universe metadata...
+[Tiingo] Loaded 15,620 tickers from cache.
+
+[Step 2] Loading SEC pre-filter...
+[PreFilter] 6,692 screened, 3,300 survivors.
+
+[Step 3a] Preloading raw close prices (3,300 tickers)...
+[Preload] Raw prices: 3,300 tickers in 7.9s
+
+[Step 3b] Loading adjClose pickle...
+[AdjPreload] 3,300 tickers in 2.1s
+
+[Step 4] Loading GP XBRL facts (for shares/mcap only, 3,300 CIKs)...
+[Preload] GP facts: 2,010/3,300 CIKs in 2.8s
+
+[Step 5] 10 rolling cycles (2015-01-01 -> 2021-01-01)
+
+[Cycle 0] formation 2015-01-01->2016-01-01 | trading 2016-01-01->2016-07-01
+  [Universe] 2015-01-01 -> 354 names
+  universe=354 bucketed=250 (excl_small_bucket=104) buckets=12 preclustering_pairs=3892 candidates=8 coint_tests=8 fdr_survive=1
+
+[Cycle 1] formation 2015-07-01->2016-07-01 | trading 2016-07-01->2017-01-01
+  [Universe] 2015-07-01 -> 390 names
+  universe=390 bucketed=271 (excl_small_bucket=119) buckets=12 preclustering_pairs=4857 candidates=31 coint_tests=31 fdr_survive=0
+
+[Cycle 2] formation 2016-01-01->2017-01-01 | trading 2017-01-01->2017-07-01
+  [Universe] 2016-01-01 -> 397 names
+  universe=397 bucketed=270 (excl_small_bucket=127) buckets=11 preclustering_pairs=4968 candidates=26 coint_tests=26 fdr_survive=0
+
+[Cycle 3] formation 2016-07-01->2017-07-01 | trading 2017-07-01->2018-01-01
+  [Universe] 2016-07-01 -> 411 names
+  universe=411 bucketed=303 (excl_small_bucket=108) buckets=14 preclustering_pairs=5636 candidates=16 coint_tests=16 fdr_survive=0
+
+[Cycle 4] formation 2017-01-01->2018-01-01 | trading 2018-01-01->2018-07-01
+  [Universe] 2017-01-01 -> 382 names
+  universe=382 bucketed=274 (excl_small_bucket=108) buckets=13 preclustering_pairs=4985 candidates=4 coint_tests=4 fdr_survive=0
+
+[Cycle 5] formation 2017-07-01->2018-07-01 | trading 2018-07-01->2019-01-01
+  [Universe] 2017-07-01 -> 427 names
+  universe=427 bucketed=341 (excl_small_bucket=86) buckets=17 preclustering_pairs=6213 candidates=14 coint_tests=14 fdr_survive=0
+
+[Cycle 6] formation 2018-01-01->2019-01-01 | trading 2019-01-01->2019-07-01
+  [Universe] 2018-01-01 -> 417 names
+  universe=417 bucketed=327 (excl_small_bucket=90) buckets=16 preclustering_pairs=6529 candidates=14 coint_tests=14 fdr_survive=1
+
+[Cycle 7] formation 2018-07-01->2019-07-01 | trading 2019-07-01->2020-01-01
+  [Universe] 2018-07-01 -> 444 names
+  universe=444 bucketed=342 (excl_small_bucket=102) buckets=15 preclustering_pairs=7501 candidates=20 coint_tests=20 fdr_survive=0
+
+[Cycle 8] formation 2019-01-01->2020-01-01 | trading 2020-01-01->2020-07-01
+  [Universe] 2019-01-01 -> 465 names
+  universe=465 bucketed=369 (excl_small_bucket=96) buckets=18 preclustering_pairs=7359 candidates=39 coint_tests=39 fdr_survive=5
+
+[Cycle 9] formation 2019-07-01->2020-07-01 | trading 2020-07-01->2021-01-01
+  [Universe] 2019-07-01 -> 451 names
+  universe=451 bucketed=338 (excl_small_bucket=113) buckets=14 preclustering_pairs=7747 candidates=135 coint_tests=135 fdr_survive=2
+
+[Step 6] Applying persistence filter (2 consecutive cycles)...
+  cycle 1: 0 persistence-qualified pairs (of 0 FDR-survivors that cycle)
+  cycle 2: 0 persistence-qualified pairs (of 0 FDR-survivors that cycle)
+  cycle 3: 0 persistence-qualified pairs (of 0 FDR-survivors that cycle)
+  cycle 4: 0 persistence-qualified pairs (of 0 FDR-survivors that cycle)
+  cycle 5: 0 persistence-qualified pairs (of 0 FDR-survivors that cycle)
+  cycle 6: 0 persistence-qualified pairs (of 1 FDR-survivors that cycle)
+  cycle 7: 0 persistence-qualified pairs (of 0 FDR-survivors that cycle)
+  cycle 8: 0 persistence-qualified pairs (of 5 FDR-survivors that cycle)
+  cycle 9: 0 persistence-qualified pairs (of 2 FDR-survivors that cycle)
+
+[Step 7] Trading simulation...
+
+[Saved] -> /mnt/c/Users/user/Archer-Capital/research/pairs_S18/results/_raw_backtest.json
+[Saved] -> /mnt/c/Users/user/Archer-Capital/research/pairs_S18/results/daily_book_returns.csv (0 days)
+[Saved] -> /mnt/c/Users/user/Archer-Capital/research/pairs_S18/results/trades.csv (0 trades)

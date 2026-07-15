@@ -1,0 +1,377 @@
+[Step 1] Loading Tiingo universe metadata...
+[Tiingo] Loaded 15620 tickers from cache.
+
+[Step 2] Loading SEC pre-filter...
+[PreFilter] Loaded: 6692 screened, 3300 survivors (from mgmt_pit cache).
+
+[Step 3a] Preloading raw close prices (3,300 tickers)...
+[Preload] Prices: 3300 loaded (pickle) in 7.8s
+
+[Step 3b] Preloading adjClose prices (3,300 tickers)...
+[AdjPreload] 3300 tickers from pickle in 1.8s
+[AdjPreload] Total: 3300 tickers with adjClose (1.8s)
+
+[Step 4] Preloading SEC shares-outstanding facts (3,300 CIKs)...
+[Preload] SEC facts: 2010 loaded from trimmed cache in 3.1s
+
+[01/72] 2015-01-01 -> 2015-02-01
+  [Universe] 2015-01-01 → 363 names (active=1738, post-filter=363)
+  [Signal] nearness=338/363 momentum=337/363 both=337
+  L/S=+0.17% gr=+2.89% cost=2.726% to=100% IC=0.205 corr(near,mom)=0.652 n_long=68
+
+[02/72] 2015-02-01 -> 2015-03-01
+  [Universe] 2015-02-01 → 361 names (active=1741, post-filter=361)
+  [Signal] nearness=342/361 momentum=342/361 both=342
+  L/S=-4.65% gr=-3.73% cost=0.921% to=29% IC=-0.167 corr(near,mom)=0.635 n_long=69
+
+[03/72] 2015-03-01 -> 2015-04-01
+  [Universe] 2015-03-01 → 364 names (active=1745, post-filter=364)
+  [Signal] nearness=347/364 momentum=347/364 both=347
+  L/S=+2.10% gr=+3.09% cost=0.989% to=32% IC=0.103 corr(near,mom)=0.702 n_long=70
+
+[04/72] 2015-04-01 -> 2015-05-01
+  [Universe] 2015-04-01 → 362 names (active=1749, post-filter=362)
+  [Signal] nearness=346/362 momentum=345/362 both=345
+  L/S=-11.65% gr=-10.44% cost=1.209% to=39% IC=-0.275 corr(near,mom)=0.646 n_long=70
+
+[05/72] 2015-05-01 -> 2015-06-01
+  [Universe] 2015-05-01 → 371 names (active=1757, post-filter=371)
+  [Signal] nearness=359/371 momentum=359/371 both=359
+  L/S=+1.62% gr=+2.70% cost=1.077% to=38% IC=0.136 corr(near,mom)=0.567 n_long=72
+
+[06/72] 2015-06-01 -> 2015-07-01
+  [Universe] 2015-06-01 → 376 names (active=1764, post-filter=376)
+  [Signal] nearness=361/376 momentum=361/376 both=361
+  L/S=+4.14% gr=+5.12% cost=0.982% to=32% IC=0.177 corr(near,mom)=0.589 n_long=73
+
+[07/72] 2015-07-01 -> 2015-08-01
+  [Universe] 2015-07-01 → 393 names (active=1781, post-filter=393)
+  [Signal] nearness=377/393 momentum=376/393 both=376
+  L/S=+3.06% gr=+4.16% cost=1.101% to=36% IC=0.176 corr(near,mom)=0.586 n_long=76
+
+[08/72] 2015-08-01 -> 2015-09-01
+  [Universe] 2015-08-01 → 396 names (active=1795, post-filter=396)
+  [Signal] nearness=384/396 momentum=384/396 both=384
+  L/S=-3.47% gr=-2.43% cost=1.039% to=35% IC=-0.012 corr(near,mom)=0.617 n_long=77
+
+[09/72] 2015-09-01 -> 2015-10-01
+  [Universe] 2015-09-01 → 419 names (active=1806, post-filter=419)
+  [Signal] nearness=402/419 momentum=401/419 both=401
+  L/S=+5.70% gr=+6.64% cost=0.940% to=29% IC=0.321 corr(near,mom)=0.614 n_long=81
+
+[10/72] 2015-10-01 -> 2015-11-01
+  [Universe] 2015-10-01 → 426 names (active=1814, post-filter=426)
+  [Signal] nearness=407/426 momentum=407/426 both=407
+  L/S=+10.36% gr=+11.26% cost=0.902% to=29% IC=-0.132 corr(near,mom)=0.642 n_long=82
+
+[11/72] 2015-11-01 -> 2015-12-01
+  [Universe] 2015-11-01 → 403 names (active=1822, post-filter=403)
+  [Signal] nearness=384/403 momentum=384/403 both=384
+  L/S=-0.76% gr=+0.15% cost=0.907% to=28% IC=-0.079 corr(near,mom)=0.652 n_long=77
+
+[12/72] 2015-12-01 -> 2016-01-01
+  [Universe] 2015-12-01 → 402 names (active=1831, post-filter=402)
+  [Signal] nearness=378/402 momentum=377/402 both=377
+  L/S=-1.54% gr=-0.60% cost=0.941% to=29% IC=0.071 corr(near,mom)=0.706 n_long=75
+
+[13/72] 2016-01-01 -> 2016-02-01
+  [Universe] 2016-01-01 → 414 names (active=1835, post-filter=414)
+  [Signal] nearness=387/414 momentum=387/414 both=387
+  L/S=+2.43% gr=+3.30% cost=0.863% to=27% IC=0.318 corr(near,mom)=0.701 n_long=77
+
+[14/72] 2016-02-01 -> 2016-03-01
+  [Universe] 2016-02-01 → 429 names (active=1860, post-filter=429)
+  [Signal] nearness=403/429 momentum=403/429 both=403
+  L/S=-5.68% gr=-4.75% cost=0.927% to=31% IC=-0.211 corr(near,mom)=0.623 n_long=81
+
+[15/72] 2016-03-01 -> 2016-04-01
+  [Universe] 2016-03-01 → 414 names (active=1865, post-filter=414)
+  [Signal] nearness=391/414 momentum=391/414 both=391
+  L/S=+1.81% gr=+2.55% cost=0.743% to=25% IC=-0.127 corr(near,mom)=0.700 n_long=79
+
+[16/72] 2016-04-01 -> 2016-05-01
+  [Universe] 2016-04-01 → 404 names (active=1868, post-filter=404)
+  [Signal] nearness=384/404 momentum=384/404 both=384
+  L/S=-7.10% gr=-6.31% cost=0.789% to=25% IC=-0.240 corr(near,mom)=0.727 n_long=77
+
+[17/72] 2016-05-01 -> 2016-06-01
+  [Universe] 2016-05-01 → 400 names (active=1874, post-filter=400)
+  [Signal] nearness=385/400 momentum=385/400 both=385
+  L/S=+0.66% gr=+1.46% cost=0.799% to=26% IC=0.020 corr(near,mom)=0.706 n_long=77
+
+[18/72] 2016-06-01 -> 2016-07-01
+  [Universe] 2016-06-01 → 397 names (active=1881, post-filter=397)
+  [Signal] nearness=385/397 momentum=385/397 both=385
+  L/S=+3.49% gr=+4.36% cost=0.869% to=30% IC=0.169 corr(near,mom)=0.763 n_long=77
+
+[19/72] 2016-07-01 -> 2016-08-01
+  [Universe] 2016-07-01 → 416 names (active=1888, post-filter=416)
+  [Signal] nearness=400/416 momentum=399/416 both=399
+  L/S=+0.56% gr=+1.51% cost=0.946% to=31% IC=-0.046 corr(near,mom)=0.773 n_long=80
+
+[20/72] 2016-08-01 -> 2016-09-01
+  [Universe] 2016-08-01 → 405 names (active=1897, post-filter=405)
+  [Signal] nearness=396/405 momentum=396/405 both=396
+  L/S=-9.09% gr=-7.97% cost=1.125% to=36% IC=-0.171 corr(near,mom)=0.712 n_long=80
+
+[21/72] 2016-09-01 -> 2016-10-01
+  [Universe] 2016-09-01 → 398 names (active=1906, post-filter=398)
+  [Signal] nearness=389/398 momentum=389/398 both=389
+  L/S=-9.34% gr=-8.10% cost=1.243% to=40% IC=-0.169 corr(near,mom)=0.610 n_long=78
+
+[22/72] 2016-10-01 -> 2016-11-01
+  [Universe] 2016-10-01 → 389 names (active=1914, post-filter=389)
+  [Signal] nearness=378/389 momentum=378/389 both=378
+  L/S=+0.83% gr=+1.94% cost=1.107% to=35% IC=0.054 corr(near,mom)=0.646 n_long=76
+
+[23/72] 2016-11-01 -> 2016-12-01
+  [Universe] 2016-11-01 → 406 names (active=1930, post-filter=406)
+  [Signal] nearness=397/406 momentum=397/406 both=397
+  L/S=+3.38% gr=+4.64% cost=1.261% to=38% IC=0.009 corr(near,mom)=0.548 n_long=80
+
+[24/72] 2016-12-01 -> 2017-01-01
+  [Universe] 2016-12-01 → 389 names (active=1933, post-filter=389)
+  [Signal] nearness=372/389 momentum=372/389 both=372
+  L/S=+2.12% gr=+3.50% cost=1.375% to=44% IC=0.050 corr(near,mom)=0.499 n_long=75
+
+[25/72] 2017-01-01 -> 2017-02-01
+  [Universe] 2017-01-01 → 386 names (active=1939, post-filter=386)
+  [Signal] nearness=369/386 momentum=369/386 both=369
+  L/S=-7.11% gr=-5.81% cost=1.298% to=39% IC=-0.148 corr(near,mom)=0.533 n_long=74
+
+[26/72] 2017-02-01 -> 2017-03-01
+  [Universe] 2017-02-01 → 393 names (active=1952, post-filter=393)
+  [Signal] nearness=378/393 momentum=378/393 both=378
+  L/S=-5.07% gr=-3.68% cost=1.387% to=43% IC=-0.136 corr(near,mom)=0.515 n_long=76
+
+[27/72] 2017-03-01 -> 2017-04-01
+  [Universe] 2017-03-01 → 395 names (active=1954, post-filter=395)
+  [Signal] nearness=380/395 momentum=380/395 both=380
+  L/S=-3.07% gr=-1.88% cost=1.187% to=39% IC=0.002 corr(near,mom)=0.484 n_long=76
+
+[28/72] 2017-04-01 -> 2017-05-01
+  [Universe] 2017-04-01 → 406 names (active=1958, post-filter=406)
+  [Signal] nearness=391/406 momentum=391/406 both=391
+  L/S=+3.05% gr=+4.23% cost=1.178% to=38% IC=0.148 corr(near,mom)=0.415 n_long=79
+
+[29/72] 2017-05-01 -> 2017-06-01
+  [Universe] 2017-05-01 → 408 names (active=1967, post-filter=408)
+  [Signal] nearness=392/408 momentum=392/408 both=392
+  L/S=+2.49% gr=+3.46% cost=0.975% to=31% IC=0.100 corr(near,mom)=0.451 n_long=79
+
+[30/72] 2017-06-01 -> 2017-07-01
+  [Universe] 2017-06-01 → 430 names (active=1976, post-filter=430)
+  [Signal] nearness=410/430 momentum=410/430 both=410
+  L/S=-3.05% gr=-1.78% cost=1.264% to=42% IC=-0.077 corr(near,mom)=0.446 n_long=82
+
+[31/72] 2017-07-01 -> 2017-08-01
+  [Universe] 2017-07-01 → 430 names (active=1988, post-filter=430)
+  [Signal] nearness=405/430 momentum=405/430 both=405
+  L/S=+4.75% gr=+5.77% cost=1.017% to=34% IC=0.222 corr(near,mom)=0.491 n_long=81
+
+[32/72] 2017-08-01 -> 2017-09-01
+  [Universe] 2017-08-01 → 419 names (active=1992, post-filter=419)
+  [Signal] nearness=401/419 momentum=400/419 both=400
+  L/S=-3.60% gr=-2.67% cost=0.935% to=31% IC=0.024 corr(near,mom)=0.517 n_long=81
+
+[33/72] 2017-09-01 -> 2017-10-01
+  [Universe] 2017-09-01 → 416 names (active=1996, post-filter=416)
+  [Signal] nearness=398/416 momentum=398/416 both=398
+  L/S=-1.46% gr=-0.29% cost=1.165% to=39% IC=-0.048 corr(near,mom)=0.558 n_long=80
+
+[34/72] 2017-10-01 -> 2017-11-01
+  [Universe] 2017-10-01 → 392 names (active=2011, post-filter=392)
+  [Signal] nearness=379/392 momentum=379/392 both=379
+  L/S=+3.41% gr=+4.40% cost=0.986% to=32% IC=0.188 corr(near,mom)=0.669 n_long=76
+
+[35/72] 2017-11-01 -> 2017-12-01
+  [Universe] 2017-11-01 → 407 names (active=2020, post-filter=407)
+  [Signal] nearness=392/407 momentum=392/407 both=392
+  L/S=+2.82% gr=+3.98% cost=1.160% to=40% IC=-0.045 corr(near,mom)=0.540 n_long=79
+
+[36/72] 2017-12-01 -> 2018-01-01
+  [Universe] 2017-12-01 → 407 names (active=2040, post-filter=407)
+  [Signal] nearness=390/407 momentum=390/407 both=390
+  L/S=-5.05% gr=-3.79% cost=1.256% to=42% IC=-0.089 corr(near,mom)=0.490 n_long=78
+
+[37/72] 2018-01-01 -> 2018-02-01
+  [Universe] 2018-01-01 → 418 names (active=2045, post-filter=418)
+  [Signal] nearness=405/418 momentum=405/418 both=405
+  L/S=-0.38% gr=+0.74% cost=1.120% to=38% IC=0.054 corr(near,mom)=0.568 n_long=81
+
+[38/72] 2018-02-01 -> 2018-03-01
+  [Universe] 2018-02-01 → 420 names (active=2059, post-filter=420)
+  [Signal] nearness=410/420 momentum=410/420 both=410
+  L/S=-0.81% gr=+0.52% cost=1.326% to=45% IC=0.043 corr(near,mom)=0.529 n_long=82
+
+[39/72] 2018-03-01 -> 2018-04-01
+  [Universe] 2018-03-01 → 428 names (active=2061, post-filter=428)
+  [Signal] nearness=416/428 momentum=416/428 both=416
+  L/S=+1.32% gr=+2.46% cost=1.138% to=37% IC=0.095 corr(near,mom)=0.535 n_long=84
+
+[40/72] 2018-04-01 -> 2018-05-01
+  [Universe] 2018-04-01 → 431 names (active=2075, post-filter=431)
+  [Signal] nearness=422/431 momentum=422/431 both=422
+  L/S=-5.45% gr=-4.35% cost=1.105% to=35% IC=-0.158 corr(near,mom)=0.515 n_long=85
+
+[41/72] 2018-05-01 -> 2018-06-01
+  [Universe] 2018-05-01 → 424 names (active=2074, post-filter=424)
+  [Signal] nearness=415/424 momentum=415/424 both=415
+  L/S=+6.36% gr=+7.44% cost=1.082% to=34% IC=0.088 corr(near,mom)=0.543 n_long=83
+
+[42/72] 2018-06-01 -> 2018-07-01
+  [Universe] 2018-06-01 → 431 names (active=2082, post-filter=431)
+  [Signal] nearness=420/431 momentum=420/431 both=420
+  L/S=+1.23% gr=+2.40% cost=1.164% to=39% IC=0.159 corr(near,mom)=0.529 n_long=84
+
+[43/72] 2018-07-01 -> 2018-08-01
+  [Universe] 2018-07-01 → 444 names (active=2098, post-filter=444)
+  [Signal] nearness=433/444 momentum=433/444 both=433
+  L/S=+1.30% gr=+2.64% cost=1.340% to=42% IC=0.105 corr(near,mom)=0.486 n_long=87
+
+[44/72] 2018-08-01 -> 2018-09-01
+  [Universe] 2018-08-01 → 437 names (active=2112, post-filter=437)
+  [Signal] nearness=427/437 momentum=427/437 both=427
+  L/S=-1.91% gr=-0.81% cost=1.098% to=34% IC=-0.036 corr(near,mom)=0.467 n_long=86
+
+[45/72] 2018-09-01 -> 2018-10-01
+  [Universe] 2018-09-01 → 426 names (active=2116, post-filter=426)
+  [Signal] nearness=416/426 momentum=416/426 both=416
+  L/S=-5.10% gr=-3.91% cost=1.188% to=40% IC=-0.016 corr(near,mom)=0.537 n_long=84
+
+[46/72] 2018-10-01 -> 2018-11-01
+  [Universe] 2018-10-01 → 428 names (active=2129, post-filter=428)
+  [Signal] nearness=423/428 momentum=423/428 both=423
+  L/S=-6.39% gr=-5.10% cost=1.295% to=44% IC=0.015 corr(near,mom)=0.494 n_long=85
+
+[47/72] 2018-11-01 -> 2018-12-01
+  [Universe] 2018-11-01 → 440 names (active=2145, post-filter=440)
+  [Signal] nearness=435/440 momentum=435/440 both=435
+  L/S=+1.47% gr=+2.73% cost=1.260% to=40% IC=0.010 corr(near,mom)=0.456 n_long=87
+
+[48/72] 2018-12-01 -> 2019-01-01
+  [Universe] 2018-12-01 → 441 names (active=2149, post-filter=441)
+  [Signal] nearness=436/441 momentum=436/441 both=436
+  L/S=+4.22% gr=+5.09% cost=0.868% to=27% IC=0.328 corr(near,mom)=0.490 n_long=88
+
+[49/72] 2019-01-01 -> 2019-02-01
+  [Universe] 2019-01-01 → 457 names (active=2152, post-filter=457)
+  [Signal] nearness=452/457 momentum=452/457 both=452
+  L/S=-5.14% gr=-4.29% cost=0.847% to=26% IC=-0.253 corr(near,mom)=0.596 n_long=91
+
+[50/72] 2019-02-01 -> 2019-03-01
+  [Universe] 2019-02-01 → 436 names (active=2154, post-filter=436)
+  [Signal] nearness=432/436 momentum=432/436 both=432
+  L/S=-5.05% gr=-4.20% cost=0.854% to=26% IC=-0.121 corr(near,mom)=0.624 n_long=87
+
+[51/72] 2019-03-01 -> 2019-04-01
+  [Universe] 2019-03-01 → 421 names (active=2161, post-filter=421)
+  [Signal] nearness=417/421 momentum=417/421 both=417
+  L/S=-3.74% gr=-2.78% cost=0.952% to=30% IC=0.014 corr(near,mom)=0.608 n_long=84
+
+[52/72] 2019-04-01 -> 2019-05-01
+  [Universe] 2019-04-01 → 442 names (active=2172, post-filter=442)
+  [Signal] nearness=438/442 momentum=438/442 both=438
+  L/S=+1.93% gr=+2.77% cost=0.847% to=28% IC=0.092 corr(near,mom)=0.634 n_long=88
+
+[53/72] 2019-05-01 -> 2019-06-01
+  [Universe] 2019-05-01 → 444 names (active=2181, post-filter=444)
+  [Signal] nearness=441/444 momentum=441/444 both=441
+  L/S=-2.03% gr=-1.08% cost=0.944% to=30% IC=0.211 corr(near,mom)=0.620 n_long=89
+
+[54/72] 2019-06-01 -> 2019-07-01
+  [Universe] 2019-06-01 → 474 names (active=2197, post-filter=474)
+  [Signal] nearness=472/474 momentum=472/474 both=472
+  L/S=+3.80% gr=+4.87% cost=1.067% to=35% IC=-0.007 corr(near,mom)=0.731 n_long=95
+
+[55/72] 2019-07-01 -> 2019-08-01
+  [Universe] 2019-07-01 → 450 names (active=2205, post-filter=450)
+  [Signal] nearness=448/450 momentum=448/450 both=448
+  L/S=+6.87% gr=+7.82% cost=0.959% to=28% IC=0.195 corr(near,mom)=0.798 n_long=90
+
+[56/72] 2019-08-01 -> 2019-09-01
+  [Universe] 2019-08-01 → 450 names (active=2215, post-filter=450)
+  [Signal] nearness=448/450 momentum=448/450 both=448
+  L/S=-0.24% gr=+0.69% cost=0.924% to=29% IC=0.139 corr(near,mom)=0.754 n_long=90
+
+[57/72] 2019-09-01 -> 2019-10-01
+  [Universe] 2019-09-01 → 460 names (active=2216, post-filter=460)
+  [Signal] nearness=457/460 momentum=457/460 both=457
+  L/S=-6.56% gr=-5.60% cost=0.956% to=31% IC=-0.097 corr(near,mom)=0.793 n_long=92
+
+[58/72] 2019-10-01 -> 2019-11-01
+  [Universe] 2019-10-01 → 447 names (active=2230, post-filter=447)
+  [Signal] nearness=444/447 momentum=444/447 both=444
+  L/S=+6.55% gr=+7.50% cost=0.950% to=31% IC=0.073 corr(near,mom)=0.743 n_long=89
+
+[59/72] 2019-11-01 -> 2019-12-01
+  [Universe] 2019-11-01 → 419 names (active=2237, post-filter=419)
+  [Signal] nearness=416/419 momentum=416/419 both=416
+  L/S=-1.97% gr=-1.05% cost=0.923% to=30% IC=-0.099 corr(near,mom)=0.716 n_long=84
+
+[60/72] 2019-12-01 -> 2020-01-01
+  [Universe] 2019-12-01 → 424 names (active=2241, post-filter=424)
+  [Signal] nearness=422/424 momentum=422/424 both=422
+  L/S=-3.34% gr=-2.36% cost=0.982% to=31% IC=-0.157 corr(near,mom)=0.699 n_long=85
+
+[61/72] 2020-01-01 -> 2020-02-01
+  [Universe] 2020-01-01 → 420 names (active=2248, post-filter=420)
+  [Signal] nearness=418/420 momentum=418/420 both=418
+  L/S=+0.33% gr=+1.40% cost=1.077% to=35% IC=0.154 corr(near,mom)=0.660 n_long=84
+
+[62/72] 2020-02-01 -> 2020-03-01
+  [Universe] 2020-02-01 → 434 names (active=2256, post-filter=434)
+  [Signal] nearness=432/434 momentum=432/434 both=432
+  L/S=-10.37% gr=-9.39% cost=0.982% to=32% IC=0.024 corr(near,mom)=0.686 n_long=87
+
+[63/72] 2020-03-01 -> 2020-04-01
+  [Universe] 2020-03-01 → 463 names (active=2262, post-filter=463)
+  [Signal] nearness=461/463 momentum=461/463 both=461
+  L/S=-23.36% gr=-22.03% cost=1.322% to=42% IC=0.097 corr(near,mom)=0.687 n_long=93
+
+[64/72] 2020-04-01 -> 2020-05-01
+  [Universe] 2020-04-01 → 514 names (active=2265, post-filter=514)
+  [Signal] nearness=512/514 momentum=512/514 both=512
+  L/S=-17.68% gr=-15.89% cost=1.796% to=58% IC=-0.451 corr(near,mom)=0.472 n_long=103
+
+[65/72] 2020-05-01 -> 2020-06-01
+  [Universe] 2020-05-01 → 486 names (active=2273, post-filter=486)
+  [Signal] nearness=484/486 momentum=484/486 both=484
+  L/S=-6.21% gr=-5.23% cost=0.978% to=29% IC=-0.206 corr(near,mom)=0.798 n_long=97
+
+[66/72] 2020-06-01 -> 2020-07-01
+  [Universe] 2020-06-01 → 474 names (active=2275, post-filter=474)
+  [Signal] nearness=472/474 momentum=472/474 both=472
+  L/S=-5.94% gr=-4.97% cost=0.970% to=29% IC=0.032 corr(near,mom)=0.744 n_long=95
+
+[67/72] 2020-07-01 -> 2020-08-01
+  [Universe] 2020-07-01 → 494 names (active=2289, post-filter=494)
+  [Signal] nearness=492/494 momentum=492/494 both=492
+  L/S=+10.41% gr=+11.26% cost=0.854% to=25% IC=0.076 corr(near,mom)=0.774 n_long=99
+
+[68/72] 2020-08-01 -> 2020-09-01
+  [Universe] 2020-08-01 → 495 names (active=2300, post-filter=495)
+  [Signal] nearness=493/495 momentum=493/495 both=493
+  L/S=-16.04% gr=-15.05% cost=0.990% to=30% IC=-0.217 corr(near,mom)=0.740 n_long=99
+
+[69/72] 2020-09-01 -> 2020-10-01
+  [Universe] 2020-09-01 → 491 names (active=2317, post-filter=491)
+  [Signal] nearness=489/491 momentum=489/491 both=489
+  L/S=+0.41% gr=+1.63% cost=1.218% to=37% IC=0.059 corr(near,mom)=0.558 n_long=98
+
+[70/72] 2020-10-01 -> 2020-11-01
+  [Universe] 2020-10-01 → 491 names (active=2351, post-filter=491)
+  [Signal] nearness=489/491 momentum=489/491 both=489
+  L/S=-0.32% gr=+0.65% cost=0.969% to=30% IC=0.044 corr(near,mom)=0.597 n_long=98
+
+[71/72] 2020-11-01 -> 2020-12-01
+  [Universe] 2020-11-01 → 477 names (active=2378, post-filter=477)
+  [Signal] nearness=474/477 momentum=474/477 both=474
+  L/S=-15.58% gr=-14.55% cost=1.036% to=31% IC=-0.365 corr(near,mom)=0.562 n_long=95
+
+[72/72] 2020-12-01 -> 2021-01-01
+  [Universe] 2020-12-01 → 462 names (active=2400, post-filter=462)
+  [Signal] nearness=458/462 momentum=458/462 both=458
+  L/S=+3.64% gr=+4.96% cost=1.318% to=42% IC=0.073 corr(near,mom)=0.527 n_long=92
+
+[Saved] -> /mnt/c/Users/user/Archer-Capital/research/fiftytwoweek_S19/results/s19_period_returns.csv, s19_famamacbeth.csv, s19_correlation.csv

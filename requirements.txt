@@ -8,3 +8,4 @@ python-dotenv
 numpy>=2.0
 scipy
 matplotlib
+rapidfuzz

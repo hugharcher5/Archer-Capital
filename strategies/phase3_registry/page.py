@@ -415,6 +415,38 @@ _TRIALS = [
         ),
     },
     {
+        "id": "S10",
+        "name": "Amihud Illiquidity",
+        "dsr_num": "15",
+        "result": "FAIL",
+        "bug_pending": False,
+        "ic": "−0.0530",
+        "ic_t": "−4.604",
+        "gross": "−7.23%/yr",
+        "cost_bps": "617",
+        "net": "−12.97%/yr",
+        "sharpe": "−1.129",
+        "calmar": "−0.251",
+        "max_dd": "−51.7%",
+        "beta": "−0.151 (t=−2.359)",
+        "dsr_obs": "−0.565",
+        "dsr_threshold": "0.306",
+        "n_periods": "24 (quarterly)",
+        "explanation": (
+            "Explicit cost-model stress test, final ranked S1–S10 program signal: long "
+            "high-ILLIQ (top quintile), short low-ILLIQ (bottom quintile), pre-registered "
+            "as NOT expected to pass net of costs — designed to reveal the gross-to-net "
+            "erosion gap for the least-liquid corner of the universe. "
+            "IC = −0.053 (t=−4.60) — the strongest IC t-stat magnitude of any trial in "
+            "the program, but negative: the illiquidity premium is genuinely inverted in "
+            "this sample, not merely a cost-model artifact. Gross −7.23%/yr, cost drag "
+            "617bps/yr, net −12.97%/yr, Sharpe −1.129, Max DD −51.7%. "
+            "Failure mode: wrong-sign, and significantly so. Least-liquid small/mid-caps "
+            "underperformed the most-liquid names outright — the hypothesized illiquidity "
+            "compensation is not present; if anything the reverse holds."
+        ),
+    },
+    {
         "id": "Russell-1",
         "name": "Pre-Effective-Date Anticipatory Drift (Russell Reconstitution)",
         "dsr_num": "17 (new family)",
@@ -447,6 +479,47 @@ _TRIALS = [
             "of total |abnormal return|) but stays under the 40% concentration flag. 2015 "
             "excluded (no ticker table recoverable at the time; a later addendum found one, "
             "not yet wired in). 2024–2025 holdout NOT unlocked — baseline shows nothing."
+        ),
+    },
+    {
+        "id": "Russell-3",
+        "name": "Boundary-Crossing Subset (Russell Reconstitution family)",
+        "dsr_num": "17 (shares Russell-1's family slot)",
+        "result": "FAIL",
+        "bug_pending": False,
+        "ic": "n/a",
+        "ic_t": "n/a",
+        "gross": "+0.31%/cycle (pooled)",
+        "cost_bps": "n/a (long-only window return, no cost model — event study)",
+        "net": "n/a",
+        "sharpe": "n/a",
+        "calmar": "n/a",
+        "max_dd": "n/a",
+        "beta": "n/a",
+        "dsr_obs": "n/a (event study)",
+        "dsr_threshold": "n/a (event study)",
+        "n_periods": "1,493 priced crossing events (2016–2023)",
+        "caar_note": (
+            "POOLED N=1493 CAAR=+0.31% t=+0.615 win=46.0% | ADDITIONS-ONLY N=822 "
+            "CAAR=−0.60% t=−0.958 (wrong-signed vs hypothesis) | DELETIONS-ONLY N=671 "
+            "CAAR=+1.42% t=+1.775 (wrong-signed vs hypothesis, marginal p=0.076)"
+        ),
+        "explanation": (
+            "Family member of Russell-1, shares its DSR slot: isolates companies that "
+            "cross the Russell index-inclusion boundary (Microcap↔2000 or 2000↔1000) "
+            "multiple times across 2016–2023, so each company serves as its own control "
+            "across repeated crossings — a cleaner test of the pure membership/passive-"
+            "flow effect than Russell-1's additions-only design. Reused Russell-1's "
+            "sourced dataset entirely; added a deletions-side universe (r3000 deletions "
+            "unavailable for 2018/2019, a pre-existing gap, flagged not fixed). "
+            "748 repeat-crosser tickers found (~39% of the full universe) — NOT a thin "
+            "sample, contrary to the pre-registered expectation this might be under 10. "
+            "Result: no subset (pooled, additions-only, deletions-only) is materially "
+            "different from Russell-1's own null — additions and deletions are each only "
+            "marginally significant and in some cases wrong-signed vs. the hypothesis. "
+            "RECOMMENDATION (stated in the trial itself): close the Russell Reconstitution "
+            "family — two independent constructions (Russell-1's annual baskets, Russell-3's "
+            "repeat-crosser subset) both failed to find a tradeable pre-effective-date drift."
         ),
     },
 ]
@@ -560,14 +633,6 @@ _S3_VARIANTS = [
     },
 ]
 
-_PENDING = [
-    {
-        "id": "S10",
-        "name": "Amihud Illiquidity",
-        "rank": 10,
-    },
-]
-
 # ── Open-Ended Research Phase (post-ranked S1–S10 program) ────────────────────
 # Each trial here is an independent hypothesis with its own DSR threshold at the
 # cumulative N_TRIALS count at time of run — not a pre-ranked slot in the S1–S10
@@ -612,6 +677,291 @@ _OPEN_ENDED_TRIALS = [
             "NetIncomeLoss and CFO); fixed by matching on the intersection of accession "
             "numbers, correcting fallback to 30% — still above the 25% threshold, but a "
             "genuine coverage figure rather than a matching artifact."
+        ),
+    },
+    {
+        "id": "S14",
+        "name": "Analyst EPS Revisions (thinly-covered small/mid-cap)",
+        "result": "STOP",
+        "ic": "n/a", "ic_t": "n/a", "gross": "n/a", "cost_bps": "n/a", "net": "n/a",
+        "sharpe": "n/a", "calmar": "n/a", "max_dd": "n/a", "turnover": "n/a",
+        "n_periods": "n/a (stopped before backtest)",
+        "dsr_obs": "n/a (Phase 1 feasibility stop)",
+        "dsr_threshold": "n/a",
+        "explanation": (
+            "Hypothesis: in thinly-covered small/mid-cap names (1–3 analysts), EPS "
+            "estimate revisions are underreacted to given how much information a single "
+            "revision carries relative to consensus. PHASE 1 FEASIBILITY CHECK ONLY — "
+            "STOPPED BEFORE BACKTEST: no usable point-in-time analyst-estimate data "
+            "source exists in this project. Tiingo (primary vendor) has no analyst-"
+            "estimate tier at all. FMP (the only analyst-estimate-adjacent vendor "
+            "configured) returns HTTP 402 'not available under your current "
+            "subscription' for every small/mid-cap ticker tested — the paywall excludes "
+            "exactly the universe the hypothesis targets. Even for large-cap (AAPL, "
+            "accessible), FMP's analyst-estimates endpoint is a live forward-looking "
+            "snapshot with no historical vintage/publish-date field — not usable for a "
+            "2015–2020 PIT backtest at any cap tier; grades-historical caps at 10 "
+            "records under current plan. SIDE FINDING: fetch_fmp() in "
+            "dcf/valuation/sources.py (used by run_reconcile.py/portfolio/web.py) now "
+            "returns 403 on FMP's v3 statement endpoints ('Legacy Endpoint... only for "
+            "legacy users prior Aug 2025') — a pre-existing production break unrelated "
+            "to this trial, flagged for separate follow-up, not fixed here. VERDICT: "
+            "kill before backtest — no free/already-configured data path exists for this "
+            "universe; upgrading FMP's tier was not attempted (real subscription cost, "
+            "left as an open item for the user's decision)."
+        ),
+    },
+    {
+        "id": "S15",
+        "name": "Composite IC (rank-percentile blend: GP/A + Residual Reversal + IVOL-Value)",
+        "result": "FAIL",
+        "ic": "+0.0286", "ic_t": "1.644",
+        "gross": "+6.30%/yr", "cost_bps": "801", "net": "−1.85%/yr",
+        "sharpe": "−0.070", "calmar": "−0.057", "max_dd": "−32.6%",
+        "turnover": "59.2%/quarter", "n_periods": "24 (quarterly)",
+        "dsr_obs": "−0.035", "dsr_threshold": "0.331",
+        "explanation": (
+            "Equal-weighted rank-percentile composite of three signals with real, "
+            "correctly-signed but individually-failing IC (GP/A quality #8, residual "
+            "short-term reversal S8, IVOL-conditioned value S7) — tests whether "
+            "diversification produces a genuinely tradeable Sharpe even though each "
+            "fails standalone for a different reason. Composite Sharpe −0.070 vs best "
+            "single component alone (GP/A +0.0068) — diversification DID NOT HELP. "
+            "Component pairwise correlation: GP/ResidRev −0.175, GP/IVOLValue +0.563 "
+            "(high — a large share of the blend's redundancy), ResidRev/IVOLValue "
+            "+0.031. IVOL-Value's continuous-score conversion (needed to blend into a "
+            "single composite rank) also flipped its own IC sign relative to S7's "
+            "original hard double-sort — diagnosed and fixed in the S16-A follow-up "
+            "below. FAILS DSR. Promotion criteria (CALMAR≥1 or Sharpe≥0.8) not met."
+        ),
+    },
+    {
+        "id": "S13",
+        "name": "Opportunistic Insider Cluster Buying",
+        "result": "FAIL",
+        "ic": "+0.0138", "ic_t": "0.850",
+        "gross": "−0.74%/yr", "cost_bps": "780", "net": "−8.26%/yr",
+        "sharpe": "−0.857", "calmar": "−0.306", "max_dd": "−27.0%",
+        "turnover": "59.4%/quarter", "n_periods": "13 of 24 quarters covered (data gap)",
+        "dsr_obs": "−0.428", "dsr_threshold": "0.456",
+        "explanation": (
+            "Cohen/Malloy/Pomorski (2012) routine-vs-opportunistic distinction applied "
+            "to E1's naive net-insider-buying signal (IC≈0.0002, FAIL): cluster = ≥3 "
+            "different insiders making opportunistic (non-routine) open-market purchases "
+            "at the same company within a rolling 30-day window. Long = confirmed "
+            "cluster event; short = zero insider-buying activity at all in the trailing "
+            "quarter. Reformulated signal itself modestly improves (IC 0.0043→0.014 vs "
+            "E1's naive rerun) but remains statistically insignificant (t=0.85). "
+            "MAJOR DATA-COVERAGE GAP discovered (pre-existing, not caused by this "
+            "trial): the reused mgmt_pit Form-4 cache is a total blackout for 11 of 24 "
+            "quarters (dense only through 2017-12) — effective window is 13/24 "
+            "quarters. Cluster events were NOT rare when data existed (822 events "
+            "total); the guard never fired within covered quarters. SIGN AUDIT found 7 "
+            "violations. FAILS DSR. CONCURRENCY NOTE: originally run as trial #18 "
+            "(N=17 at task start); two concurrent-session trials (S14, S15) were logged "
+            "during this trial's ~2.5hr runtime, discovered via a trial_number collision "
+            "and corrected post-hoc to true N=20."
+        ),
+    },
+    {
+        "id": "S16-A",
+        "name": "Multi-Sleeve Blend (GP/A + S7-original + S8, equal 1/3 weight)",
+        "result": "FAIL",
+        "ic": "n/a (blend of 3 pre-existing signals, no new IC)",
+        "ic_t": "n/a",
+        "gross": "−0.64%/yr", "cost_bps": "668", "net": "−7.12%/yr",
+        "sharpe": "−0.740", "calmar": "−0.182", "max_dd": "−39.1%",
+        "turnover": "n/a (blend-level; each sleeve keeps its own native turnover)",
+        "n_periods": "24 (quarterly blend calendar)",
+        "dsr_obs": "−0.370", "dsr_threshold": "0.341",
+        "explanation": (
+            "Direct follow-up to S15's failed merged-composite: three independently "
+            "beta-neutral sleeves (GP/A #8, residual reversal S8, IVOL-value kept in "
+            "its ORIGINAL hard-gated double-sort form — not S15's continuous-score "
+            "conversion, which had flipped its IC sign) blended at pre-registered equal "
+            "1/3 capital weight, tested against S15's two diagnosed failure causes. "
+            "Sleeve pairwise correlation improved (S7/S8 = −0.515, vs S15's merged "
+            "GP/IVOLValue = +0.563) and S7 kept its original correct-signed IC "
+            "(+0.0358), confirming both fixes worked as intended — yet the blend "
+            "Sharpe (−0.740) is still worse than S15's composite (−0.070). Beta vs IWM "
+            "= −0.058 (t=−0.81). FAILS DSR; separate-sleeve construction did not rescue "
+            "the family either. UNIVERSE NOTE: genuine PIT Russell 2000 membership was "
+            "requested but not reconstructable (only annual R3000 addition/deletion "
+            "events exist, no full roster) — fell back to the standard $100M–2B PIT "
+            "universe, confirmed with user; IWM used as benchmark instead."
+        ),
+    },
+    {
+        "id": "S16-B",
+        "name": "Industry-Neutral GP/A (within-SIC ranking)",
+        "result": "FAIL",
+        "ic": "+0.0336", "ic_t": "2.265",
+        "gross": "+7.49%/yr", "cost_bps": "471", "net": "+2.63%/yr",
+        "sharpe": "0.270", "calmar": "0.131", "max_dd": "−20.0%",
+        "turnover": "29.4%/quarter", "n_periods": "24 (quarterly)",
+        "dsr_obs": "0.135", "dsr_threshold": "0.345",
+        "explanation": (
+            "Industry-neutral reformulation of S3-Q (trial #8): rank GP/A WITHIN each "
+            "SIC major-group first (groups <5 members pooled into OTHER), then build "
+            "long/short from those industry-neutral percentiles, testing whether "
+            "removing accidental sector bets lowers realized beta and improves "
+            "Sharpe/CALMAR vs. S3-Q's full-universe rank. Result: neither improved — "
+            "|beta| was NOT lower (−0.057 vs original 0.054... wait, own-sign flipped: "
+            "-0.057 vs +0.054) and Sharpe was NOT improved (0.270 vs S3-Q's 0.433 at "
+            "its own window). Sector concentration DID improve (long-leg HHI 0.063 vs "
+            "0.081, short-leg 0.073 vs 0.126) — the industry-neutral transform worked "
+            "mechanically, it just didn't translate into better risk-adjusted returns. "
+            "IC held up (0.034 vs original 0.040, both significant). FAILS DSR. "
+            "Independent trial (genuine reformulation, own DSR slot, not a re-tune)."
+        ),
+    },
+    {
+        "id": "S17",
+        "name": "Volatility-Managed GP/A (Moreira & Muir overlay)",
+        "result": "FAIL",
+        "ic": "+0.0458", "ic_t": "2.699",
+        "gross": "+7.57%/yr", "cost_bps": "273", "net": "+4.72%/yr",
+        "sharpe": "0.481", "calmar": "0.329", "max_dd": "−14.3%",
+        "turnover": "21.1%/quarter", "n_periods": "32 (quarterly, 2016–2024)",
+        "dsr_obs": "0.241", "dsr_threshold": "0.303",
+        "explanation": (
+            "Moreira & Muir (2017) overlay: scale S3-Q's beta-neutral GP/A gross "
+            "exposure inversely to trailing 6-month realized vol, targeting 10% "
+            "annualized — a construction-level overlay, not a re-tune of GP/A stock "
+            "selection. Best risk-adjusted result of any GP/A variant tested "
+            "(Sharpe 0.481, CALMAR 0.329, Max DD only −14.3%) but still short of the "
+            "DSR bar (0.241 vs 0.303 threshold at N=23). Run alongside an identical-"
+            "window/universe 'base' (no overlay) comparison: base Sharpe 0.451, CALMAR "
+            "0.295 — the vol overlay improved both, confirming the overlay mechanism "
+            "works directionally, just not enough to clear DSR. Universe upgraded with "
+            "a Russell R3000 confirmed-exit overlay (2016–2023) — NOT literal PIT "
+            "Russell 2000 membership (archive lacks a full snapshot; R3000 deletions "
+            "data has a 2018–2019 gap). 2020 finding: the vol overlay reduced max-"
+            "drawdown trough (−17.1%→−14.3%) but underperformed base on full-year 2020 "
+            "cumulative return (−3.78% vs +1.23%) — backward-looking trailing vol "
+            "lagged into the Q2/Q3 2020 recovery, throttling upside more than it "
+            "protected the crash quarter. Disclosed limitation: standard cost model "
+            "charges turnover on rotating names, not on incremental notional from vol-"
+            "scale changes on unchanged names — likely understates real cost drag here."
+        ),
+    },
+    {
+        "id": "S18",
+        "name": "Small-Cap Sector-Bucketed Pairs Trading",
+        "result": "STOP",
+        "ic": "n/a", "ic_t": "n/a", "gross": "n/a", "cost_bps": "n/a", "net": "n/a",
+        "sharpe": "n/a", "calmar": "n/a", "max_dd": "n/a", "turnover": "n/a",
+        "n_periods": "0 (zero trades under registered methodology)",
+        "dsr_obs": "n/a (no return series generated)",
+        "dsr_threshold": "n/a",
+        "explanation": (
+            "Relative-value mean-reversion between cointegrated, same-industry pairs: "
+            "sector bucketing → hierarchical clustering → BH-FDR-corrected Engle-"
+            "Granger cointegration → a 2-consecutive-formation-cycle persistence filter "
+            "(the pair-selection analog of this registry's own DSR discipline). STOP: "
+            "zero pairs ever achieved 2-consecutive-cycle persistence across all 10 "
+            "rolling cycles (2015–2021) — not relaxed after seeing this, which would "
+            "defeat the trial's own multiple-testing control. Selectivity funnel: "
+            "59,687 candidate pairs → 307 after clustering → 9 FDR-corrected survivors "
+            "(across all 10 cycles) → 0 persistence-qualified. Verified not a bug: same-"
+            "sector correlations in this $100M–2B universe are structurally much lower "
+            "than large-cap pairs-trading intuition assumes (bucket mean corr ~0.2–0.3, "
+            "rarely above 0.6). DIAGNOSTIC-ONLY supplement (not the registered result, "
+            "not itself FDR-corrected): bypassing the persistence filter and trading "
+            "the 9 raw survivors directly gives 16 trades, net Sharpe −0.454, gross "
+            "near-breakeven (−0.54%/yr) — not a 'good signal ruined by costs' story "
+            "either. This diagnostic directly motivated S21's basket-relative redesign."
+        ),
+    },
+    {
+        "id": "S19",
+        "name": "52-Week-High Anchoring",
+        "result": "FAIL",
+        "ic": "+0.0044", "ic_t": "0.238",
+        "gross": "−8.37%/yr", "cost_bps": "1305", "net": "−19.77%/yr",
+        "sharpe": "−0.908", "calmar": "−0.261", "max_dd": "−75.7%",
+        "turnover": "35.1%/month", "n_periods": "72 (monthly)",
+        "dsr_obs": "−0.262", "dsr_threshold": "0.206",
+        "explanation": (
+            "George & Hwang (2004): investors anchor on a stock's 52-week high as a "
+            "psychological ceiling; nearness to it (long top quintile, short bottom) "
+            "should predict positive drift as good news is underreacted to. IC is "
+            "essentially null (t=0.24). MOMENTUM INDEPENDENCE CHECK (the trial's core "
+            "secondary test): mean cross-sectional correlation between nearness and "
+            "S9's 12-1 momentum = 0.611 (82% of periods >0.5) — CONTRADICTS the "
+            "literature's 'largely independent' claim in this universe. A joint Fama-"
+            "MacBeth regression (return ~ nearness_rank + momentum_rank) flips "
+            "nearness's sign once momentum is controlled for (b=−0.020, t=−1.64) while "
+            "momentum stays correctly signed (t=1.88) — nearness reads as a weaker, "
+            "noisier restatement of momentum here, not an independent mechanism. 2020 "
+            "was catastrophic (−59.4% for the year), but the strategy was already "
+            "losing pre-2020 too (ex-2020: ann_ret −8.07%, Sharpe −0.456) — not purely "
+            "a COVID story. FAILS DSR."
+        ),
+    },
+    {
+        "id": "S20",
+        "name": "Institutional 13F 'Smart Money' Accumulation",
+        "result": "STOP",
+        "ic": "n/a", "ic_t": "n/a", "gross": "n/a", "cost_bps": "n/a", "net": "n/a",
+        "sharpe": "n/a", "calmar": "n/a", "max_dd": "n/a", "turnover": "n/a",
+        "n_periods": "n/a (stopped before backtest)",
+        "dsr_obs": "n/a (Phase 1 feasibility stop)",
+        "dsr_threshold": "n/a",
+        "explanation": (
+            "Hypothesis: a new or meaningfully increased 13F institutional position in "
+            "a thinly-covered small/mid-cap name may signal information the market "
+            "hasn't priced in — distinct mechanism from S13 (internal insiders vs. "
+            "external professional capital). SEC EDGAR bulk 13F data (free, back to "
+            "2013, properly filing-date gated) is NOT the blocker — the CUSIP-to-ticker "
+            "crosswalk is: FMP's /profile endpoint hit a hard account-wide quota wall "
+            "('429 Limit Reach') after ~230–560 of ~560 needed lookups; OpenFIGI (free "
+            "alternative) doesn't expose CUSIP at all (Bloomberg lacks redistribution "
+            "rights). STOPPED per explicit user confirmation rather than forcing a "
+            "partial, order-biased universe. Side observation (partial sample, NOT a "
+            "validated coverage statistic): of resolved names, 81.7% (2015 universe) "
+            "and 88.3% (2020 universe) were held by ≥1 13F filer — suggesting real "
+            "coverage would likely be high if the crosswalk were solved. Unlike S14, "
+            "this is a solvable-with-more-time-or-budget blocker (wait out the FMP "
+            "quota reset, or source CUSIPs elsewhere), not a fundamental data-existence "
+            "gap — flagged for a possible future revisit, Phase 2 not yet authorized. "
+            "A free rapidfuzz+SEC-company-tickers crosswalk alternative was later built "
+            "and confirmed feasible (78–84% coverage, threshold=97 after spot-checking "
+            "out false positives at 90) but Phase 2 (full backtest) has not been run."
+        ),
+    },
+    {
+        "id": "S21",
+        "name": "Cluster-Conditioned Short-Term Reversion",
+        "result": "FAIL",
+        "ic": "+0.0207", "ic_t": "1.566",
+        "gross": "+5.78%/yr", "cost_bps": "10999", "net": "−66.44%/yr",
+        "sharpe": "−17.411", "calmar": "−0.668", "max_dd": "−99.5%",
+        "turnover": "n/a (4,683 round trips over 60mo, avg 4.9-day hold)",
+        "n_periods": "60 (months)",
+        "dsr_obs": "−5.026", "dsr_threshold": "0.231",
+        "explanation": (
+            "Hybrid of S18 (pairs) and S8 (full-cross-section reversal): within sector-"
+            "bucketed, loosely-correlated clusters (realized avg intra-cluster corr "
+            "0.328 — deliberately weaker than S18's cointegration bar), a member "
+            "deviating >2.5σ from its cluster's leave-one-out average is traded "
+            "long/short against the basket, exiting on reversion or a 5-day forced "
+            "close. HEADLINE FINDING: this is a REAL, POSITIVE gross signal — gross "
+            "Sharpe 0.954, gross CALMAR 0.653, gross ann. return +5.78%, IC=+0.021 "
+            "(t=1.57, positive across all 10/10 cycles) — COMPLETELY DESTROYED by "
+            "transaction costs: net Sharpe −17.41, net ann. return −66.4%, cost drag "
+            "~10,999bps/yr (~110%/yr). The most extreme version of the registry's "
+            "'high-quality-signal-killed-by-cost' pattern (S2's next-worst cost drag "
+            "was ~4,079bps/yr, ~2.7x smaller) — attributable entirely to trading "
+            "frequency (avg 4.9-day holds vs. GP/A's quarterly cadence), not signal "
+            "quality: 99.6% of trades force-close on the 5-day timer rather than "
+            "genuinely reverting. Successfully solved BOTH motivating questions from "
+            "S18/S8 (cluster-relative referencing produced 4,683 tradeable events where "
+            "S18's pairwise cointegration found zero; gross went from S8's negative "
+            "regime to a genuinely attractive 0.95 Sharpe) — but surfaced an even more "
+            "severe cost problem than either. FAILS DSR by the widest margin of any "
+            "trial in the registry. Promotion criteria (CALMAR≥1 or Sharpe≥0.8) on net "
+            "returns not met; gross alone would have cleared it easily."
         ),
     },
 ]

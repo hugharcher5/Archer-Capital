@@ -1,0 +1,211 @@
+[Step 1] Loading Tiingo universe metadata...
+[Tiingo] Loaded 15,620 tickers from cache.
+
+[Step 2] Loading SEC pre-filter...
+[PreFilter] 6,692 screened, 3,300 survivors.
+
+[Step 3a] Preloading raw close prices...
+[Preload] Raw prices: 3,300 tickers in 18.7s
+
+[Step 3b] Preloading adjClose prices...
+[AdjPreload] 3,300 tickers in 4.0s
+
+[Step 4] Preloading GP-style shares facts (for PIT mcap, 3,300 CIKs)...
+[Preload] GP facts: 2,010/3,300 CIKs in 5.3s
+
+[Step 5] Preloading S22 valuation facts (net income/revenue/equity + DCF inputs)...
+[S22Facts] 2,010/3,300 loaded from trimmed cache in 131.0s
+
+[01/24] 2015-01-01 -> 2015-04-01
+  [Universe] 2015-01-01 -> 354 names
+  [Signal] dcf=224 pe=219 ps=310 pb=341 (of 354 universe)
+  [dcf] ret=+6.51% gross=+7.90% cost=1.390% to=100% IC=0.143 n=45 sectorHHI=0.076
+  [pe ] ret=-1.38% gross=-0.09% cost=1.292% to=100% IC=0.012 n=44 sectorHHI=0.071
+  [ps ] ret=+0.27% gross=+1.68% cost=1.408% to=100% IC=0.017 n=62 sectorHHI=0.057
+  [pb ] ret=-0.01% gross=+1.52% cost=1.529% to=100% IC=0.019 n=69 sectorHHI=0.056
+
+[02/24] 2015-04-01 -> 2015-07-01
+  [Universe] 2015-04-01 -> 349 names
+  [Signal] dcf=228 pe=226 ps=318 pb=337 (of 349 universe)
+  [dcf] ret=-1.22% gross=-0.70% cost=0.519% to=35% IC=-0.103 n=46 sectorHHI=0.068
+  [pe ] ret=-0.39% gross=+0.35% cost=0.734% to=54% IC=-0.035 n=46 sectorHHI=0.060
+  [ps ] ret=-1.50% gross=-1.18% cost=0.310% to=22% IC=-0.121 n=64 sectorHHI=0.053
+  [pb ] ret=+0.19% gross=+0.52% cost=0.329% to=22% IC=-0.129 n=68 sectorHHI=0.053
+
+[03/24] 2015-07-01 -> 2015-10-01
+  [Universe] 2015-07-01 -> 390 names
+  [Signal] dcf=254 pe=251 ps=350 pb=375 (of 390 universe)
+  [dcf] ret=-16.03% gross=-15.55% cost=0.477% to=33% IC=0.064 n=51 sectorHHI=0.066
+  [pe ] ret=-15.95% gross=-15.51% cost=0.434% to=31% IC=-0.027 n=51 sectorHHI=0.057
+  [ps ] ret=-18.95% gross=-18.62% cost=0.333% to=23% IC=-0.002 n=70 sectorHHI=0.058
+  [pb ] ret=-19.61% gross=-19.15% cost=0.464% to=32% IC=0.028 n=75 sectorHHI=0.056
+
+[04/24] 2015-10-01 -> 2016-01-01
+  [Universe] 2015-10-01 -> 417 names
+  [Signal] dcf=276 pe=277 ps=379 pb=398 (of 417 universe)
+  [dcf] ret=+4.98% gross=+5.49% cost=0.511% to=34% IC=-0.102 n=56 sectorHHI=0.069
+  [pe ] ret=+5.44% gross=+5.98% cost=0.541% to=38% IC=0.041 n=56 sectorHHI=0.052
+  [ps ] ret=+0.99% gross=+1.41% cost=0.419% to=28% IC=-0.187 n=76 sectorHHI=0.058
+  [pb ] ret=-0.36% gross=+0.07% cost=0.433% to=29% IC=-0.105 n=80 sectorHHI=0.058
+
+[05/24] 2016-01-01 -> 2016-04-01
+  [Universe] 2016-01-01 -> 397 names
+  [Signal] dcf=259 pe=259 ps=352 pb=378 (of 397 universe)
+  [dcf] ret=+3.59% gross=+3.97% cost=0.387% to=27% IC=0.073 n=52 sectorHHI=0.059
+  [pe ] ret=+6.98% gross=+7.29% cost=0.305% to=21% IC=-0.002 n=52 sectorHHI=0.052
+  [ps ] ret=+13.49% gross=+13.73% cost=0.241% to=16% IC=0.282 n=70 sectorHHI=0.053
+  [pb ] ret=+5.14% gross=+5.54% cost=0.399% to=26% IC=0.140 n=76 sectorHHI=0.060
+
+[06/24] 2016-04-01 -> 2016-07-01
+  [Universe] 2016-04-01 -> 401 names
+  [Signal] dcf=276 pe=251 ps=368 pb=378 (of 401 universe)
+  [dcf] ret=+7.48% gross=+8.06% cost=0.581% to=40% IC=-0.043 n=55 sectorHHI=0.079
+  [pe ] ret=+5.18% gross=+5.87% cost=0.683% to=47% IC=-0.047 n=51 sectorHHI=0.058
+  [ps ] ret=+7.46% gross=+7.85% cost=0.389% to=26% IC=0.046 n=74 sectorHHI=0.057
+  [pb ] ret=+11.22% gross=+11.54% cost=0.316% to=20% IC=0.108 n=76 sectorHHI=0.067
+
+[07/24] 2016-07-01 -> 2016-10-01
+  [Universe] 2016-07-01 -> 411 names
+  [Signal] dcf=270 pe=249 ps=369 pb=388 (of 411 universe)
+  [dcf] ret=+11.65% gross=+12.01% cost=0.362% to=24% IC=-0.027 n=54 sectorHHI=0.056
+  [pe ] ret=+10.61% gross=+10.95% cost=0.342% to=24% IC=0.021 n=50 sectorHHI=0.055
+  [ps ] ret=+17.05% gross=+17.36% cost=0.306% to=20% IC=-0.050 n=74 sectorHHI=0.046
+  [pb ] ret=+17.94% gross=+18.32% cost=0.379% to=24% IC=0.064 n=78 sectorHHI=0.063
+
+[08/24] 2016-10-01 -> 2017-01-01
+  [Universe] 2016-10-01 -> 388 names
+  [Signal] dcf=250 pe=237 ps=352 pb=366 (of 388 universe)
+  [dcf] ret=+8.56% gross=+8.76% cost=0.201% to=14% IC=0.149 n=50 sectorHHI=0.054
+  [pe ] ret=+12.58% gross=+12.93% cost=0.346% to=25% IC=0.179 n=48 sectorHHI=0.050
+  [ps ] ret=+14.43% gross=+14.71% cost=0.276% to=19% IC=0.309 n=70 sectorHHI=0.049
+  [pb ] ret=+11.21% gross=+11.60% cost=0.389% to=27% IC=0.337 n=73 sectorHHI=0.061
+
+[09/24] 2017-01-01 -> 2017-04-01
+  [Universe] 2017-01-01 -> 382 names
+  [Signal] dcf=247 pe=220 ps=338 pb=360 (of 382 universe)
+  [dcf] ret=+2.77% gross=+3.09% cost=0.321% to=22% IC=0.095 n=50 sectorHHI=0.063
+  [pe ] ret=-1.11% gross=-0.79% cost=0.321% to=23% IC=-0.050 n=44 sectorHHI=0.057
+  [ps ] ret=+1.23% gross=+1.54% cost=0.304% to=21% IC=-0.099 n=68 sectorHHI=0.049
+  [pb ] ret=+5.45% gross=+5.86% cost=0.410% to=28% IC=-0.098 n=72 sectorHHI=0.053
+
+[10/24] 2017-04-01 -> 2017-07-01
+  [Universe] 2017-04-01 -> 401 names
+  [Signal] dcf=260 pe=238 ps=364 pb=376 (of 401 universe)
+  [dcf] ret=+2.34% gross=+2.72% cost=0.381% to=27% IC=-0.042 n=52 sectorHHI=0.047
+  [pe ] ret=+3.88% gross=+4.45% cost=0.571% to=44% IC=-0.041 n=48 sectorHHI=0.056
+  [ps ] ret=+0.23% gross=+0.54% cost=0.313% to=22% IC=-0.039 n=73 sectorHHI=0.048
+  [pb ] ret=+0.60% gross=+1.10% cost=0.495% to=33% IC=-0.063 n=75 sectorHHI=0.049
+
+[11/24] 2017-07-01 -> 2017-10-01
+  [Universe] 2017-07-01 -> 427 names
+  [Signal] dcf=274 pe=246 ps=380 pb=401 (of 427 universe)
+  [dcf] ret=-1.05% gross=-0.68% cost=0.374% to=27% IC=-0.113 n=55 sectorHHI=0.066
+  [pe ] ret=+7.03% gross=+7.27% cost=0.236% to=18% IC=-0.060 n=49 sectorHHI=0.070
+  [ps ] ret=+7.06% gross=+7.33% cost=0.269% to=18% IC=0.007 n=76 sectorHHI=0.054
+  [pb ] ret=+6.41% gross=+6.83% cost=0.416% to=29% IC=-0.006 n=80 sectorHHI=0.050
+
+[12/24] 2017-10-01 -> 2018-01-01
+  [Universe] 2017-10-01 -> 396 names
+  [Signal] dcf=254 pe=223 ps=355 pb=374 (of 396 universe)
+  [dcf] ret=+5.19% gross=+5.55% cost=0.360% to=25% IC=0.127 n=51 sectorHHI=0.059
+  [pe ] ret=+4.58% gross=+4.88% cost=0.294% to=22% IC=0.062 n=45 sectorHHI=0.066
+  [ps ] ret=+10.87% gross=+11.14% cost=0.272% to=18% IC=0.168 n=71 sectorHHI=0.052
+  [pb ] ret=+3.67% gross=+3.94% cost=0.270% to=19% IC=0.011 n=75 sectorHHI=0.048
+
+[13/24] 2018-01-01 -> 2018-04-01
+  [Universe] 2018-01-01 -> 417 names
+  [Signal] dcf=263 pe=231 ps=371 pb=390 (of 417 universe)
+  [dcf] ret=-2.67% gross=-2.20% cost=0.470% to=34% IC=-0.042 n=53 sectorHHI=0.054
+  [pe ] ret=-2.19% gross=-1.97% cost=0.217% to=17% IC=0.010 n=46 sectorHHI=0.066
+  [ps ] ret=-4.00% gross=-3.74% cost=0.265% to=19% IC=-0.076 n=74 sectorHHI=0.054
+  [pb ] ret=-5.89% gross=-5.60% cost=0.288% to=21% IC=-0.118 n=78 sectorHHI=0.047
+
+[14/24] 2018-04-01 -> 2018-07-01
+  [Universe] 2018-04-01 -> 429 names
+  [Signal] dcf=275 pe=243 ps=385 pb=401 (of 429 universe)
+  [dcf] ret=+14.61% gross=+15.05% cost=0.434% to=31% IC=-0.048 n=55 sectorHHI=0.060
+  [pe ] ret=+13.82% gross=+14.41% cost=0.594% to=43% IC=0.013 n=49 sectorHHI=0.054
+  [ps ] ret=+12.63% gross=+12.93% cost=0.298% to=21% IC=-0.042 n=77 sectorHHI=0.052
+  [pb ] ret=+12.51% gross=+12.85% cost=0.333% to=22% IC=-0.043 n=80 sectorHHI=0.057
+
+[15/24] 2018-07-01 -> 2018-10-01
+  [Universe] 2018-07-01 -> 444 names
+  [Signal] dcf=273 pe=239 ps=388 pb=414 (of 444 universe)
+  [dcf] ret=-2.06% gross=-1.72% cost=0.341% to=25% IC=-0.084 n=55 sectorHHI=0.058
+  [pe ] ret=-6.85% gross=-6.63% cost=0.220% to=17% IC=-0.224 n=48 sectorHHI=0.060
+  [ps ] ret=-2.93% gross=-2.61% cost=0.322% to=23% IC=-0.115 n=78 sectorHHI=0.051
+  [pb ] ret=-1.65% gross=-1.25% cost=0.398% to=28% IC=-0.055 n=83 sectorHHI=0.059
+
+[16/24] 2018-10-01 -> 2019-01-01
+  [Universe] 2018-10-01 -> 428 names
+  [Signal] dcf=254 pe=231 ps=373 pb=401 (of 428 universe)
+  [dcf] ret=-21.38% gross=-21.06% cost=0.321% to=24% IC=0.011 n=51 sectorHHI=0.059
+  [pe ] ret=-23.29% gross=-23.11% cost=0.177% to=13% IC=-0.103 n=46 sectorHHI=0.065
+  [ps ] ret=-25.36% gross=-25.12% cost=0.237% to=17% IC=0.058 n=75 sectorHHI=0.052
+  [pb ] ret=-25.36% gross=-25.04% cost=0.317% to=22% IC=-0.033 n=80 sectorHHI=0.060
+
+[17/24] 2019-01-01 -> 2019-04-01
+  [Universe] 2019-01-01 -> 465 names
+  [Signal] dcf=282 pe=266 ps=413 pb=442 (of 465 universe)
+  [dcf] ret=+9.67% gross=+10.05% cost=0.378% to=26% IC=-0.087 n=57 sectorHHI=0.064
+  [pe ] ret=+12.46% gross=+12.83% cost=0.366% to=26% IC=-0.008 n=53 sectorHHI=0.065
+  [ps ] ret=+15.09% gross=+15.37% cost=0.284% to=19% IC=-0.012 n=83 sectorHHI=0.052
+  [pb ] ret=+15.57% gross=+16.00% cost=0.432% to=28% IC=0.012 n=89 sectorHHI=0.057
+
+[18/24] 2019-04-01 -> 2019-07-01
+  [Universe] 2019-04-01 -> 438 names
+  [Signal] dcf=263 pe=243 ps=410 pb=415 (of 438 universe)
+  [dcf] ret=-8.66% gross=-8.31% cost=0.347% to=25% IC=-0.168 n=53 sectorHHI=0.058
+  [pe ] ret=-9.52% gross=-8.84% cost=0.685% to=51% IC=-0.070 n=49 sectorHHI=0.063
+  [ps ] ret=-5.26% gross=-4.97% cost=0.291% to=20% IC=-0.011 n=82 sectorHHI=0.046
+  [pb ] ret=-9.74% gross=-9.38% cost=0.358% to=24% IC=-0.168 n=83 sectorHHI=0.053
+
+[19/24] 2019-07-01 -> 2019-10-01
+  [Universe] 2019-07-01 -> 451 names
+  [Signal] dcf=271 pe=252 ps=418 pb=423 (of 451 universe)
+  [dcf] ret=-5.40% gross=-5.01% cost=0.385% to=26% IC=0.167 n=54 sectorHHI=0.056
+  [pe ] ret=-3.13% gross=-2.73% cost=0.391% to=27% IC=0.156 n=51 sectorHHI=0.070
+  [ps ] ret=-2.76% gross=-2.54% cost=0.218% to=14% IC=0.192 n=84 sectorHHI=0.044
+  [pb ] ret=-8.06% gross=-7.66% cost=0.403% to=26% IC=0.124 n=85 sectorHHI=0.054
+
+[20/24] 2019-10-01 -> 2020-01-01
+  [Universe] 2019-10-01 -> 447 names
+  [Signal] dcf=272 pe=252 ps=418 pb=416 (of 447 universe)
+  [dcf] ret=+15.38% gross=+15.62% cost=0.243% to=16% IC=0.009 n=55 sectorHHI=0.055
+  [pe ] ret=+10.12% gross=+10.44% cost=0.315% to=22% IC=0.070 n=51 sectorHHI=0.086
+  [ps ] ret=+12.85% gross=+13.12% cost=0.271% to=18% IC=0.068 n=84 sectorHHI=0.052
+  [pb ] ret=+20.20% gross=+20.58% cost=0.374% to=24% IC=0.076 n=83 sectorHHI=0.065
+
+[21/24] 2020-01-01 -> 2020-04-01
+  [Universe] 2020-01-01 -> 423 names
+  [Signal] dcf=253 pe=233 ps=397 pb=395 (of 423 universe)
+  [dcf] ret=-35.27% gross=-34.87% cost=0.397% to=27% IC=-0.091 n=51 sectorHHI=0.064
+  [pe ] ret=-50.91% gross=-50.56% cost=0.351% to=23% IC=-0.178 n=47 sectorHHI=0.071
+  [ps ] ret=-50.80% gross=-50.55% cost=0.244% to=16% IC=-0.396 n=80 sectorHHI=0.051
+  [pb ] ret=-50.91% gross=-50.56% cost=0.354% to=23% IC=-0.272 n=79 sectorHHI=0.057
+
+[22/24] 2020-04-01 -> 2020-07-01
+  [Universe] 2020-04-01 -> 506 names
+  [Signal] dcf=327 pe=321 ps=488 pb=484 (of 506 universe)
+  [dcf] ret=+53.68% gross=+54.60% cost=0.918% to=58% IC=0.108 n=66 sectorHHI=0.062
+  [pe ] ret=+62.35% gross=+63.44% cost=1.096% to=69% IC=0.239 n=64 sectorHHI=0.053
+  [ps ] ret=+68.24% gross=+68.97% cost=0.729% to=46% IC=0.093 n=98 sectorHHI=0.045
+  [pb ] ret=+60.64% gross=+61.44% cost=0.799% to=49% IC=0.030 n=97 sectorHHI=0.050
+
+[23/24] 2020-07-01 -> 2020-10-01
+  [Universe] 2020-07-01 -> 486 names
+  [Signal] dcf=309 pe=280 ps=460 pb=459 (of 486 universe)
+  [dcf] ret=+4.41% gross=+4.80% cost=0.387% to=26% IC=0.028 n=62 sectorHHI=0.079
+  [pe ] ret=+11.67% gross=+12.04% cost=0.365% to=25% IC=0.127 n=56 sectorHHI=0.055
+  [ps ] ret=+15.99% gross=+16.32% cost=0.330% to=22% IC=0.180 n=92 sectorHHI=0.046
+  [pb ] ret=+7.75% gross=+8.21% cost=0.461% to=29% IC=0.093 n=92 sectorHHI=0.049
+
+[24/24] 2020-10-01 -> 2021-01-01
+  [Universe] 2020-10-01 -> 483 names
+  [Signal] dcf=302 pe=261 ps=456 pb=453 (of 483 universe)
+  [dcf] ret=+36.91% gross=+37.20% cost=0.293% to=20% IC=0.010 n=61 sectorHHI=0.058
+  [pe ] ret=+46.22% gross=+46.53% cost=0.308% to=23% IC=0.234 n=52 sectorHHI=0.054
+  [ps ] ret=+44.72% gross=+45.04% cost=0.326% to=22% IC=0.234 n=91 sectorHHI=0.049
+  [pb ] ret=+42.44% gross=+42.85% cost=0.414% to=27% IC=0.145 n=91 sectorHHI=0.055
+
+[Saved] -> /mnt/c/Users/user/Archer-Capital/research/valuationcompare_S22/results/s22_{signal}_period_returns.csv (x4), s22_{signal}_sector.csv (x4)

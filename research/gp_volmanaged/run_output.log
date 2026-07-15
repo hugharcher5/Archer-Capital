@@ -1,0 +1,180 @@
+[Russell overlay] 2,915 R3000 events loaded (1,771 additions, 1,144 deletions), years [np.int64(2016), np.int64(2017), np.int64(2018), np.int64(2019), np.int64(2020), np.int64(2021), np.int64(2022), np.int64(2023)]
+
+[Step 1] Loading Tiingo universe metadata...
+[Tiingo] Loaded 15,620 tickers from cache.
+
+[Step 2] Loading SEC pre-filter...
+[PreFilter] 6,692 screened, 3,300 survivors.
+
+[Step 3a] Preloading raw close prices (3,300 tickers)...
+[Preload] Raw prices: 3,300 tickers in 11.9s
+
+[Step 3b] Loading adjClose pickle (beta + vol layer)...
+[AdjPreload] 3,300 tickers in 2.3s
+
+[Step 4] Loading GP XBRL facts (3,300 CIKs)...
+[GPFacts] 2,010/3,300 loaded in 2.7s
+
+[Step 5] Running backtest (32 quarterly periods, 2016-01-01 -> 2024-01-01)...
+
+[01/32] 2016-01-01 -> 2016-04-01
+  [Universe] 2016-01-01 → 412 names  [Universe] base=412 -> russell_overlay=412 (excluded 0 confirmed R3000 exits)
+  GP: 299/412 with signal (27% dropped)
+  BASE L/S=+1.98%  VOL-MGD L/S=+1.98%  trail_vol=nan% vol_scale=1.00x  IC=0.066
+
+[02/32] 2016-04-01 -> 2016-07-01
+  [Universe] 2016-04-01 → 402 names  [Universe] base=402 -> russell_overlay=402 (excluded 0 confirmed R3000 exits)
+  GP: 303/402 with signal (25% dropped)
+  BASE L/S=-9.90%  VOL-MGD L/S=-5.43%  trail_vol=18.2% vol_scale=0.55x  IC=-0.122
+
+[03/32] 2016-07-01 -> 2016-10-01
+  [Universe] 2016-07-01 → 414 names  [Universe] base=414 -> russell_overlay=410 (excluded 129 confirmed R3000 exits)
+  GP: 299/410 with signal (27% dropped)
+  BASE L/S=-6.94%  VOL-MGD L/S=-4.22%  trail_vol=16.5% vol_scale=0.61x  IC=-0.101
+
+[04/32] 2016-10-01 -> 2017-01-01
+  [Universe] 2016-10-01 → 387 names  [Universe] base=387 -> russell_overlay=383 (excluded 129 confirmed R3000 exits)
+  GP: 279/383 with signal (27% dropped)
+  BASE L/S=-1.61%  VOL-MGD L/S=-1.28%  trail_vol=12.6% vol_scale=0.79x  IC=-0.090
+
+[05/32] 2017-01-01 -> 2017-04-01
+  [Universe] 2017-01-01 → 384 names  [Universe] base=384 -> russell_overlay=379 (excluded 129 confirmed R3000 exits)
+  GP: 265/379 with signal (30% dropped)
+  BASE L/S=-3.04%  VOL-MGD L/S=-2.68%  trail_vol=11.3% vol_scale=0.88x  IC=0.026
+
+[06/32] 2017-04-01 -> 2017-07-01
+  [Universe] 2017-04-01 → 404 names  [Universe] base=404 -> russell_overlay=396 (excluded 129 confirmed R3000 exits)
+  GP: 289/396 with signal (27% dropped)
+  BASE L/S=+5.31%  VOL-MGD L/S=+4.50%  trail_vol=11.8% vol_scale=0.85x  IC=0.084
+
+[07/32] 2017-07-01 -> 2017-10-01
+  [Universe] 2017-07-01 → 428 names  [Universe] base=428 -> russell_overlay=423 (excluded 196 confirmed R3000 exits)
+  GP: 308/423 with signal (27% dropped)
+  BASE L/S=-3.15%  VOL-MGD L/S=-2.85%  trail_vol=11.1% vol_scale=0.90x  IC=-0.064
+
+[08/32] 2017-10-01 -> 2018-01-01
+  [Universe] 2017-10-01 → 390 names  [Universe] base=390 -> russell_overlay=383 (excluded 196 confirmed R3000 exits)
+  GP: 283/383 with signal (26% dropped)
+  BASE L/S=+5.77%  VOL-MGD L/S=+5.43%  trail_vol=10.6% vol_scale=0.94x  IC=0.133
+
+[09/32] 2018-01-01 -> 2018-04-01
+  [Universe] 2018-01-01 → 417 names  [Universe] base=417 -> russell_overlay=407 (excluded 196 confirmed R3000 exits)
+  GP: 301/407 with signal (26% dropped)
+  BASE L/S=+9.29%  VOL-MGD L/S=+8.65%  trail_vol=10.7% vol_scale=0.93x  IC=0.181
+
+[10/32] 2018-04-01 -> 2018-07-01
+  [Universe] 2018-04-01 → 429 names  [Universe] base=429 -> russell_overlay=417 (excluded 196 confirmed R3000 exits)
+  GP: 307/417 with signal (26% dropped)
+  BASE L/S=+9.13%  VOL-MGD L/S=+7.86%  trail_vol=11.6% vol_scale=0.86x  IC=0.116
+
+[11/32] 2018-07-01 -> 2018-10-01
+  [Universe] 2018-07-01 → 442 names  [Universe] base=442 -> russell_overlay=441 (excluded 152 confirmed R3000 exits)
+  GP: 319/441 with signal (28% dropped)
+  BASE L/S=+12.26%  VOL-MGD L/S=+9.92%  trail_vol=12.4% vol_scale=0.81x  IC=0.143
+
+[12/32] 2018-10-01 -> 2019-01-01
+  [Universe] 2018-10-01 → 426 names  [Universe] base=426 -> russell_overlay=421 (excluded 152 confirmed R3000 exits)
+  GP: 308/421 with signal (27% dropped)
+  BASE L/S=+7.80%  VOL-MGD L/S=+5.47%  trail_vol=14.3% vol_scale=0.70x  IC=0.194
+
+[13/32] 2019-01-01 -> 2019-04-01
+  [Universe] 2019-01-01 → 455 names  [Universe] base=455 -> russell_overlay=451 (excluded 152 confirmed R3000 exits)
+  GP: 340/451 with signal (25% dropped)
+  BASE L/S=-1.25%  VOL-MGD L/S=-0.75%  trail_vol=16.7% vol_scale=0.60x  IC=-0.071
+
+[14/32] 2019-04-01 -> 2019-07-01
+  [Universe] 2019-04-01 → 440 names  [Universe] base=440 -> russell_overlay=435 (excluded 152 confirmed R3000 exits)
+  GP: 332/435 with signal (24% dropped)
+  BASE L/S=-3.73%  VOL-MGD L/S=-2.49%  trail_vol=15.0% vol_scale=0.67x  IC=0.061
+
+[15/32] 2019-07-01 -> 2019-10-01
+  [Universe] 2019-07-01 → 448 names  [Universe] base=448 -> russell_overlay=447 (excluded 138 confirmed R3000 exits)
+  GP: 335/447 with signal (25% dropped)
+  BASE L/S=+2.01%  VOL-MGD L/S=+1.73%  trail_vol=11.6% vol_scale=0.86x  IC=0.071
+
+[16/32] 2019-10-01 -> 2020-01-01
+  [Universe] 2019-10-01 → 445 names  [Universe] base=445 -> russell_overlay=444 (excluded 138 confirmed R3000 exits)
+  GP: 330/444 with signal (26% dropped)
+  BASE L/S=-4.15%  VOL-MGD L/S=-3.68%  trail_vol=11.3% vol_scale=0.89x  IC=-0.042
+
+[17/32] 2020-01-01 -> 2020-04-01
+  [Universe] 2020-01-01 → 418 names  [Universe] base=418 -> russell_overlay=416 (excluded 138 confirmed R3000 exits)
+  GP: 316/416 with signal (24% dropped)
+  BASE L/S=-10.80%  VOL-MGD L/S=-9.66%  trail_vol=11.2% vol_scale=0.89x  IC=-0.003
+
+[18/32] 2020-04-01 -> 2020-07-01
+  [Universe] 2020-04-01 → 512 names  [Universe] base=512 -> russell_overlay=509 (excluded 138 confirmed R3000 exits)
+  GP: 387/509 with signal (24% dropped)
+  BASE L/S=+7.03%  VOL-MGD L/S=+4.24%  trail_vol=16.6% vol_scale=0.60x  IC=0.049
+
+[19/32] 2020-07-01 -> 2020-10-01
+  [Universe] 2020-07-01 → 492 names  [Universe] base=492 -> russell_overlay=488 (excluded 270 confirmed R3000 exits)
+  GP: 362/488 with signal (26% dropped)
+  BASE L/S=+16.27%  VOL-MGD L/S=+8.50%  trail_vol=19.1% vol_scale=0.52x  IC=0.053
+
+[20/32] 2020-10-01 -> 2021-01-01
+  [Universe] 2020-10-01 → 489 names  [Universe] base=489 -> russell_overlay=477 (excluded 270 confirmed R3000 exits)
+  GP: 354/477 with signal (26% dropped)
+  BASE L/S=-8.81%  VOL-MGD L/S=-5.82%  trail_vol=15.1% vol_scale=0.66x  IC=0.022
+
+[21/32] 2021-01-01 -> 2021-04-01
+  [Universe] 2021-01-01 → 472 names  [Universe] base=472 -> russell_overlay=453 (excluded 270 confirmed R3000 exits)
+  GP: 344/453 with signal (24% dropped)
+  BASE L/S=+16.06%  VOL-MGD L/S=+13.27%  trail_vol=12.1% vol_scale=0.83x  IC=0.047
+
+[22/32] 2021-04-01 -> 2021-07-01
+  [Universe] 2021-04-01 → 519 names  [Universe] base=519 -> russell_overlay=489 (excluded 270 confirmed R3000 exits)
+  GP: 367/489 with signal (25% dropped)
+  BASE L/S=+7.53%  VOL-MGD L/S=+4.31%  trail_vol=17.5% vol_scale=0.57x  IC=0.192
+
+[23/32] 2021-07-01 -> 2021-10-01
+  [Universe] 2021-07-01 → 502 names  [Universe] base=502 -> russell_overlay=450 (excluded 520 confirmed R3000 exits)
+  GP: 337/450 with signal (25% dropped)
+  BASE L/S=-0.43%  VOL-MGD L/S=-0.23%  trail_vol=18.8% vol_scale=0.53x  IC=0.061
+
+[24/32] 2021-10-01 -> 2022-01-01
+  [Universe] 2021-10-01 → 481 names  [Universe] base=481 -> russell_overlay=455 (excluded 520 confirmed R3000 exits)
+  GP: 345/455 with signal (24% dropped)
+  BASE L/S=+8.51%  VOL-MGD L/S=+5.22%  trail_vol=16.3% vol_scale=0.61x  IC=0.198
+
+[25/32] 2022-01-01 -> 2022-04-01
+  [Universe] 2022-01-01 → 465 names  [Universe] base=465 -> russell_overlay=442 (excluded 520 confirmed R3000 exits)
+  GP: 327/442 with signal (26% dropped)
+  BASE L/S=-11.30%  VOL-MGD L/S=-6.51%  trail_vol=17.3% vol_scale=0.58x  IC=-0.141
+
+[26/32] 2022-04-01 -> 2022-07-01
+  [Universe] 2022-04-01 → 468 names  [Universe] base=468 -> russell_overlay=443 (excluded 520 confirmed R3000 exits)
+  GP: 339/443 with signal (23% dropped)
+  BASE L/S=+8.96%  VOL-MGD L/S=+4.52%  trail_vol=19.8% vol_scale=0.50x  IC=0.192
+
+[27/32] 2022-07-01 -> 2022-10-01
+  [Universe] 2022-07-01 → 501 names  [Universe] base=501 -> russell_overlay=444 (excluded 757 confirmed R3000 exits)
+  GP: 334/444 with signal (25% dropped)
+  BASE L/S=-6.59%  VOL-MGD L/S=-3.14%  trail_vol=21.0% vol_scale=0.48x  IC=-0.024
+
+[28/32] 2022-10-01 -> 2023-01-01
+  [Universe] 2022-10-01 → 475 names  [Universe] base=475 -> russell_overlay=441 (excluded 757 confirmed R3000 exits)
+  GP: 339/441 with signal (23% dropped)
+  BASE L/S=+8.29%  VOL-MGD L/S=+4.49%  trail_vol=18.5% vol_scale=0.54x  IC=0.083
+
+[29/32] 2023-01-01 -> 2023-04-01
+  [Universe] 2023-01-01 → 447 names  [Universe] base=447 -> russell_overlay=423 (excluded 757 confirmed R3000 exits)
+  GP: 320/423 with signal (24% dropped)
+  BASE L/S=+2.38%  VOL-MGD L/S=+1.54%  trail_vol=15.5% vol_scale=0.65x  IC=0.054
+
+[30/32] 2023-04-01 -> 2023-07-01
+  [Universe] 2023-04-01 → 451 names  [Universe] base=451 -> russell_overlay=420 (excluded 757 confirmed R3000 exits)
+  GP: 315/420 with signal (25% dropped)
+  BASE L/S=-3.93%  VOL-MGD L/S=-2.70%  trail_vol=14.6% vol_scale=0.69x  IC=0.044
+
+[31/32] 2023-07-01 -> 2023-10-01
+  [Universe] 2023-07-01 → 477 names  [Universe] base=477 -> russell_overlay=457 (excluded 770 confirmed R3000 exits)
+  GP: 335/457 with signal (27% dropped)
+  BASE L/S=+4.23%  VOL-MGD L/S=+2.77%  trail_vol=15.3% vol_scale=0.65x  IC=0.091
+
+[32/32] 2023-10-01 -> 2024-01-01
+  [Universe] 2023-10-01 → 462 names  [Universe] base=462 -> russell_overlay=444 (excluded 770 confirmed R3000 exits)
+  GP: 322/444 with signal (27% dropped)
+  BASE L/S=-2.00%  VOL-MGD L/S=-1.37%  trail_vol=14.6% vol_scale=0.69x  IC=-0.035
+
+[Saved] raw period records -> /mnt/c/Users/user/Archer-Capital/research/gp_volmanaged/results/_raw_period_records.json

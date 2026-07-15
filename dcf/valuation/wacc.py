@@ -59,8 +59,25 @@ class WACCResult:
     wacc_sigma_fallback: bool    # True when insufficient history for reconstruction
 
 
-def _get_rf() -> tuple[float, str]:
-    """Try FRED DGS10 first, fall back to ^TNX from yfinance."""
+def _get_rf(as_of=None) -> tuple[float, str]:
+    """Try FRED DGS10 first, fall back to ^TNX from yfinance.
+
+    as_of: optional pd.Timestamp. When provided, sources that year's FRED
+    DGS10 annual average (via _get_rf_annual_series) instead of today's
+    latest reading — for point-in-time / historical backtest use. Defaults
+    to None, which preserves the original "today's rate" live-tool behavior
+    unchanged.
+    """
+    if as_of is not None:
+        rf_annual = _get_rf_annual_series()
+        if not rf_annual.empty:
+            yr = as_of.year
+            if yr in rf_annual.index:
+                return float(rf_annual[yr]), f'FRED DGS10 annual avg [{yr}]'
+            nearest = min(rf_annual.index, key=lambda y: abs(y - yr))
+            return float(rf_annual[nearest]), f'FRED DGS10 annual avg [{nearest}] (nearest to {yr})'
+        return 0.043, 'hardcoded fallback (4.30%, no FRED history for as_of)'
+
     api_key = os.getenv('FRED_API_KEY', '').strip()
     if api_key and api_key != 'your_api_key_here':
         try:
@@ -83,21 +100,38 @@ def _synthetic_rating(coverage: float) -> tuple[str, float]:
     return 'D2/D', 0.1413
 
 
+_RF_ANNUAL_SERIES_CACHE = None   # module-level memo: the underlying FRED series
+                                 # never changes within one process's lifetime,
+                                 # and compute_wacc() calls this on every single
+                                 # invocation -- uncached, this was a live FRED
+                                 # API call per ticker per period, fine for the
+                                 # live tool's one-valuation-at-a-time use but a
+                                 # severe bottleneck in any backtest loop calling
+                                 # compute_wacc() thousands of times.
+
+
 def _get_rf_annual_series():
     """Annual-average FRED DGS10 yield (decimal), index = int year.
-    Returns empty pandas Series when FRED is unavailable."""
+    Returns empty pandas Series when FRED is unavailable. Memoized at module
+    level -- fetched from FRED at most once per process."""
+    global _RF_ANNUAL_SERIES_CACHE
+    if _RF_ANNUAL_SERIES_CACHE is not None:
+        return _RF_ANNUAL_SERIES_CACHE
     import pandas as pd
     api_key = os.getenv('FRED_API_KEY', '').strip()
     if not api_key or api_key == 'your_api_key_here':
-        return pd.Series(dtype=float)
+        _RF_ANNUAL_SERIES_CACHE = pd.Series(dtype=float)
+        return _RF_ANNUAL_SERIES_CACHE
     try:
         from fredapi import Fred
         daily = Fred(api_key=api_key).get_series('DGS10').dropna()
-        return daily.groupby(daily.index.year).mean() / 100.0
+        _RF_ANNUAL_SERIES_CACHE = daily.groupby(daily.index.year).mean() / 100.0
+        return _RF_ANNUAL_SERIES_CACHE
     except Exception as e:
         print(f"  [WACC] FRED historical fetch failed ({e}); WACC-sigma fallback used.")
         import pandas as pd
-        return pd.Series(dtype=float)
+        _RF_ANNUAL_SERIES_CACHE = pd.Series(dtype=float)
+        return _RF_ANNUAL_SERIES_CACHE
 
 
 def _reconstruct_wacc_history(raw, drivers, beta_adj, eq_w, dt_w, rf_annual):
@@ -145,8 +179,9 @@ def _reconstruct_wacc_history(raw, drivers, beta_adj, eq_w, dt_w, rf_annual):
     return reconstructed, details
 
 
-def compute_wacc(raw: RawData, drivers: Drivers) -> WACCResult:
-    rf, rf_source = _get_rf()
+def compute_wacc(raw: RawData, drivers: Drivers, as_of=None) -> WACCResult:
+    """as_of: optional pd.Timestamp for point-in-time (backtest) use — see _get_rf()."""
+    rf, rf_source = _get_rf(as_of)
 
     # ── Cost of equity ────────────────────────────────────────────────────────
     beta_adj       = 0.67 * raw.beta + 0.33

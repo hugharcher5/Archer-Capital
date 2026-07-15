@@ -24,7 +24,7 @@ from valuation.reconcile     import reconcile
 st.set_page_config(page_title="Archer Capital", layout="wide")
 st.title("Archer Capital")
 
-tab_strategies, tab_valuation = st.tabs(["Strategies", "Valuation"])
+tab_strategies, tab_valuation, tab_macro = st.tabs(["Strategies", "Valuation", "Macro Trading"])
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -2100,3 +2100,13 @@ with tab_strategies:
     else:
         _STRATEGY_REGISTRY = {STRATEGY_CONFIG["name"]: STRATEGY_CONFIG}
         render_strategy_page(_STRATEGY_REGISTRY[selected])
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  MACRO TRADING TAB
+# ══════════════════════════════════════════════════════════════════════════════
+
+with tab_macro:
+    from strategies.macro_trading.page import render_macro_trading_page
+
+    render_macro_trading_page()
