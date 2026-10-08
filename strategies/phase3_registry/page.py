@@ -140,6 +140,7 @@ _TRIALS = [
         "name": "Livestock Disease / Animal Pharma",
         "dsr_num": "5",
         "result": "STOP",
+        "stop_reason": "wrong-sign CAAR (event study; no SR gate)",
         "bug_pending": False,
         "ic": "n/a",
         "ic_t": "n/a",
@@ -683,6 +684,7 @@ _OPEN_ENDED_TRIALS = [
         "id": "S14",
         "name": "Analyst EPS Revisions (thinly-covered small/mid-cap)",
         "result": "STOP",
+        "stop_reason": "Phase 1 feasibility — no PIT analyst-estimate data source",
         "ic": "n/a", "ic_t": "n/a", "gross": "n/a", "cost_bps": "n/a", "net": "n/a",
         "sharpe": "n/a", "calmar": "n/a", "max_dd": "n/a", "turnover": "n/a",
         "n_periods": "n/a (stopped before backtest)",
@@ -806,9 +808,9 @@ _OPEN_ENDED_TRIALS = [
             "long/short from those industry-neutral percentiles, testing whether "
             "removing accidental sector bets lowers realized beta and improves "
             "Sharpe/CALMAR vs. S3-Q's full-universe rank. Result: neither improved — "
-            "|beta| was NOT lower (−0.057 vs original 0.054... wait, own-sign flipped: "
-            "-0.057 vs +0.054) and Sharpe was NOT improved (0.270 vs S3-Q's 0.433 at "
-            "its own window). Sector concentration DID improve (long-leg HHI 0.063 vs "
+            "|beta| was NOT lower (−0.057 vs S3-Q's own 0.054, opposite sign but same "
+            "magnitude) and Sharpe was NOT improved (0.270 vs S3-Q's 0.433 at its own "
+            "window). Sector concentration DID improve (long-leg HHI 0.063 vs "
             "0.081, short-leg 0.073 vs 0.126) — the industry-neutral transform worked "
             "mechanically, it just didn't translate into better risk-adjusted returns. "
             "IC held up (0.034 vs original 0.040, both significant). FAILS DSR. "
@@ -849,6 +851,7 @@ _OPEN_ENDED_TRIALS = [
         "id": "S18",
         "name": "Small-Cap Sector-Bucketed Pairs Trading",
         "result": "STOP",
+        "stop_reason": "zero trades — no pair cleared the persistence filter",
         "ic": "n/a", "ic_t": "n/a", "gross": "n/a", "cost_bps": "n/a", "net": "n/a",
         "sharpe": "n/a", "calmar": "n/a", "max_dd": "n/a", "turnover": "n/a",
         "n_periods": "0 (zero trades under registered methodology)",
@@ -903,6 +906,7 @@ _OPEN_ENDED_TRIALS = [
         "id": "S20",
         "name": "Institutional 13F 'Smart Money' Accumulation",
         "result": "STOP",
+        "stop_reason": "Phase 1 feasibility — CUSIP crosswalk blocked by vendor quota",
         "ic": "n/a", "ic_t": "n/a", "gross": "n/a", "cost_bps": "n/a", "net": "n/a",
         "sharpe": "n/a", "calmar": "n/a", "max_dd": "n/a", "turnover": "n/a",
         "n_periods": "n/a (stopped before backtest)",
@@ -974,7 +978,7 @@ def _render_badge(result: str, extra: str = "") -> None:
     if result == "PASS":
         st.success(f"✓ PASS — DSR cleared in-sample{('  ' + msg) if msg else ''}")
     elif result == "STOP":
-        st.warning("⚠ STOP — wrong sign, testing halted (event study; no SR gate)")
+        st.warning(f"⚠ STOP — testing halted{('  ' + msg) if msg else ''}")
     elif result == "PENDING":
         st.info("— PENDING — not yet run")
     else:
@@ -1008,7 +1012,7 @@ def _metrics_df(trial: dict) -> pd.DataFrame:
 def _render_trial_card(trial: dict, expanded: bool = False) -> None:
     label = f"{trial['id']} — {trial['name']}"
     with st.expander(label, expanded=expanded):
-        _render_badge(trial["result"])
+        _render_badge(trial["result"], extra=trial.get("stop_reason", ""))
 
         if trial.get("bug_pending"):
             st.caption(
@@ -1059,7 +1063,7 @@ def _metrics_df_open_ended(trial: dict) -> pd.DataFrame:
 def _render_open_ended_card(trial: dict, expanded: bool = False) -> None:
     label = f"{trial['id']} — {trial['name']}"
     with st.expander(label, expanded=expanded):
-        _render_badge(trial["result"])
+        _render_badge(trial["result"], extra=trial.get("stop_reason", ""))
 
         col_m, col_e = st.columns([1, 1])
         with col_m:
@@ -1146,6 +1150,128 @@ def _render_s3_group() -> None:
             st.divider()
 
 
+# ── S22 group card (long-only valuation-signal comparison, 4 sub-trials) ──────
+
+_S22_VARIANTS = [
+    {
+        "id": "DCF", "label": "DCF-implied margin of safety",
+        "ic": "+0.0014", "ic_t": "0.072",
+        "gross": "+12.54%/yr", "cost_bps": "180", "net": "+10.59%/yr",
+        "sharpe": "0.452", "calmar": "0.233", "max_dd": "−45.5%", "beta": "1.010 (t=24.5)",
+        "dsr_obs": "0.226", "dsr_threshold": "0.368",
+        "coverage": "63.4%", "alpha_ew": "−2.74%/yr", "alpha_tbill": "+15.53%/yr",
+    },
+    {
+        "id": "P/E", "label": "Price / TTM net income",
+        "ic": "+0.0132", "ic_t": "0.566",
+        "gross": "+9.85%/yr", "cost_bps": "186", "net": "+7.88%/yr",
+        "sharpe": "0.388", "calmar": "0.127", "max_dd": "−61.9%", "beta": "1.221 (t=20.7)",
+        "dsr_obs": "0.194", "dsr_threshold": "0.368",
+        "coverage": "58.9%", "alpha_ew": "−5.77%/yr", "alpha_tbill": "+16.32%/yr",
+    },
+    {
+        "id": "P/S", "label": "Price / TTM revenue",
+        "ic": "+0.0210", "ic_t": "0.651",
+        "gross": "+14.49%/yr", "cost_bps": "144", "net": "+12.91%/yr",
+        "sharpe": "0.493", "calmar": "0.225", "max_dd": "−57.3%", "beta": "1.279 (t=19.3)",
+        "dsr_obs": "0.246", "dsr_threshold": "0.368",
+        "coverage": "90.8%", "alpha_ew": "−1.49%/yr", "alpha_tbill": "+22.57%/yr",
+    },
+    {
+        "id": "P/B", "label": "Price / book equity",
+        "ic": "+0.0040", "ic_t": "0.156",
+        "gross": "+9.64%/yr", "cost_bps": "179", "net": "+7.72%/yr",
+        "sharpe": "0.389", "calmar": "0.132", "max_dd": "−58.5%", "beta": "1.246 (t=26.8)",
+        "dsr_obs": "0.194", "dsr_threshold": "0.368",
+        "coverage": "94.5%", "alpha_ew": "−6.03%/yr", "alpha_tbill": "+16.54%/yr",
+    },
+]
+
+
+def _render_s22_group(expanded: bool = False) -> None:
+    with st.expander(
+        "S22 — Long-Only Quarterly Valuation Portfolios: DCF vs P/E vs P/S vs P/B",
+        expanded=expanded,
+    ):
+        st.markdown(
+            "Top-20%-most-undervalued, equal-weight, **long-only** portfolios (genuinely "
+            "new construction vs. every other trial in this registry, which are beta-"
+            "neutral long/short) — four valuation signals tested head-to-head on the same "
+            "underlying question. All four share DSR trial #28 (N_TRIALS=28, quarterly "
+            "threshold 0.368). Beta ≈ 1.0–1.28 (all t > 19) confirms the long-only "
+            "construction carries genuine market beta by design, not a defect. Window "
+            "2015-01-01→2021-01-01 (24 quarters)."
+        )
+
+        comp_rows = []
+        for v in _S22_VARIANTS:
+            comp_rows.append({
+                "Signal":       v["id"],
+                "IC (t)":       f"{v['ic']} ({v['ic_t']})",
+                "Gross":        v["gross"],
+                "Cost (bps/yr)": v["cost_bps"],
+                "Net":          v["net"],
+                "Sharpe":       v["sharpe"],
+                "CALMAR":       v["calmar"],
+                "Max DD":       v["max_dd"],
+                "Beta (t)":     v["beta"],
+                "DSR obs":      v["dsr_obs"],
+                "DSR thresh":   v["dsr_threshold"],
+                "Coverage":     v["coverage"],
+            })
+        st.dataframe(pd.DataFrame(comp_rows), use_container_width=True, hide_index=True)
+
+        st.divider()
+
+        st.markdown(
+            "**All four FAIL DSR at N=28.** Alpha vs. the equal-weight universe is "
+            "NEGATIVE for every signal (DCF −2.74%, P/E −5.77%, P/S −1.49%, P/B −6.03%/yr) "
+            "despite strongly positive alpha vs. the 3-month T-bill (+15.5% to +22.6%/yr) — "
+            "absolute returns are substantially explained by high-beta exposure to a rising "
+            "2015–2020 small-cap market, not genuine alpha over that market."
+        )
+
+        st.markdown(
+            "**Original (unequal-universe) ranking:** P/S > DCF > P/E ≈ P/B, with P/S "
+            "best on Sharpe/IC/alpha. **This ranking did NOT survive scrutiny.** Signal "
+            "coverage was very unequal each quarter (mean universe ~422 names): "
+            "P/B 94.5%, P/S 90.8%, DCF 63.4%, P/E 58.9% — DCF and P/E were effectively "
+            "ranking from a smaller, more-established/profitable subset (P/E structurally "
+            "excludes loss-making names; DCF needs ~12 XBRL concepts plus an "
+            "applicability gate vs. P/B/P/S's single-concept dependency)."
+        )
+        st.markdown(
+            "**CORRECTION (2026-07-15) — intersection-universe re-run:** restricting all "
+            "four signals to the common subset where all four have valid values each "
+            "quarter (mean 179/quarter, down from ~422) made the original ranking "
+            "**evaporate**: Sharpe clusters 0.41–0.43 for all four (vs. the original "
+            "0.39–0.49 spread), alpha vs. market clusters −3.7% to −4.2% (all four now "
+            "negative and close together), and the IC ranking **inverts** — P/E is now "
+            "best (0.017), P/B flips to negative (−0.0025), P/S (the original 'winner') "
+            "drops to third. **Corrected conclusion: none of the four signals is "
+            "distinguishable from the others on a fair, equal-universe basis** — DCF's "
+            "substantial added complexity bought no measurable edge, but also no "
+            "underperformance, once the universe is held fixed. Re-run was cross-checked "
+            "byte-for-byte against the original computation first (max diff 0.0 across all "
+            "96 signal-periods) before trusting the corrected numbers. This is a "
+            "*stronger* negative finding than the original ('simple beats complex'), not a "
+            "weaker one — treat any future multi-signal head-to-head in this registry with "
+            "the same coverage-parity check before ranking."
+        )
+        st.markdown(
+            "Two infrastructure fixes made along the way, both reusable and unrelated to "
+            "the ranking correction: (1) a new PIT adapter "
+            "(`research/valuationcompare_S22/pit_facts.py`, `dcf_adapter.py`) feeds the "
+            "existing DCF engine's already-pure computation core "
+            "(`compute_drivers`/`compute_wacc`/`_build_base`/`dcf.value`) via one additive "
+            "`as_of` parameter on `wacc.py`'s `_get_rf()` — no parallel WACC calculator "
+            "needed. (2) `compute_wacc()` was calling a live FRED fetch on every single "
+            "invocation, uncached — harmless for the live tool's one-valuation-at-a-time "
+            "use but made backtesting ~65x slower than necessary; fixed with module-level "
+            "memoization (3.85s/name → 0.059s/name), which also speeds up the live tool."
+        )
+
+
 # ── Main render ───────────────────────────────────────────────────────────────
 
 def render_phase3_registry_page() -> None:
@@ -1153,18 +1279,21 @@ def render_phase3_registry_page() -> None:
 
     # ── Summary banner ────────────────────────────────────────────────────────
     st.info(
-        "**15 trials run  ·  1 technical pass (S3-SA, best-of-3 caveat)  ·  "
-        "13 FAIL  ·  1 STOP  ·  1 PENDING (S10)**\n\n"
-        "Zero of 15 tested strategies have cleared the in-sample DSR gate in an unambiguous "
-        "sense.  S3-SA (semiannual GP/A) is the sole technical pass but is best-of-3 from a "
-        "frequency sweep — walk-forward complete, IC held up but a beta-drift caveat is "
-        "unresolved.  S10 still pending."
+        "**Trials #1 through #28 logged (cumulative N_TRIALS=28)  ·  "
+        "1 technical pass (S3-SA, best-of-3 caveat)  ·  4 STOP  ·  everything else FAIL**\n\n"
+        "Zero trials have cleared the in-sample DSR gate in an unambiguous sense.  S3-SA "
+        "(semiannual GP/A) is the sole technical pass but is best-of-3 from a frequency "
+        "sweep — walk-forward complete, IC held up but a beta-drift caveat is unresolved.  "
+        "4 trials stopped before a full backtest (H1: wrong-sign event study; S14, S20: "
+        "Phase-1 data-feasibility blocks; S18: zero trades survived the persistence "
+        "filter) — none pending."
     )
 
     st.caption(
-        "In-sample window: 2015-01-01 → 2021-01-01  |  Universe: US small/mid-cap (100M–2B USD), "
-        "SEC XBRL + Tiingo, point-in-time  |  DSR gate: Deflated Sharpe Ratio, cumulative "
-        "N_TRIALS  |  All numbers verified against source files 2026-07-06."
+        "In-sample window: 2015-01-01 → 2021-01-01 (unless noted per-trial)  |  Universe: "
+        "US small/mid-cap (100M–2B USD), SEC XBRL + Tiingo, point-in-time  |  DSR gate: "
+        "Deflated Sharpe Ratio, cumulative N_TRIALS  |  Last reconciled against "
+        "research/CORRECTED_TRIAL_REGISTRY.md and trial_registry.csv 2026-07-15."
     )
 
     # ── E1–E4 group ───────────────────────────────────────────────────────────
@@ -1213,68 +1342,80 @@ def render_phase3_registry_page() -> None:
 
     st.divider()
 
-    # ── S2, S5, S7, S8 (independent) ─────────────────────────────────────────
-    for tid in ("S2", "S5", "S7", "S8"):
+    # ── S2, S5, S7, S8, S10 (independent) ─────────────────────────────────────
+    for tid in ("S2", "S5", "S7", "S8", "S10"):
         t = next(x for x in _TRIALS if x["id"] == tid)
         dsr_map = {
             "S2": "#11  |  N_TRIALS=11",
             "S5": "#12  |  N_TRIALS=12",
             "S7": "#13  |  N_TRIALS=13",
             "S8": "#14  |  N_TRIALS=14",
+            "S10": "#15  |  N_TRIALS=15  (final ranked S1–S10 program signal)",
         }
         st.subheader(f"{t['id']} — {t['name']}")
         st.caption(f"DSR {dsr_map[tid]}  |  Independent trial")
         _render_trial_card(t)
         st.divider()
 
-    # ── Pending ───────────────────────────────────────────────────────────────
-    st.subheader("Pending — not yet run")
-    for p in _PENDING:
-        with st.expander(f"{p['id']} — {p['name']}  (rank #{p['rank']})"):
-            _render_badge("PENDING")
-            st.markdown(f"No results files exist for {p['id']}. Rank #{p['rank']} in the S1–S10 program.")
-
-    st.divider()
-
     # ── Open-Ended Research Phase (post-ranked S1–S10 program) ────────────────
     st.subheader("Open-Ended Research Phase")
     st.caption(
-        "Trials run after the original ranked S1–S10 program concluded. Each is an "
-        "independent hypothesis evaluated on its own DSR threshold (N_TRIALS = cumulative "
-        "count at time of run), not a pre-ranked slot."
+        "Trials run after the original ranked S1–S10 program concluded (DSR #16 onward). "
+        "Each is an independent hypothesis evaluated on its own DSR threshold (N_TRIALS = "
+        "cumulative count at time of run), not a pre-ranked slot. Includes 3 STOP "
+        "dispositions (S14, S18, S20) — feasibility blocks or zero qualifying trades, not "
+        "DSR failures."
     )
     for t in _OPEN_ENDED_TRIALS:
         _render_open_ended_card(t)
 
     st.divider()
 
-    # ── Russell-1 (new family: Russell Reconstitution) ────────────────────────
-    russell1 = next(t for t in _TRIALS if t["id"] == "Russell-1")
-    st.subheader("Russell-1 — Event Study: Pre-Effective-Date Anticipatory Drift")
+    # ── S22 group (long-only valuation comparison) ────────────────────────────
+    st.subheader("S22 — Long-Only Valuation Portfolio Comparison")
     st.caption(
-        "DSR #17 (new independent family: Russell Reconstitution)  |  Event study — "
-        "CAAR t-stat significance test, not an SR gate  |  Sourced via Wayback-archived "
-        "FTSE Russell reconstitution PDFs (2016–2023); 2024–2025 reserved holdout untouched."
+        "DSR #28  |  N_TRIALS=28 for all four sub-trials  |  Genuinely new construction "
+        "(long-only, not beta-neutral); not four separate independent trials"
+    )
+    _render_s22_group()
+
+    st.divider()
+
+    # ── Russell Reconstitution family (Russell-1 + Russell-3) ─────────────────
+    russell1 = next(t for t in _TRIALS if t["id"] == "Russell-1")
+    russell3 = next(t for t in _TRIALS if t["id"] == "Russell-3")
+    st.subheader("Russell Reconstitution Family — Russell-1 + Russell-3  (CLOSED)")
+    st.caption(
+        "DSR #17 (new independent family)  |  Event studies — CAAR t-stat significance "
+        "test, not an SR gate  |  Sourced via Wayback-archived FTSE Russell reconstitution "
+        "PDFs (2016–2023); 2024–2025 reserved holdout untouched  |  Both constructions "
+        "(annual confirmed-addition baskets, and a repeat-boundary-crosser subset) came "
+        "back null — family recommended closed, no further sub-trials planned."
     )
     _render_trial_card(russell1)
+    _render_trial_card(russell3)
 
     st.divider()
 
     # ── Failure taxonomy ──────────────────────────────────────────────────────
-    with st.expander("Failure-mode taxonomy (all 14 trials)", expanded=False):
+    with st.expander("Failure-mode taxonomy (all trials, #1–#28)", expanded=False):
         rows = [
             ("Wrong-sign signal",
-             "E3, S9, S6, S1",
-             "IC is negative or inverted. Momentum and IVOL reversals have plausible "
-             "small-cap-specific explanations (retail concentration in high-IVOL names, "
-             "crash sensitivity)."),
+             "E3, S9, S6, S1, S10",
+             "IC is negative or inverted. Momentum, IVOL, and Amihud illiquidity "
+             "reversals have plausible small-cap-specific explanations (retail "
+             "concentration in high-IVOL names, crash sensitivity, thin-name dynamics)."),
             ("Genuinely null / near-null",
-             "E1, E4, S5",
-             "IC ≈ 0; no evidence the hypothesized effect exists in this sample."),
+             "E1, E4, S5, S11, S13, S15, S19",
+             "IC ≈ 0 or statistically indistinguishable from zero; no evidence the "
+             "hypothesized effect exists in this sample. S13/S19 additionally found the "
+             "underlying mechanism poorly differentiated from an existing signal or "
+             "structurally data-gapped."),
             ("Cost-nonviable (real signal, cost kills)",
-             "S4, S3-Q, S6 (partially)",
+             "S4, S3-Q, S6 (partially), S21",
              "Positive gross alpha and correctly signed IC — execution cost structure "
-             "makes the strategy untradable at this cap tier."),
+             "makes the strategy untradable at this cap tier. S21 is the most extreme "
+             "example in the registry (gross Sharpe 0.95, net Sharpe −17.4)."),
             ("Crash-prone / regime-sensitive neutralization",
              "E2, S1, S7, S2",
              "Large drawdowns concentrated in 2020 overwhelm period-mean performance. "
@@ -1286,8 +1427,27 @@ def render_phase3_registry_page() -> None:
             ("High-IC-but-gross-negative (distinct category)",
              "S2, S8",
              "Strong IC signal (S2 t=7.55, S8 t=3.40) yet gross return is negative. "
-             "Signal content and portfolio implementability are separate questions. "
-             "S8 (reversal) is gross-negative even with turnover discipline."),
+             "Signal content and portfolio implementability are separate questions."),
+            ("Reformulation did not beat the original",
+             "S16-A, S16-B, S17",
+             "Follow-ups to earlier trials (composite blend, industry-neutral rank, "
+             "vol-managed overlay) that fixed their diagnosed mechanical issue but still "
+             "failed to clear DSR — construction-level fixes, not free lunches."),
+            ("Unequal-universe artifact (corrected)",
+             "S22 (DCF/P-E/P-S/P-B)",
+             "An apparent ranking among four valuation signals evaporated once all four "
+             "were restricted to a common, equal-coverage universe — none is "
+             "distinguishable from the others once compared fairly."),
+            ("Feasibility stop — no PIT data source",
+             "S14, S20",
+             "Killed before a backtest could even be attempted: no free/already-"
+             "configured point-in-time data path exists for the target universe at the "
+             "current vendor tier. Not DSR failures."),
+            ("Feasibility stop — construction yielded nothing",
+             "S18",
+             "Zero pairs survived the pre-registered persistence filter across all 10 "
+             "rolling cycles — no return series exists to evaluate. Directly motivated "
+             "S21's redesign, which did produce trades."),
         ]
         st.dataframe(
             pd.DataFrame(rows, columns=["Mode", "Trials", "Description"]),

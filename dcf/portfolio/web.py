@@ -24,7 +24,10 @@ from valuation.reconcile     import reconcile
 st.set_page_config(page_title="Archer Capital", layout="wide")
 st.title("Archer Capital")
 
-tab_strategies, tab_valuation, tab_macro = st.tabs(["Strategies", "Valuation", "Macro Trading"])
+# The other research projects (Phase 3 registry, salmon, macro trading, private
+# competitor distress) are kept in the repo but no longer shown here, so the app
+# focuses on the Monte Carlo DCF tool and the experiments that test it.
+tab_valuation, tab_strategies = st.tabs(["Valuation", "Research"])
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -2068,45 +2071,21 @@ with tab_valuation:
 # ══════════════════════════════════════════════════════════════════════════════
 
 with tab_strategies:
-    from strategies.strategy_page import render_strategy_page
-    from strategies.private_competitor_distress.config import STRATEGY_CONFIG
-    from strategies.north_atlantic_salmon.page import render_salmon_page
     from strategies.dcf_tests.page import render_dcf_tests_page
-    from strategies.phase3_registry.page import render_phase3_registry_page
-    from strategies.phase3_registry.summary_page import render_phase3_summary_page
+    from strategies.valuation_compare.page import render_valuation_compare_page
 
     _SECTIONS = [
-        "DCF Tests — Research",
-        "North Atlantic Salmon — Research",
-        "Phase 3 — Results Summary",
-        "Phase 3 — Signal Research Registry",
-        STRATEGY_CONFIG["name"],
+        "DCF Tests: DCF vs. multiples, quality, Monte Carlo dispersion",
+        "DCF vs. P/E vs. P/S vs. P/B (S22)",
     ]
 
     selected = st.selectbox(
-        "Select section",
+        "Select research",
         options=_SECTIONS,
         key="strategy_select",
     )
 
-    if selected == "DCF Tests — Research":
+    if selected == _SECTIONS[0]:
         render_dcf_tests_page()
-    elif selected == "North Atlantic Salmon — Research":
-        render_salmon_page()
-    elif selected == "Phase 3 — Results Summary":
-        render_phase3_summary_page()
-    elif selected == "Phase 3 — Signal Research Registry":
-        render_phase3_registry_page()
     else:
-        _STRATEGY_REGISTRY = {STRATEGY_CONFIG["name"]: STRATEGY_CONFIG}
-        render_strategy_page(_STRATEGY_REGISTRY[selected])
-
-
-# ══════════════════════════════════════════════════════════════════════════════
-#  MACRO TRADING TAB
-# ══════════════════════════════════════════════════════════════════════════════
-
-with tab_macro:
-    from strategies.macro_trading.page import render_macro_trading_page
-
-    render_macro_trading_page()
+        render_valuation_compare_page()
