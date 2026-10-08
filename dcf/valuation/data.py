@@ -145,6 +145,32 @@ def fetch_raw(ticker: str, years: int = 5) -> RawData:
     except Exception:
         pass
 
+    # ── Quote fallbacks ───────────────────────────────────────────────────────
+    # Yahoo's quote endpoint (t.info) is often rate-limited on cloud hosts while
+    # the price-history endpoint still works. Fall back to the last close, then
+    # rebuild market cap from price × shares so WACC weights stay meaningful.
+    if not price_usd > 0:
+        try:
+            last = float(t.fast_info['last_price'])
+        except Exception:
+            last = float('nan')
+        if not last > 0:
+            try:
+                last = float(hist['Close'].dropna().iloc[-1])
+            except Exception:
+                last = float('nan')
+        if last > 0:
+            price_usd = last
+            if 'current_price_usd' in missing:
+                missing.remove('current_price_usd')
+            print(f"  [DATA] price for {ticker} taken from Yahoo price history")
+    if not mktcap_usd > 0 and price_usd > 0 and diluted_shares > 0:
+        mktcap_usd = price_usd * diluted_shares
+        mktcap_local = mktcap_usd / fx_rate if fx_rate > 0 else mktcap_usd
+        if 'market_cap_usd' in missing:
+            missing.remove('market_cap_usd')
+        print(f"  [DATA] market cap for {ticker} rebuilt from price × shares")
+
     # ── Financial statements ──────────────────────────────────────────────────
     def _fetch(primary: str, fallback: str) -> pd.DataFrame:
         for attr in (primary, fallback):

@@ -167,6 +167,8 @@ def _compute(a: Assumptions) -> DCFResult:
 
     ev           = pv_explicit + pv_tv
     equity_value = ev - a.net_debt
+    if not a.diluted_shares > 0:
+        raise ValueError("Diluted share count is zero or missing; cannot compute value per share.")
     vps_local    = equity_value / a.diluted_shares
 
     if a.fx_path is not None:

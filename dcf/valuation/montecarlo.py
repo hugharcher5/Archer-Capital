@@ -455,6 +455,39 @@ def _save_histogram(ticker, results, price, n_valid, copula_label,
 
 # ─────────────────────────── Public functions ─────────────────────────────────
 
+def _apply_preferred_levels(raw, reconcile_result) -> None:
+    """
+    Centre share count, debt and cash on the preferred source (EDGAR > FMP > Yahoo).
+
+    reconcile() picks the preferred source, but fetch_raw() only reads Yahoo.
+    Without this, the base case used Yahoo's levels regardless of the hierarchy,
+    and a blocked Yahoo quote left diluted_shares at 0.  Debt is standardised to
+    bonds + finance leases (operating leases excluded) in every path.
+    """
+    pref = getattr(reconcile_result, "preferred", None)
+    if pref is not None and (pref.currency or "").upper() != (raw.currency or "").upper():
+        print(f"  [RECON] preferred source currency {pref.currency} != {raw.currency}; keeping Yahoo levels")
+        pref = None
+
+    if pref is not None and math.isfinite(pref.diluted_shares) and pref.diluted_shares > 0:
+        raw.diluted_shares = float(pref.diluted_shares)
+    if pref is not None and math.isfinite(pref.total_debt) and pref.total_debt >= 0:
+        raw.total_debt = float(pref.total_debt)   # already standardised by the source fetcher
+    else:
+        raw.total_debt = max(0.0, raw.total_debt - getattr(raw, "op_lease_liab", 0.0))
+    if pref is not None and math.isfinite(pref.cash) and pref.cash >= 0:
+        raw.cash = float(pref.cash)
+
+    if not raw.market_cap_usd > 0 and raw.current_price_usd > 0 and raw.diluted_shares > 0:
+        raw.market_cap_usd = raw.current_price_usd * raw.diluted_shares
+        raw.market_cap_local = raw.market_cap_usd / raw.fx_rate if raw.fx_rate > 0 else raw.market_cap_usd
+
+    if not raw.current_price_usd > 0:
+        raise ValueError(f"No share price available for {raw.ticker} from Yahoo (quote or price history).")
+    if not raw.diluted_shares > 0:
+        raise ValueError("No share count available from any data source (Yahoo, FMP or SEC EDGAR).")
+
+
 def run_valuation(
     ticker: str,
     n_sims: int = 10_000,
@@ -478,6 +511,7 @@ def run_valuation(
         sigma_cross = {}
 
     raw    = fetch_raw(ticker)
+    _apply_preferred_levels(raw, reconcile_result)
     drvrs  = compute_drivers(raw)
     wacc_r = compute_wacc(raw, drvrs)
     sw = wacc_r.std_wacc   # historical WACC σ (or fallback) — no σ_cross (WACC inputs are market-derived)
