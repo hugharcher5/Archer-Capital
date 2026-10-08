@@ -2047,6 +2047,16 @@ with tab_valuation:
                 st.session_state["val_source_status"] = source_status
             except Exception as exc:
                 st.error(f"**Valuation failed for {ticker}**: {exc}")
+                # Show where it failed (file and line only, no data) so hosted
+                # failures can be diagnosed without access to the server logs.
+                import traceback
+                frames = traceback.extract_tb(exc.__traceback__)[-4:]
+                with st.expander("Technical details"):
+                    st.code("\n".join(
+                        f"{Path(f.filename).name}:{f.lineno} in {f.name}: {f.line}" for f in frames
+                    ) + f"\n{type(exc).__name__}: {exc}")
+                print(f"[valuation] {ticker} failed", flush=True)
+                traceback.print_exception(exc)
                 # Clear any stale result so the old ticker's output isn't shown
                 st.session_state.pop("val_result", None)
                 st.session_state.pop("val_source_status", None)
