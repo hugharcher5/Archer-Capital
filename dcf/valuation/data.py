@@ -207,6 +207,7 @@ def fetch_raw(ticker: str, years: int = 5) -> RawData:
     # ── Cash flow series ──────────────────────────────────────────────────────
     da    = _safe_row(cf, ['Depreciation And Amortization',
                            'Depreciation Depletion And Amortization',
+                           'Depreciation Amortization Depletion',
                            'Depreciation'],                                                  missing, 'da').abs()
     capex = _safe_row(cf, ['Capital Expenditure', 'Capital Expenditures',
                            'Purchase Of Property Plant And Equipment'],                      missing, 'capex').abs()

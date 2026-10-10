@@ -105,6 +105,24 @@ def compute_drivers(raw: RawData) -> Drivers:
     std_growth   = float(df['revenue_growth'].std())
     std_margin   = float(df['ebit_margin'].std())
     std_capex    = float(df['capex_pct'].std()) if df['capex_pct'].notna().sum() >= 2 else 0.0
+    def _latest_ratio(series: pd.Series) -> float:
+        """Latest year with both the item and revenue reported, as a share of revenue."""
+        both = pd.concat([series.abs(), raw.revenue], axis=1).dropna()
+        both = both[both.iloc[:, 1] != 0]
+        return float(both.iloc[-1, 0] / both.iloc[-1, 1]) if len(both) else float('nan')
+
+    # Yahoo sometimes drops a line for recent years (ABNB CapEx after 2022).
+    # Use the latest year that has it; fail clearly only if it is missing everywhere.
+    if not np.isfinite(da_pct):
+        da_pct = _latest_ratio(raw.da)
+    if not np.isfinite(capex_pct):
+        capex_pct = _latest_ratio(raw.capex)
+    for label, v in (("depreciation and amortisation", da_pct), ("capital expenditure", capex_pct)):
+        if not np.isfinite(v):
+            raise ValueError(
+                f"{raw.ticker}: no {label} figure found in the cash flow statement, "
+                "so free cash flow cannot be calculated."
+            )
 
     df['fcf_pct'] = (df['ebit'] * (1.0 - df['tax_rate']) + df['da'] - df['capex']) / df['revenue']
     _fcf_clean    = df['fcf_pct'].dropna()

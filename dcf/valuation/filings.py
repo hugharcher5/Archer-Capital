@@ -214,7 +214,17 @@ def apply_filing_data(raw, reconcile_result) -> dict:
             return f"latest 10-Q/10-K{when}"
         return f"{p.source_name} (SEC data unavailable for this field)"
 
-    if pref is not None and math.isfinite(pref.diluted_shares) and pref.diluted_shares > 0:
+    # Some filers tag share counts in millions (MCD files 712.3, not 712,300,000).
+    # A filing count more than 10x away from Yahoo's is a scaling error, not a
+    # real difference, so fall back to Yahoo's count.
+    yahoo_shares = raw.diluted_shares
+    if (pref is not None and math.isfinite(pref.diluted_shares) and pref.diluted_shares > 0
+            and yahoo_shares > 0 and not 0.1 < pref.diluted_shares / yahoo_shares < 10):
+        mark("diluted_shares", YAHOO,
+             f"The filing share count ({pref.diluted_shares:,.0f}) is more than 10x away from "
+             f"Yahoo's ({yahoo_shares:,.0f}), so it looks mis-scaled.")
+        shares_from_filing = False
+    elif pref is not None and math.isfinite(pref.diluted_shares) and pref.diluted_shares > 0:
         raw.diluted_shares = float(pref.diluted_shares)
         src = EDGAR if pref.source_name == "EDGAR" else pref.source_name
         mark("diluted_shares", src, _pref_detail(pref, "shares") +

@@ -20,6 +20,7 @@ from valuation.result        import ValuationResult
 from valuation.dcf           import value as _dcf_value
 from valuation.sources       import fetch_yahoo, fetch_fmp, fetch_edgar
 from valuation.reconcile     import reconcile
+from valuation.analysts      import AnalystBenchmarks, fetch_benchmarks
 
 st.set_page_config(page_title="Archer Capital", layout="wide")
 st.title("Archer Capital")
@@ -2141,6 +2142,235 @@ def _render_valuation(r: ValuationResult) -> None:
     _render_expander_reconciliation(r)
 
 
+# ── Analyst estimates sub-tab ─────────────────────────────────────────────────
+
+_BENCHMARK_CSV = _DCF_ROOT / "data" / "analyst_benchmark.csv"
+
+
+@st.cache_data(show_spinner=False, ttl=3600)
+def _cached_benchmarks(ticker: str) -> AnalystBenchmarks:
+    return fetch_benchmarks(ticker)
+
+
+def _target_mode(vals: np.ndarray) -> tuple[float, str]:
+    """Most common target; analysts favour round numbers, so repeats are usual.
+    With no repeats, fall back to the peak of a kernel density estimate."""
+    counts = pd.Series(vals).round(2).value_counts()
+    if counts.iloc[0] > 1:
+        top = counts[counts == counts.iloc[0]].index
+        return float(min(top)), f"{int(counts.iloc[0])} firms"
+    if len(vals) > 2 and vals.std() > 0:
+        grid = np.linspace(vals.min(), vals.max(), 400)
+        return float(grid[np.argmax(scipy.stats.gaussian_kde(vals)(grid))]), "density peak"
+    return float(np.median(vals)), "no repeats"
+
+
+def _render_analyst_estimates(r: ValuationResult, b: AnalystBenchmarks) -> None:
+    price   = r.current_price_usd
+    targets = b.targets
+    our_p50 = r.p50 if r.dcf_applicable and math.isfinite(r.p50) else None
+
+    st.subheader(f"{r.ticker}: analyst price targets")
+    s = b.summary or {}
+    if targets.empty and s.get("mean"):
+        st.info(f"Yahoo Finance has no firm-by-firm targets for {r.ticker} from the last 12 months, "
+                "only its consensus summary, so no distribution can be drawn.")
+        c = st.columns(4)
+        c[0].metric("Mean", f"${s['mean']:,.2f}", delta=f"{(s['mean'] - price) / price * 100:+.1f}% vs price")
+        c[1].metric("Median", f"${s.get('median', float('nan')):,.2f}")
+        c[2].metric("High", f"${s.get('high', float('nan')):,.2f}")
+        c[3].metric("Low", f"${s.get('low', float('nan')):,.2f}")
+    elif targets.empty:
+        st.info(f"Yahoo Finance lists no analyst price targets for {r.ticker} in the last 12 months.")
+    else:
+        vals = targets["Target"].to_numpy(dtype=float)
+        mu  = float(vals.mean())
+        sd  = float(vals.std(ddof=1)) if len(vals) > 1 else 0.0
+        med = float(np.median(vals))
+        mode, mode_note = _target_mode(vals)
+
+        c = st.columns(6)
+        c[0].metric("Mean", f"${mu:,.2f}", delta=f"{(mu - price) / price * 100:+.1f}% vs price")
+        c[1].metric("Std deviation", f"${sd:,.2f}")
+        c[2].metric("Median", f"${med:,.2f}")
+        c[3].metric("Mode", f"${mode:,.2f}", help=f"Most common target ({mode_note}).")
+        c[4].metric("High", f"${vals.max():,.2f}")
+        c[5].metric("Low", f"${vals.min():,.2f}")
+        if our_p50 is not None:
+            gap = (our_p50 - mu) / mu * 100
+            st.markdown(
+                f"**{len(vals)} firms.** Our DCF median of **\\${our_p50:,.2f}** is "
+                f"**{abs(gap):.1f}% {'below' if gap < 0 else 'above'}** the analyst mean"
+                + (f", and the free FMP DCF puts the stock at **\\${b.fmp_dcf:,.2f}**."
+                   if b.fmp_dcf is not None else ".")
+            )
+
+        refs = [p for p in (price, our_p50, b.fmp_dcf, vals.min(), vals.max()) if p is not None]
+        lo, hi = min(refs), max(refs)
+        if sd > 0:
+            lo, hi = min(lo, mu - 3.5 * sd), max(hi, mu + 3.5 * sd)
+        pad = 0.05 * ((hi - lo) or hi or 1.0)
+        x = np.linspace(max(lo - pad, 0.0), hi + pad, 400)
+
+        fig = go.Figure()
+        peak = 1.0
+        if sd > 0:
+            y = scipy.stats.norm.pdf(x, mu, sd)
+            peak = float(y.max())
+            fig.add_trace(go.Scatter(
+                x=x, y=y, mode="lines", fill="tozeroy",
+                fillcolor="rgba(70, 130, 180, 0.25)", line=dict(color="steelblue", width=2),
+                name=f"Normal fit (mean ${mu:,.0f}, sd ${sd:,.0f})",
+                hovertemplate="$%{x:,.2f}<extra></extra>",
+            ))
+        # One tick per firm along the bottom, so every individual target stays visible
+        fig.add_trace(go.Scatter(
+            x=vals, y=np.full(len(vals), peak * 0.03), mode="markers",
+            marker=dict(symbol="line-ns-open", size=18, color="steelblue", line=dict(width=2)),
+            text=targets["Firm"], customdata=targets["Date"].astype(str),
+            hovertemplate="%{text}: $%{x:,.2f}<br>%{customdata}<extra></extra>",
+            name="Individual analyst targets",
+        ))
+        lines = [(price, "crimson", "solid", f"Market ${price:,.2f}", "top right")]
+        if our_p50 is not None:
+            lines.append((our_p50, "seagreen", "dash", f"Our DCF P50 ${our_p50:,.2f}", "top left"))
+        if b.fmp_dcf is not None:
+            lines.append((b.fmp_dcf, "darkorange", "dot", f"FMP DCF ${b.fmp_dcf:,.2f}", "bottom right"))
+        for xv, color, dash, label, pos in lines:
+            fig.add_vline(x=xv, line_color=color, line_width=2, line_dash=dash,
+                          annotation_text=label, annotation_position=pos)
+        fig.update_layout(
+            title=f"{r.ticker}: analyst 12-month price targets (latest per firm, last 12 months)",
+            xaxis_title="Price per share (USD)", yaxis_title="Probability density",
+            height=420, margin=dict(t=50, b=40),
+            legend=dict(orientation="h", yanchor="top", y=-0.2),
+        )
+        st.plotly_chart(fig, use_container_width=True)
+
+        with st.expander(f"All {len(vals)} analyst targets"):
+            st.dataframe(
+                targets.assign(**{"vs price": (targets["Target"] / price - 1).map("{:+.1%}".format),
+                                  "Target": targets["Target"].map("${:,.2f}".format)}),
+                hide_index=True, use_container_width=True,
+            )
+
+    st.caption(
+        "Analyst targets come from Yahoo Finance's record of rating changes: the latest price "
+        "target each firm published in the last 12 months. They are 12-month price targets, "
+        "usually built from a mix of DCF and trading multiples, so they sit closer to the market "
+        "than a pure intrinsic value. The FMP DCF is Financial Modeling Prep's free, independently "
+        "calculated discounted cash flow value, a second intrinsic-value benchmark."
+    )
+    for name, err in b.errors.items():
+        st.warning(f"{name} unavailable: {err}")
+
+
+@st.cache_data(show_spinner=False)
+def _load_benchmark_study() -> pd.DataFrame:
+    return pd.read_csv(_BENCHMARK_CSV)
+
+
+def _render_benchmark_study() -> None:
+    st.subheader("How our DCF compares with analysts across 100 stocks")
+    if not _BENCHMARK_CSV.exists():
+        st.info("The 100-stock comparison has not been generated yet.")
+        return
+    df = _load_benchmark_study()
+    run_date = str(df["run_date"].iloc[0]) if "run_date" in df else ""
+    v = df[df["status"] == "valued"].dropna(subset=["p50", "price", "analyst_mean"]).copy()
+    if v.empty:
+        st.info("No valued stocks in the comparison file.")
+        return
+    v["ours_vs_price"]    = v["p50"] / v["price"] - 1
+    v["analyst_vs_price"] = v["analyst_mean"] / v["price"] - 1
+    v["ours_vs_analyst"]  = v["p50"] / v["analyst_mean"] - 1
+    n = len(v)
+
+    ours_under = (v["ours_vs_price"] > 0).mean()
+    an_under   = (v["analyst_vs_price"] > 0).mean()
+    below_an   = (v["ours_vs_analyst"] < 0).mean()
+    agree      = ((v["ours_vs_price"] > 0) == (v["analyst_vs_price"] > 0)).mean()
+    med_gap    = v["ours_vs_analyst"].median()
+    abs_gap_px = v["ours_vs_price"].abs().median()
+
+    c = st.columns(4)
+    c[0].metric("Stocks valued", f"{n} of {len(df)}")
+    c[1].metric("Our median vs analyst mean", f"{med_gap:+.0%}",
+                help="Median of (our DCF P50 ÷ analyst mean target − 1).")
+    c[2].metric("We are below analysts on", f"{below_an:.0%}")
+    c[3].metric("Same verdict as analysts", f"{agree:.0%}",
+                help="Both say undervalued, or both say overvalued, relative to today's price.")
+
+    verdicts = pd.DataFrame({
+        "": ["Our DCF (P50 vs price)", "Analysts (mean target vs price)"],
+        "Undervalued": [f"{ours_under:.0%}", f"{an_under:.0%}"],
+        "Overvalued":  [f"{1 - ours_under:.0%}", f"{1 - an_under:.0%}"],
+    })
+    st.dataframe(verdicts, hide_index=True, use_container_width=False)
+
+    if below_an >= 0.7:
+        lean = (f"The model is consistently more conservative than the street: it sits below the "
+                f"analyst mean on {below_an:.0%} of stocks, by a median of {abs(med_gap):.0%}.")
+    elif below_an <= 0.3:
+        lean = (f"The model is consistently more optimistic than the street: it sits above the "
+                f"analyst mean on {1 - below_an:.0%} of stocks, by a median of {abs(med_gap):.0%}.")
+    else:
+        lean = (f"The model has no consistent lean against the street: it is below the analyst mean "
+                f"on {below_an:.0%} of stocks and above on {1 - below_an:.0%}.")
+    fmp_note = ""
+    if "fmp_dcf" in v and v["fmp_dcf"].notna().sum() >= 10:
+        f = v.dropna(subset=["fmp_dcf"])
+        f_gap = (f["p50"] / f["fmp_dcf"] - 1).median()
+        f_px  = (f["fmp_dcf"] / f["price"] - 1).median()
+        fmp_note = (f" Against another DCF (FMP, {len(f)} stocks) the median gap is {f_gap:+.0%}, "
+                    f"and FMP's DCF itself sits a median {f_px:+.0%} from the market price, so "
+                    f"the gap to analysts is largely a DCF-versus-price-target gap, not a quirk of "
+                    f"this model.")
+    st.markdown(
+        f"{lean} Our median value is a typical {abs_gap_px:.0%} away from the market price."
+        f"{fmp_note} Analyst targets are 12-month price targets that lean on trading multiples, "
+        f"while a DCF built on each company's own history only rewards growth it has already shown."
+    )
+
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(
+        x=v["analyst_vs_price"] * 100, y=v["ours_vs_price"] * 100, mode="markers+text",
+        text=v["ticker"], textposition="top center", textfont=dict(size=9),
+        marker=dict(size=8, color="steelblue"),
+        hovertemplate="%{text}<br>Analysts %{x:+.0f}%<br>Our DCF %{y:+.0f}%<extra></extra>",
+        showlegend=False,
+    ))
+    both = pd.concat([v["analyst_vs_price"], v["ours_vs_price"]]) * 100
+    lim = [float(both.min()), float(both.max())]
+    fig.add_trace(go.Scatter(x=lim, y=lim, mode="lines", line=dict(color="grey", dash="dash"),
+                             name="Same as analysts", hoverinfo="skip"))
+    fig.add_hline(y=0, line_color="crimson", line_width=1)
+    fig.add_vline(x=0, line_color="crimson", line_width=1)
+    fig.update_layout(
+        title="Upside to fair value: our DCF median vs analyst mean target (each point is one stock)",
+        xaxis_title="Analyst mean target vs price (%)", yaxis_title="Our DCF P50 vs price (%)",
+        height=520, margin=dict(t=50, b=40),
+        legend=dict(orientation="h", yanchor="top", y=-0.15),
+    )
+    st.plotly_chart(fig, use_container_width=True)
+    st.caption("Points below the dashed line are stocks where our DCF is more conservative than analysts.")
+
+    table = df.copy()
+    for col in ("price", "p10", "p50", "p90", "analyst_mean", "fmp_dcf"):
+        table[col] = table[col].map(lambda x: f"${x:,.2f}" if pd.notna(x) else "")
+    table["Our P50 vs analysts"] = (df["p50"] / df["analyst_mean"] - 1).map(
+        lambda x: f"{x:+.0%}" if pd.notna(x) else "")
+    table = table.rename(columns={
+        "ticker": "Ticker", "price": "Price", "p10": "Our P10", "p50": "Our P50", "p90": "Our P90",
+        "analyst_mean": "Analyst mean", "analyst_n": "Analysts", "fmp_dcf": "FMP DCF",
+        "status": "Status", "note": "Note",
+    })
+    with st.expander(f"All {len(df)} stocks" + (f" (run {run_date})" if run_date else "")):
+        st.dataframe(table[["Ticker", "Price", "Our P10", "Our P50", "Our P90", "Analyst mean",
+                            "Analysts", "Our P50 vs analysts", "FMP DCF", "Status", "Note"]],
+                     hide_index=True, use_container_width=True)
+
+
 # ── Valuation tab layout ──────────────────────────────────────────────────────
 
 with tab_valuation:
@@ -2183,7 +2413,16 @@ with tab_valuation:
                 f"⚠ Data source degraded — this valuation reconciles **{n_ok} of "
                 f"{len(status)}** intended sources.  {detail}"
             )
-        _render_valuation(st.session_state["val_result"])
+        result = st.session_state["val_result"]
+        sub_dcf, sub_analysts = st.tabs(["Our DCF", "Analyst estimates"])
+        with sub_dcf:
+            _render_valuation(result)
+        with sub_analysts:
+            with st.spinner("Fetching analyst price targets…"):
+                benchmarks = _cached_benchmarks(result.ticker)
+            _render_analyst_estimates(result, benchmarks)
+            st.divider()
+            _render_benchmark_study()
 
 
 # ══════════════════════════════════════════════════════════════════════════════

@@ -77,9 +77,8 @@ class Assumptions:
     fx_path: object = None   # np.ndarray shape (forecast_years,) | None
 
     # ── CapEx treatment ───────────────────────────────────────────────────────
-    # False (live tool): CapEx stays at capex_pct of revenue every year, so CapEx
-    #   grows with revenue and the terminal year keeps the company's own
-    #   reinvestment rate.
+    # False (live tool): net reinvestment (CapEx% − D&A%) fades to the level the
+    #   terminal growth rate needs, scaled by terminal_g / revenue_growth (see _compute).
     # True (legacy, used by the archived research backtests): CapEx% fades
     #   linearly to D&A% by the final year.
     capex_fade_to_da: bool = True
@@ -109,10 +108,21 @@ def _compute(a: Assumptions) -> DCFResult:
     # Growth schedule: linearly fades from starting rate to terminal_g
     growth_rates = np.linspace(a.revenue_growth, a.terminal_g, a.forecast_years)
 
-    # CapEx as a share of revenue.  Live tool: held at capex_pct, so CapEx grows
-    # in line with revenue.  Legacy research path: fades to D&A% by year N.
-    if a.capex_fade_to_da and a.capex_pct > a.da_pct:
+    # CapEx as a share of revenue.
+    # Legacy research path: fades to D&A% by year N (zero net reinvestment).
+    # Live tool: net reinvestment (CapEx% − D&A%) fades to the level the terminal
+    # growth rate needs.  Reinvestment = growth / return on capital, so with the
+    # company's historical return on capital held fixed, net reinvestment scales
+    # by terminal_g / revenue_growth.  Never scaled up: companies already growing
+    # at or below terminal_g keep their own rate.  Without this, a utility
+    # spending 40% of revenue on CapEx to grow 4% would be assumed to keep doing
+    # so while growing 2.5% forever, which drives its value negative.
+    net_reinvest = a.capex_pct - a.da_pct
+    if a.capex_fade_to_da and net_reinvest > 0:
         capex_pcts = np.linspace(a.capex_pct, a.da_pct, a.forecast_years)
+    elif net_reinvest > 0 and np.isfinite(net_reinvest):
+        scale = min(1.0, max(0.0, a.terminal_g / max(a.revenue_growth, a.terminal_g, 1e-9)))
+        capex_pcts = np.linspace(a.capex_pct, a.da_pct + net_reinvest * scale, a.forecast_years)
     else:
         capex_pcts = np.full(a.forecast_years, a.capex_pct)
 
