@@ -112,11 +112,137 @@ _EXPERIMENTS = [
     {
         "id": "S10",
         "title": "Amihud Illiquidity",
-        "hypothesis": "Pending.",
-        "result_line": "Not yet run.",
-        "verdict": "PENDING",
+        "hypothesis": "Explicit cost-model stress test, final ranked S1–S10 program signal: long high-ILLIQ (top quintile), short low-ILLIQ (bottom quintile) — pre-registered as not expected to pass net of costs.",
+        "result_line": "IC: −0.053 (t=−4.60) | Gross: −7.23%/yr | Cost: 617bps/yr | Net: −12.97%/yr | Sharpe: −1.129 | Max DD: −51.7% | Beta: −0.151 | DSR: FAIL (−0.565 < 0.306)",
+        "verdict": "FAIL",
         "bug": False,
-        "notes": "No results files exist. Rank #10 in the S1–S10 program.",
+        "notes": "Strongest IC t-stat magnitude of any trial in the program (t=−4.60), but negative: the illiquidity premium is genuinely inverted in this sample, not merely a cost-model artifact — least-liquid small/mid-caps underperformed the most-liquid names outright. Failure mode: wrong-sign, and significantly so.",
+    },
+    {
+        "id": "Russell-1",
+        "title": "Pre-Effective-Date Anticipatory Drift (Russell Reconstitution)",
+        "hypothesis": "First trial in a new independent family. Stocks confirmed for addition to a Russell US index drift upward between the preliminary-list announcement and the effective date, as funds anticipate forced index buying. Equal-weight long-only basket of confirmed R3000 additions vs IWM.",
+        "result_line": "CAAR (abnormal vs IWM, gross): +0.64% | t=+0.416 | win rate 62.5% (5/8 cycles, 2016–2023) — event study, no SR gate.",
+        "verdict": "FAIL",
+        "bug": False,
+        "notes": "Not significant — no reliable pre-effective-date drift detected. Sharpe/CALMAR (+0.032/+0.014) shown for completeness only; this is an 8-point event study, not a continuous strategy. 2022 (−8.9% abnormal) is the largest single-cycle contributor but stays under the 40% concentration flag. 2015 excluded (no ticker table recoverable at the time). 2024–2025 holdout reserved, untouched.",
+    },
+    {
+        "id": "Russell-3",
+        "title": "Boundary-Crossing Subset (Russell Reconstitution family)",
+        "hypothesis": "Family member sharing Russell-1's DSR slot: companies that cross the Russell index-inclusion boundary multiple times across 2016–2023 isolate the pure membership/passive-flow effect more cleanly than Russell-1's additions-only design, since each company is its own control across repeated crossings.",
+        "result_line": "POOLED N=1493 CAAR=+0.31% t=+0.615 | ADDITIONS-ONLY N=822 CAAR=−0.60% t=−0.958 (wrong-signed) | DELETIONS-ONLY N=671 CAAR=+1.42% t=+1.775 (wrong-signed, marginal)",
+        "verdict": "FAIL",
+        "bug": False,
+        "notes": "748 repeat-crosser tickers found (~39% of the full universe) — not a thin sample, contrary to the pre-registered expectation it might be under 10. No subset (pooled/additions/deletions) is materially different from Russell-1's own null. RECOMMENDATION (stated in the trial itself): close the Russell Reconstitution family — two independent constructions both failed to find a tradeable effect.",
+    },
+    {
+        "id": "S11",
+        "title": "Accruals Quality (Sloan 1996)",
+        "hypothesis": "Total accruals (earnings driven by accounting adjustments rather than cash generation) predict underperformance in high-accruals firms. Selected as the highest-probability candidate to replicate GP/A's structural profile (slow-moving, XBRL-only, no price-timing).",
+        "result_line": "IC: +0.024 (t=1.68, wrong-signed vs hypothesis) | Gross: −1.11%/yr | Turnover: 25%/quarter | Sharpe: −0.336 | Max DD: −40.5% | DSR: FAIL (−0.168 < 0.313, N=16)",
+        "verdict": "FAIL",
+        "bug": False,
+        "notes": "IC not statistically significant and opposite-signed to the hypothesis. Turnover matched GP/A's low profile as predicted, confirming this is a cost-independent test — no real signal exists to be killed by execution costs. Failure mode: genuinely null. Methodology note: an accession-number-matching bug initially inflated the annual-TTM fallback rate to 85–93%; fixed by matching on the intersection of accession numbers between NetIncomeLoss and CFO, correcting fallback to a genuine 30%.",
+    },
+    {
+        "id": "S14",
+        "title": "Analyst EPS Revisions (thinly-covered small/mid-cap)",
+        "hypothesis": "In thinly-covered small/mid-cap names (1–3 analysts), EPS estimate revisions are underreacted to given how much information a single revision carries relative to consensus.",
+        "result_line": "PHASE 1 FEASIBILITY CHECK ONLY — STOPPED BEFORE BACKTEST.",
+        "verdict": "STOP",
+        "bug": False,
+        "notes": "No usable point-in-time analyst-estimate data source exists in this project. Tiingo has no analyst-estimate tier; FMP (the only analyst-estimate-adjacent vendor configured) returns HTTP 402 for every small/mid-cap ticker tested — the paywall excludes exactly the universe the hypothesis targets. Even for accessible large-caps, FMP's endpoint is a live forward-looking snapshot with no historical vintage field, unusable for a PIT backtest. Side finding: FMP's v3 statement endpoints (used elsewhere in this project) now return 403 — a pre-existing production break, flagged separately. VERDICT: kill before backtest; upgrading FMP's tier was not attempted (real cost, left as an open item).",
+    },
+    {
+        "id": "S15",
+        "title": "Composite IC (rank-percentile blend: GP/A + Residual Reversal + IVOL-Value)",
+        "hypothesis": "Equal-weighted rank-percentile composite of three signals with real, correctly-signed but individually-failing IC could produce a genuinely tradeable Sharpe through diversification, even though each fails standalone for a different reason.",
+        "result_line": "IC: +0.029 (t=1.64) | Gross: +6.30%/yr | Cost: 801bps/yr | Net: −1.85%/yr | Sharpe: −0.070 | Max DD: −32.6% | DSR: FAIL (−0.035 < 0.331)",
+        "verdict": "FAIL",
+        "bug": False,
+        "notes": "Composite Sharpe (−0.070) did not beat the best single component alone (GP/A +0.0068) — diversification did not help. Component pairwise correlation GP/IVOLValue was high (+0.563), and IVOL-Value's continuous-score conversion (needed to blend into one rank) flipped its own IC sign relative to S7's original hard double-sort — both diagnosed causes were fixed in the S16-A follow-up, which still failed to rescue the family. Promotion criteria not met.",
+    },
+    {
+        "id": "S13",
+        "title": "Opportunistic Insider Cluster Buying",
+        "hypothesis": "Cohen/Malloy/Pomorski (2012) routine-vs-opportunistic distinction applied to E1's naive net-insider-buying signal: cluster = ≥3 different insiders buying at the same company within 30 days. Long = confirmed cluster; short = zero insider activity.",
+        "result_line": "IC: +0.014 (t=0.85) | Gross: −0.74%/yr | Cost: 780bps/yr | Net: −8.26%/yr | Sharpe: −0.857 | Max DD: −27.0% | DSR: FAIL (−0.428 < 0.456)",
+        "verdict": "FAIL",
+        "bug": False,
+        "notes": "Reformulated signal modestly improved over E1's naive rerun (IC 0.0043→0.014) but remains statistically insignificant. Major pre-existing data-coverage gap discovered (not caused by this trial): the reused mgmt_pit Form-4 cache is a total blackout for 11 of 24 quarters — effective window only 13/24. Cluster events were not rare when data existed (822 events); sign audit found 7 violations. Concurrency note: a trial_number collision with two concurrent-session trials (S14, S15) was discovered and corrected post-hoc.",
+    },
+    {
+        "id": "S16-A",
+        "title": "Multi-Sleeve Blend (GP/A + S7-original + S8, equal 1/3 weight)",
+        "hypothesis": "Three independently beta-neutral sleeves, blended at return level (not merged rank score like S15), should achieve genuine diversification by directly fixing S15's two diagnosed failure causes (component correlation, S7's sign flip under continuous scoring).",
+        "result_line": "Gross: −0.64%/yr | Cost: 668bps/yr | Net: −7.12%/yr | Sharpe: −0.740 | Max DD: −39.1% | DSR: FAIL (−0.370 < 0.341)",
+        "verdict": "FAIL",
+        "bug": False,
+        "notes": "Both diagnosed fixes confirmed working (S7/S8 correlation improved to −0.515; S7 kept its correct-signed original IC of +0.0358) — yet the blend Sharpe (−0.740) is worse than S15's already-failing composite (−0.070). Separate-sleeve construction did not rescue the family either. Universe note: genuine PIT Russell 2000 membership was requested but not reconstructable from existing archives; fell back to the standard universe, confirmed with user.",
+    },
+    {
+        "id": "S16-B",
+        "title": "Industry-Neutral GP/A (within-SIC ranking)",
+        "hypothesis": "Ranking GP/A within each SIC major-group first (instead of S3-Q's full-universe rank) removes accidental sector bets, which should lower realized beta and improve Sharpe/CALMAR.",
+        "result_line": "IC: +0.034 (t=2.27) | Gross: +7.49%/yr | Cost: 471bps/yr | Net: +2.63%/yr | Sharpe: 0.270 | Max DD: −20.0% | DSR: FAIL (0.135 < 0.345)",
+        "verdict": "FAIL",
+        "bug": False,
+        "notes": "Neither motivating premise held: |beta| was not lower (−0.057 vs S3-Q's own 0.054) and Sharpe was not improved (0.270 vs S3-Q's 0.433). Sector concentration did improve mechanically (long-leg HHI 0.063 vs 0.081) but didn't translate into better risk-adjusted returns. IC held up (0.034 vs original 0.040, both significant).",
+    },
+    {
+        "id": "S17",
+        "title": "Volatility-Managed GP/A (Moreira & Muir overlay)",
+        "hypothesis": "Scaling S3-Q's beta-neutral GP/A gross exposure inversely to trailing 6-month realized vol (targeting 10% annualized) improves Sharpe/CALMAR without altering stock selection.",
+        "result_line": "IC: +0.046 (t=2.70) | Gross: +7.57%/yr | Cost: 273bps/yr | Net: +4.72%/yr | Sharpe: 0.481 | CALMAR: 0.329 | Max DD: −14.3% | DSR: FAIL (0.241 < 0.303, N=32)",
+        "verdict": "FAIL",
+        "bug": False,
+        "notes": "Best risk-adjusted result of any GP/A variant tested (Sharpe 0.481, Max DD only −14.3%) but still short of the DSR bar. A parallel 'base' (no overlay) run on the identical window confirmed the overlay improves both Sharpe and CALMAR directionally (base Sharpe 0.451) — works, just not enough. 2020: the overlay reduced max-drawdown trough but underperformed base on full-year cumulative return, since backward-looking trailing vol lagged into the Q2/Q3 2020 recovery.",
+    },
+    {
+        "id": "S18",
+        "title": "Small-Cap Sector-Bucketed Pairs Trading",
+        "hypothesis": "Relative-value mean-reversion between cointegrated, same-industry pairs: sector bucketing → hierarchical clustering → BH-FDR-corrected Engle-Granger cointegration → 2-consecutive-cycle persistence filter (the pair-selection analog of this registry's own DSR discipline).",
+        "result_line": "STOP — zero trades under the registered methodology.",
+        "verdict": "STOP",
+        "bug": False,
+        "notes": "Zero pairs ever achieved 2-consecutive-cycle persistence across all 10 rolling cycles (2015–2021) — not relaxed after seeing this, which would defeat the trial's own multiple-testing control. Verified not a bug: same-sector correlations in this universe are structurally much lower than large-cap pairs-trading intuition assumes (~0.2–0.3, rarely above 0.6). A diagnostic-only (non-registered) bypass of the persistence filter gave 16 trades, net Sharpe −0.454, gross near-breakeven — not a 'good signal ruined by costs' story either. Directly motivated S21's basket-relative redesign.",
+    },
+    {
+        "id": "S19",
+        "title": "52-Week-High Anchoring",
+        "hypothesis": "George & Hwang (2004): investors anchor on a stock's 52-week high as a psychological ceiling; nearness to it should predict positive drift as good news is underreacted to.",
+        "result_line": "IC: +0.004 (t=0.24) | Gross: −8.37%/yr | Cost: 1305bps/yr | Net: −19.77%/yr | Sharpe: −0.908 | Max DD: −75.7% | DSR: FAIL (−0.262 < 0.206)",
+        "verdict": "FAIL",
+        "bug": False,
+        "notes": "IC essentially null. Momentum independence check (core secondary test): nearness correlates 0.611 with S9's 12-1 momentum — contradicts the literature's 'largely independent' claim in this universe. A joint Fama-MacBeth regression flips nearness's sign once momentum is controlled for, while momentum stays correctly signed — nearness reads as a weaker, noisier restatement of momentum here, not an independent mechanism. Already losing pre-2020 too, not purely a COVID story.",
+    },
+    {
+        "id": "S20",
+        "title": "Institutional 13F 'Smart Money' Accumulation",
+        "hypothesis": "A new or meaningfully increased 13F institutional position in a thinly-covered small/mid-cap name may signal information the market hasn't priced in — distinct mechanism from S13 (external professional capital vs. internal insiders).",
+        "result_line": "STOP — CUSIP-to-ticker crosswalk blocked before backtest.",
+        "verdict": "STOP",
+        "bug": False,
+        "notes": "SEC EDGAR bulk 13F data itself is free and not blocked; the CUSIP crosswalk is: FMP's /profile endpoint hit a hard account-wide quota wall, and OpenFIGI (free alternative) doesn't expose CUSIP at all. Stopped per explicit user confirmation rather than force a partial, order-biased universe. Side observation (partial sample, not validated): 82–88% of resolved names were held by ≥1 13F filer, suggesting real coverage would likely be high if solved. Unlike S14, this is a solvable-with-more-time-or-budget blocker. A free rapidfuzz-based crosswalk alternative was later confirmed feasible (78–84% coverage) but Phase 2 has not been authorized/run.",
+    },
+    {
+        "id": "S21",
+        "title": "Cluster-Conditioned Short-Term Reversion",
+        "hypothesis": "Hybrid of S18 (pairs) and S8 (full-cross-section reversal): within sector-bucketed, loosely-correlated clusters, a member deviating >2.5σ from its cluster's leave-one-out average is traded long/short against the basket, exiting on reversion or a 5-day forced close.",
+        "result_line": "IC: +0.021 (t=1.57) | Gross: +5.78%/yr | Cost: 10,999bps/yr | Net: −66.44%/yr | Sharpe: −17.411 (net) / 0.954 (gross) | Max DD: −99.5% | DSR: FAIL (−5.026 < 0.231)",
+        "verdict": "FAIL",
+        "bug": False,
+        "notes": "HEADLINE FINDING: a real, positive gross signal (gross Sharpe 0.954, IC positive across all 10/10 cycles) completely destroyed by transaction costs — the most extreme version of the registry's 'signal-killed-by-cost' pattern (next-worst trial's cost drag was ~2.7x smaller), attributable entirely to trading frequency (avg 4.9-day holds; 99.6% of trades force-close on the timer rather than genuinely reverting). Successfully solved both motivating questions from S18/S8 (produced 4,683 tradeable events where S18 found zero; gross flipped from S8's negative regime to attractive) — but surfaced an even more severe cost problem. FAILS DSR by the widest margin in the registry.",
+    },
+    {
+        "id": "S22 (DCF/P-E/P-S/P-B)",
+        "title": "Long-Only Quarterly Valuation Portfolio Comparison",
+        "hypothesis": "Top-20%-most-undervalued, equal-weight, long-only portfolios (genuinely new construction vs. every other beta-neutral trial in this registry) — four valuation signals (DCF margin of safety, P/E, P/S, P/B) tested head-to-head on the same underlying question.",
+        "result_line": "All FAIL DSR at N=28 (per-period SR 0.194–0.246 vs threshold 0.368). Beta 1.01–1.28 (all t>19, expected for long-only). Sharpe: DCF 0.452, P/E 0.388, P/S 0.493, P/B 0.389.",
+        "verdict": "FAIL",
+        "bug": False,
+        "notes": "Alpha vs. the equal-weight universe is negative for all four (−1.5% to −6.0%/yr) despite strongly positive alpha vs. the 3M T-bill (+15.5% to +22.6%/yr) — absolute returns are mostly high-beta exposure to a rising market, not genuine alpha. CORRECTED FINDING (2026-07-15): the original ranking (P/S > DCF > P/E ≈ P/B) was an artifact of unequal signal coverage each quarter (P/B 94.5%, P/S 90.8%, DCF 63.4%, P/E 58.9%). Re-run on the common intersection universe (mean 179/quarter) made the ranking evaporate — Sharpe clusters 0.41–0.43 for all four and the IC ranking inverts. Corrected conclusion: none of the four signals is distinguishable from the others on a fair, equal-universe basis. A ~65x DCF-backtest performance bug and a genuine PIT adapter for the existing DCF engine were also built along the way (see registry).",
     },
 ]
 
@@ -137,9 +263,12 @@ def render_phase3_summary_page() -> None:
     st.header("Phase 3 — Results Summary")
 
     st.info(
-        "**14 trials run  ·  1 technical pass (S3-SA, best-of-3 caveat)  ·  "
-        "12 FAIL  ·  1 STOP  ·  1 PENDING (S10)**\n\n"
-        "Zero of 14 tested strategies have cleared the in-sample DSR gate in an unambiguous sense."
+        "**Trials #1 through #28 logged (cumulative N_TRIALS=28)  ·  "
+        "1 technical pass (S3-SA, best-of-3 caveat)  ·  4 STOP  ·  everything else FAIL**\n\n"
+        "Zero trials have cleared the in-sample DSR gate in an unambiguous sense. "
+        "4 trials stopped before a full backtest (H1: wrong-sign event study; S14, S20: "
+        "Phase-1 data-feasibility blocks; S18: zero trades survived the persistence "
+        "filter) — none pending."
     )
 
     # ── Master table ──────────────────────────────────────────────────────────
@@ -175,21 +304,33 @@ def render_phase3_summary_page() -> None:
     # ── Synthesis ─────────────────────────────────────────────────────────────
     with st.expander("Overall synthesis", expanded=False):
         st.markdown("""
-**Failure taxonomy across all 13 trials:**
+**Failure taxonomy across all trials (#1–#28):**
 
 | Mode | Trials |
 |---|---|
-| Wrong-sign signal (IC inverts) | E3, S9, S6, S1 |
-| Genuinely null / near-null (IC ≈ 0) | E1, E4, S5 |
-| Cost-nonviable (real signal, cost kills) | S4, S3-Q, S6 (partly) |
+| Wrong-sign signal (IC inverts) | E3, S9, S6, S1, S10 |
+| Genuinely null / near-null (IC ≈ 0) | E1, E4, S5, S11, S13, S15, S19 |
+| Cost-nonviable (real signal, cost kills) | S4, S3-Q, S6 (partly), S21 |
 | Crash-prone / regime-sensitive neutralization | E2, S1, S7, S2 |
 | Weak-signal-cost-decisive | S7 |
 | High-IC-but-gross-negative (distinct) | S2, S8 |
+| Reformulation did not beat the original | S16-A, S16-B, S17 |
+| Unequal-universe artifact (corrected) | S22 (DCF/P-E/P-S/P-B) |
+| Feasibility stop — no PIT data source | S14, S20 |
+| Feasibility stop — construction yielded nothing | S18 |
+| Event study — null/wrong-signed CAAR | Russell-1, Russell-3 |
 
-**Blunt conclusion:** As of this writing, zero of 14 tested strategies have cleared the
-in-sample DSR gate in an unambiguous sense. S3-SA (semiannual GP/A, Sharpe +0.569)
+**Blunt conclusion:** As of this writing, zero trials (out of 28 logged) have cleared
+the in-sample DSR gate in an unambiguous sense. S3-SA (semiannual GP/A, Sharpe +0.569)
 is the sole technical pass, but it is the best of three frequencies in a sweep —
-quarterly and annual both fail. Walk-forward (2021–2025) has not been run.
-S8 (residual reversal, FAIL — gross-negative despite IC t=3.40) is complete.
-S10 (Amihud illiquidity) remains pending.
+quarterly and annual both fail. Walk-forward (2021–2025) is complete for S3-SA: IC held
+up out-of-sample but a beta-drift caveat is unresolved (see the Signal Research Registry
+tab). The most notable recent finding is S21 (cluster-conditioned reversion): a real,
+statistically positive gross Sharpe (0.95) destroyed almost entirely by transaction
+costs at ~110%/yr — the most extreme signal-vs-cost gap in the registry. S22 (long-only
+valuation comparison) is a cautionary methodology example: an apparent ranking among
+four valuation signals evaporated once compared on a fair, equal-coverage universe.
+Three trials (S14, S18, S20) stopped before a full backtest for feasibility reasons,
+not DSR failures; both members of the Russell Reconstitution family came back null and
+the family is recommended closed. Nothing remains pending.
         """)
