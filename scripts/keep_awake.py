@@ -17,7 +17,7 @@ import sys
 from playwright.sync_api import TimeoutError as PlaywrightTimeout
 from playwright.sync_api import sync_playwright
 
-APP_URL = os.environ.get("APP_URL", "https://archer-capital-35mdgw2nzvbnouvs8ug9sq.streamlit.app/")
+APP_URL = os.environ.get("APP_URL", "https://hugh-dcf-calculator.streamlit.app/")
 WAKE_BUTTON = "Yes, get this app back up"
 
 
