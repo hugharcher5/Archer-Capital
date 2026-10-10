@@ -13,7 +13,9 @@ from dataclasses import dataclass
 # ── Module-level constants (referenced externally by run_dcf) ─────────────────
 TERMINAL_G: float            = 0.025   # 2.5% default terminal growth rate
 HIGH_GROWTH_THRESHOLD: float = 0.15    # use 10-year horizon if starting growth > this
-MATURE_MARGIN_DEFAULT: float = 0.20    # floor for target EBIT margin at maturity
+MATURE_MARGIN_DEFAULT: float = 0.20    # legacy 20% target-margin floor; kept only so the
+                                       # archived research scripts still import and reproduce.
+                                       # The live tool no longer uses it (see montecarlo._target_margin).
 
 # Size-dependent revenue growth ceiling: g_ceiling(R) = max(terminal_g, G_CEILING_A / R**G_CEILING_B)
 # R = projected revenue in USD billions (local currency × current spot FX rate / 1e9).
@@ -74,6 +76,14 @@ class Assumptions:
     # None → single-rate: vps_usd = vps_local × fx_rate  (base-case / display).
     fx_path: object = None   # np.ndarray shape (forecast_years,) | None
 
+    # ── CapEx treatment ───────────────────────────────────────────────────────
+    # False (live tool): CapEx stays at capex_pct of revenue every year, so CapEx
+    #   grows with revenue and the terminal year keeps the company's own
+    #   reinvestment rate.
+    # True (legacy, used by the archived research backtests): CapEx% fades
+    #   linearly to D&A% by the final year.
+    capex_fade_to_da: bool = True
+
 
 @dataclass
 class DCFResult:
@@ -99,12 +109,10 @@ def _compute(a: Assumptions) -> DCFResult:
     # Growth schedule: linearly fades from starting rate to terminal_g
     growth_rates = np.linspace(a.revenue_growth, a.terminal_g, a.forecast_years)
 
-    # CapEx% fades to D&A% by the terminal year so that in steady state
-    # net reinvestment (CapEx − D&A) → 0, consistent with low terminal growth.
-    # If historical CapEx% is already ≤ D&A%, hold it constant (no upward fade).
-    capex_terminal = a.da_pct
-    if a.capex_pct > capex_terminal:
-        capex_pcts = np.linspace(a.capex_pct, capex_terminal, a.forecast_years)
+    # CapEx as a share of revenue.  Live tool: held at capex_pct, so CapEx grows
+    # in line with revenue.  Legacy research path: fades to D&A% by year N.
+    if a.capex_fade_to_da and a.capex_pct > a.da_pct:
+        capex_pcts = np.linspace(a.capex_pct, a.da_pct, a.forecast_years)
     else:
         capex_pcts = np.full(a.forecast_years, a.capex_pct)
 

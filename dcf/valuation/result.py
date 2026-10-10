@@ -62,3 +62,9 @@ class ValuationResult:
     # False when terminal-year FCFF <= 0 (Gordon Growth would be degenerate).
     # UI suppresses headline valuation metrics and shows an explanatory banner.
     dcf_applicable: bool = True
+
+    # ── Data provenance and company profile ──────────────────────────────────
+    # data_provenance: field → {"source": "SEC EDGAR" | "Yahoo Finance" | ..., "detail": why}
+    data_provenance: dict = field(default_factory=dict)
+    unproven: bool = False              # no profitable history / short history → wider tails
+    target_margin_basis: str = ""       # how the mature EBIT margin was chosen

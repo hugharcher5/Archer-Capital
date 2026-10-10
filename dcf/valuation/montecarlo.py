@@ -17,9 +17,11 @@ import matplotlib.pyplot as plt
 from .data      import fetch_raw
 from .drivers   import compute_drivers
 from .wacc      import compute_wacc
-from .dcf       import Assumptions, value, value_and_ceiling_hits, detailed_value, TERMINAL_G, HIGH_GROWTH_THRESHOLD, MATURE_MARGIN_DEFAULT, G_CEILING_A, G_CEILING_B
+from .dcf       import Assumptions, value, value_and_ceiling_hits, detailed_value, TERMINAL_G, HIGH_GROWTH_THRESHOLD, G_CEILING_A, G_CEILING_B
 from .result    import ValuationResult
 from .reconcile import FIELD_TYPE, ALL_FIELDS
+from .filings   import apply_filing_data
+from .industry_margins import industry_margin
 
 
 # ─────────────────────────── Editable constants ───────────────────────────────
@@ -40,6 +42,17 @@ PROFITABLE_MARGIN_SPREAD: float   = 0.08  # target_margin PERT half-width for pr
 UNPROFITABLE_MARGIN_SPREAD: float = 0.15  # wider spread for currently-unprofitable cos
 TARGET_MARGIN_SPREAD_MIN: float = 0.03   # 3pp floor: prevents degenerate zero-width PERT
 TARGET_MARGIN_SPREAD_MAX: float = 0.20   # 20pp cap: avoids absurd ranges for tiny samples
+CAPEX_SPREAD_MIN: float        = 0.005   # 0.5pp floor on the CapEx% PERT half-width
+CAPEX_PCT_CAP: float           = 0.60    # CapEx can't exceed 60% of revenue in any draw
+
+# Unproven companies: no profitable history (average EBIT margin ≤ 0) or fewer
+# than MIN_HISTORY_YEARS years of growth history.  Their forecasts rest on much
+# less evidence, so every sampled input gets wider tails and the fat-tailed
+# Student-t copula is always used.
+MIN_HISTORY_YEARS: int         = 3
+UNPROVEN_SIGMA_MULT: float     = 1.5     # σ multiplier on every sampled input
+UNPROVEN_TM_SPREAD_MIN: float  = 0.10    # target-margin half-width: 10pp floor
+UNPROVEN_TM_SPREAD_MAX: float  = 0.25    # … and 25pp cap
 
 # Annual FX volatility by reporting currency (GBM σ)
 FX_ANNUAL_VOL: dict[str, float] = {
@@ -48,7 +61,7 @@ FX_ANNUAL_VOL: dict[str, float] = {
     'CNY': 0.08, 'HKD': 0.03, '_default': 0.15,
 }
 
-# Correlation matrix: [rev_growth, ebit_margin, terminal_g, wacc, target_margin]
+# Correlation matrix: [rev_growth, ebit_margin, terminal_g, wacc, target_margin, capex_pct]
 # Growth ↔ margin: +0.40 (tech operating leverage)
 # Growth ↔ terminal_g: +0.30 (faster growers sustain higher perpetuity rates)
 # Growth ↔ wacc: +0.20 (higher growth → higher perceived risk)
@@ -56,13 +69,17 @@ FX_ANNUAL_VOL: dict[str, float] = {
 # Growth ↔ target_margin: +0.30 (fast growers tend toward higher long-run margins)
 # margin ↔ target_margin: +0.60 (current margin is strongest predictor of maturity)
 # wacc ↔ target_margin: −0.15 (more profitable at maturity → lower perceived risk)
+# Growth ↔ capex: +0.40 (faster revenue growth needs more capacity investment)
+# terminal_g ↔ capex: +0.10 (a higher perpetual growth rate needs more reinvestment)
+# margin / target_margin ↔ capex: −0.10 / −0.05 (heavier capex years weigh on margins)
 CORR: np.ndarray = np.array([
-    #  rev_g   margin  term_g   wacc  tgt_mgn
-    [  1.00,    0.40,   0.30,   0.20,   0.30],  # rev_growth
-    [  0.40,    1.00,   0.10,  -0.10,   0.60],  # ebit_margin
-    [  0.30,    0.10,   1.00,   0.10,   0.10],  # terminal_g
-    [  0.20,   -0.10,   0.10,   1.00,  -0.15],  # wacc
-    [  0.30,    0.60,   0.10,  -0.15,   1.00],  # target_margin
+    #  rev_g   margin  term_g   wacc  tgt_mgn  capex
+    [  1.00,    0.40,   0.30,   0.20,   0.30,   0.40],  # rev_growth
+    [  0.40,    1.00,   0.10,  -0.10,   0.60,  -0.10],  # ebit_margin
+    [  0.30,    0.10,   1.00,   0.10,   0.10,   0.10],  # terminal_g
+    [  0.20,   -0.10,   0.10,   1.00,  -0.15,   0.00],  # wacc
+    [  0.30,    0.60,   0.10,  -0.15,   1.00,  -0.05],  # target_margin
+    [  0.40,   -0.10,   0.10,   0.00,  -0.05,   1.00],  # capex_pct
 ], dtype=float)
 
 
@@ -200,12 +217,38 @@ def _student_t_uniforms(n: int, C: np.ndarray, df: int,
 
 # ──────────────── Build base Assumptions (mirrors run_dcf._assemble) ──────────
 
+def is_unproven(drivers) -> bool:
+    """No profitable history, or too few years of history to lean on."""
+    return drivers.ebit_margin <= 0 or drivers.years_used < MIN_HISTORY_YEARS
+
+
+def target_margin_for(drivers, industry: str = "") -> tuple[float, str]:
+    """Mature EBIT margin the forecast fades toward, and how it was chosen.
+
+    Profitable history: the midpoint of the company's average and best
+    historical EBIT margin.  The best year alone can be a one-off peak, and the
+    average alone ignores improvement the company has already shown it can
+    reach, so the target sits between them.  The company is never pushed above
+    what its own history supports.
+
+    No profitable history: the industry's average operating margin (Damodaran,
+    January 2026), the convention for young companies whose own numbers say
+    nothing yet about their mature economics.  Falls back to the US market
+    average (about 13%) when the industry is unknown.
+    """
+    if drivers.ebit_margin > 0:
+        tm = 0.5 * (drivers.ebit_margin + drivers.best_ebit_margin)
+        return tm, "midpoint of historical average and best EBIT margin"
+    tm, label = industry_margin(industry)
+    return tm, label
+
+
 def _build_base(raw, drivers, wacc_r) -> Assumptions:
     net_debt      = raw.total_debt - raw.cash
     fy            = 10 if drivers.revenue_growth > HIGH_GROWTH_THRESHOLD else 5
     ebitda        = ((float(raw.ebit.iloc[-1]) if not raw.ebit.empty else 0.0) +
                      (float(raw.da.iloc[-1])   if not raw.da.empty   else 0.0))
-    target_margin = max(drivers.best_ebit_margin, MATURE_MARGIN_DEFAULT)
+    target_margin, _ = target_margin_for(drivers, getattr(raw, "industry", ""))
     return Assumptions(
         ticker=raw.ticker,        currency=raw.currency,
         start_revenue=float(raw.revenue.iloc[-1]),
@@ -231,6 +274,7 @@ def _build_base(raw, drivers, wacc_r) -> Assumptions:
         current_price_usd=raw.current_price_usd,
         current_ebitda=ebitda,
         market_ev_local=raw.market_cap_local + net_debt,
+        capex_fade_to_da=False,
     )
 
 
@@ -252,6 +296,8 @@ def _run_sims(
     shares_promoted: bool = False,
     nd_cross: float = 0.0,      # absolute σ_cross for net_debt (0 = not promoted)
     nd_promoted: bool = False,
+    scx: float = 0.0,           # σ_eff for CapEx% PERT half-width
+    tm_spread: tuple = (TARGET_MARGIN_SPREAD_MIN, TARGET_MARGIN_SPREAD_MAX),
     _collect: bool = False,     # when True return (valid, extras_dict) for transparency payload
 ):
     """
@@ -269,6 +315,7 @@ def _run_sims(
         tg_lo = tg_hi = base.terminal_g
         wa_lo = wa_hi = base.wacc
         tm_lo = tm_hi = base.target_margin
+        cx_lo = cx_hi = base.capex_pct
     else:
         rg_lo = max(base.revenue_growth - spread_sigma * sg, -0.30)
         rg_hi = min(base.revenue_growth + spread_sigma * sg,  1.50)
@@ -283,9 +330,13 @@ def _run_sims(
         wa_hi = w + spread_sigma * sw
         # target_margin PERT: spread driven by company historical EBIT-margin σ.
         # Clamped so small samples don't produce zero or absurdly wide ranges.
-        tm_half = float(np.clip(spread_sigma * stm, TARGET_MARGIN_SPREAD_MIN, TARGET_MARGIN_SPREAD_MAX))
+        tm_half = float(np.clip(spread_sigma * stm, tm_spread[0], tm_spread[1]))
         tm_lo = max(base.target_margin - tm_half, -0.10)
         tm_hi = min(base.target_margin + tm_half,  0.75)
+        # CapEx% PERT: spread from the company's historical CapEx/revenue σ.
+        cx_half = max(spread_sigma * scx, CAPEX_SPREAD_MIN)
+        cx_lo = max(base.capex_pct - cx_half, 0.0)
+        cx_hi = min(base.capex_pct + cx_half, CAPEX_PCT_CAP)
 
     # Correlated uniform draws
     if copula == 'student-t':
@@ -299,6 +350,7 @@ def _run_sims(
     tg_s = _pert_ppf(U[:, 2], tg_lo, base.terminal_g,      tg_hi)
     wa_s = _pert_ppf(U[:, 3], wa_lo, base.wacc,           wa_hi)
     tm_s = _pert_ppf(U[:, 4], tm_lo, base.target_margin,  tm_hi)
+    cx_s = _pert_ppf(U[:, 5], cx_lo, base.capex_pct,      cx_hi)
 
     # Hard clamp: enforce WACC − terminal_g ≥ WACC_TG_GAP at all times
     tg_s = np.minimum(tg_s, wa_s - WACC_TG_GAP)
@@ -346,6 +398,7 @@ def _run_sims(
         a.target_margin  = float(tm_s[i])
         a.terminal_g     = float(tg_s[i])
         a.wacc           = float(wa_s[i])
+        a.capex_pct      = float(cx_s[i])
         if fx_paths is not None:
             a.fx_path = fx_paths[i]   # per-year path; a.fx_rate stays as current spot
         a.diluted_shares = float(sh_s[i])
@@ -386,6 +439,7 @@ def _run_sims(
         'target_margin':  tm_s[valid_mask],
         'terminal_g':     tg_s[valid_mask],
         'wacc':           wa_s[valid_mask],
+        'capex_pct':      cx_s[valid_mask],
     }
     if shares_promoted:
         samples['diluted_shares'] = sh_s[valid_mask]
@@ -398,6 +452,7 @@ def _run_sims(
         'target_margin':  {'lo': tm_lo, 'mode': base.target_margin,  'hi': tm_hi},
         'terminal_g':     {'lo': tg_lo, 'mode': base.terminal_g,     'hi': tg_hi},
         'wacc':           {'lo': wa_lo, 'mode': base.wacc,           'hi': wa_hi},
+        'capex_pct':      {'lo': cx_lo, 'mode': base.capex_pct,      'hi': cx_hi},
     }
 
     if fx_paths is not None:
@@ -455,39 +510,6 @@ def _save_histogram(ticker, results, price, n_valid, copula_label,
 
 # ─────────────────────────── Public functions ─────────────────────────────────
 
-def _apply_preferred_levels(raw, reconcile_result) -> None:
-    """
-    Centre share count, debt and cash on the preferred source (EDGAR > FMP > Yahoo).
-
-    reconcile() picks the preferred source, but fetch_raw() only reads Yahoo.
-    Without this, the base case used Yahoo's levels regardless of the hierarchy,
-    and a blocked Yahoo quote left diluted_shares at 0.  Debt is standardised to
-    bonds + finance leases (operating leases excluded) in every path.
-    """
-    pref = getattr(reconcile_result, "preferred", None)
-    if pref is not None and (pref.currency or "").upper() != (raw.currency or "").upper():
-        print(f"  [RECON] preferred source currency {pref.currency} != {raw.currency}; keeping Yahoo levels")
-        pref = None
-
-    if pref is not None and math.isfinite(pref.diluted_shares) and pref.diluted_shares > 0:
-        raw.diluted_shares = float(pref.diluted_shares)
-    if pref is not None and math.isfinite(pref.total_debt) and pref.total_debt >= 0:
-        raw.total_debt = float(pref.total_debt)   # already standardised by the source fetcher
-    else:
-        raw.total_debt = max(0.0, raw.total_debt - getattr(raw, "op_lease_liab", 0.0))
-    if pref is not None and math.isfinite(pref.cash) and pref.cash >= 0:
-        raw.cash = float(pref.cash)
-
-    if not raw.market_cap_usd > 0 and raw.current_price_usd > 0 and raw.diluted_shares > 0:
-        raw.market_cap_usd = raw.current_price_usd * raw.diluted_shares
-        raw.market_cap_local = raw.market_cap_usd / raw.fx_rate if raw.fx_rate > 0 else raw.market_cap_usd
-
-    if not raw.current_price_usd > 0:
-        raise ValueError(f"No share price available for {raw.ticker} from Yahoo (quote or price history).")
-    if not raw.diluted_shares > 0:
-        raise ValueError("No share count available from any data source (Yahoo, FMP or SEC EDGAR).")
-
-
 def run_valuation(
     ticker: str,
     n_sims: int = 10_000,
@@ -511,11 +533,13 @@ def run_valuation(
         sigma_cross = {}
 
     raw    = fetch_raw(ticker)
-    _apply_preferred_levels(raw, reconcile_result)
+    provenance = apply_filing_data(raw, reconcile_result)
     drvrs  = compute_drivers(raw)
     wacc_r = compute_wacc(raw, drvrs)
     sw = wacc_r.std_wacc   # historical WACC σ (or fallback) — no σ_cross (WACC inputs are market-derived)
     base   = _build_base(raw, drvrs, wacc_r)
+    _, tm_basis = target_margin_for(drvrs, getattr(raw, "industry", ""))
+    unproven = is_unproven(drvrs)
     dcf_r  = detailed_value(base)
 
     # ── DCF applicability gate ────────────────────────────────────────────────
@@ -559,6 +583,17 @@ def run_valuation(
         print("  [MC] Terminal-g spread: FRED unavailable — using fixed 2pp fallback.")
     stg = math.sqrt(stg_macro**2 + (0.5 * sigma_cross.get("revenue_growth", 0.0))**2)
 
+    # CapEx% spread: historical σ of CapEx/revenue plus cross-source disagreement.
+    scx_hist = drvrs.std_capex_pct if math.isfinite(drvrs.std_capex_pct) else 0.0
+    scx = math.sqrt(scx_hist**2 + sigma_cross.get("capex_pct", 0.0)**2)
+
+    # Unproven companies: widen every sampled input.
+    tm_spread = (TARGET_MARGIN_SPREAD_MIN, TARGET_MARGIN_SPREAD_MAX)
+    if unproven:
+        m = UNPROVEN_SIGMA_MULT
+        sg, sm, stm, stg, sw, scx = sg * m, sm * m, stm * m, stg * m, sw * m, scx * m
+        tm_spread = (UNPROVEN_TM_SPREAD_MIN, UNPROVEN_TM_SPREAD_MAX)
+
     # Promoted balance-sheet variables.
     # A DATA variable is promoted when its relative cross-source spread > 2%.
     sc_abs = sigma_cross.get("diluted_shares", 0.0)
@@ -595,6 +630,11 @@ def run_valuation(
             "sigma_cross": sigma_cross.get("ebit_margin", 0.0),
             "sigma_eff":   stm,
         }
+        recon_sigma["capex_pct"] = {
+            "sigma_hist":  scx_hist,
+            "sigma_cross": sigma_cross.get("capex_pct", 0.0),
+            "sigma_eff":   scx,
+        }
         recon_sigma["terminal_g"] = {
             "sigma_hist":  stg_macro,
             "sigma_cross": 0.5 * sigma_cross.get("revenue_growth", 0.0),
@@ -624,6 +664,7 @@ def run_valuation(
             recon_fields=recon_fields, recon_sigma=recon_sigma,
             sw=sw, stm=stm, stg=stg,
             dcf_applicable=dcf_applicable,
+            data_provenance=provenance, unproven=unproven, target_margin_basis=tm_basis,
         )
 
     corr = _ensure_psd(CORR.copy())
@@ -637,6 +678,7 @@ def run_valuation(
     if sm                > EBIT_VOL_THRESHOLD:    _triggers.append(f"σ_margin={sm:.1%} > {EBIT_VOL_THRESHOLD:.0%}")
     if drvrs.std_fcf_pct > FCF_VOL_THRESHOLD:     _triggers.append(f"σ_FCF={drvrs.std_fcf_pct:.1%} > {FCF_VOL_THRESHOLD:.0%}")
     if _max_sc           > SIGMA_CROSS_THRESHOLD: _triggers.append(f"max_σ_cross={_max_sc:.1%} > {SIGMA_CROSS_THRESHOLD:.0%}")
+    if unproven:                                  _triggers.append("unproven company (no profitable history or < 3 yrs)")
 
     use_t      = bool(_triggers)
     copula_key = 'student-t' if use_t else 'gaussian'
@@ -648,7 +690,7 @@ def run_valuation(
     # Pass sg/sm (with any σ_cross baked in) but spread_sigma=0 overrides bounds to
     # point masses, so σ_eff doesn't matter — output must equal deterministic value().
     cc_sims = _run_sims(base, sg, sm, corr, 50, 0.0,
-                        np.random.default_rng(0), copula_key, sw=sw, stm=stm, stg=stg)
+                        np.random.default_rng(0), copula_key, sw=sw, stm=stm, stg=stg, scx=scx)
     cc_p50  = float(np.median(cc_sims))
     cc_ok   = abs(cc_p50 - dcf_r.value_per_share_usd) < 0.01
 
@@ -659,6 +701,7 @@ def run_valuation(
         sw=sw, stm=stm, stg=stg,
         shares_cross=sc_abs,   shares_promoted=shares_promoted,
         nd_cross=nd_abs,       nd_promoted=nd_promoted,
+        scx=scx,               tm_spread=tm_spread,
         _collect=True,
     )
     n_v  = len(sims)
@@ -715,12 +758,20 @@ def run_valuation(
             'rationale_key': 'avg_growth_anchored_to_gdp',
         },
         'wacc': {
-            'sigma_hist':  sw,
+            'sigma_hist':  wacc_r.std_wacc,
             'sigma_cross': 0.0,
             'sigma_eff':   sw,
             'clamp_floor': 0.04,
             'clamp_cap':   float('inf'),
             'rationale_key': 'capm_synthetic_rating_blume_beta',
+        },
+        'capex_pct': {
+            'sigma_hist':  scx_hist,
+            'sigma_cross': sigma_cross.get('capex_pct', 0.0),
+            'sigma_eff':   scx,
+            'clamp_floor': 0.0,
+            'clamp_cap':   CAPEX_PCT_CAP,
+            'rationale_key': 'historical_capex_intensity',
         },
     }
 
@@ -736,8 +787,13 @@ def run_valuation(
         lo    = _pp[var]['lo']
         hi    = _pp[var]['hi']
         mode  = _pp[var]['mode']
-        raw_lo = mode - SPREAD_SIGMA * info['sigma_eff']
-        raw_hi = mode + SPREAD_SIGMA * info['sigma_eff']
+        half   = SPREAD_SIGMA * info['sigma_eff']
+        if var == 'target_margin':
+            half = float(np.clip(half, *tm_spread))
+        elif var == 'capex_pct':
+            half = max(half, CAPEX_SPREAD_MIN)
+        raw_lo = mode - half
+        raw_hi = mode + half
         distribution_params[var] = {
             'pert_min':      lo,
             'pert_mode':     mode,
@@ -751,7 +807,7 @@ def run_valuation(
             'rationale_key': info['rationale_key'],
         }
 
-    # Realised correlation from the 5 primary sampled inputs
+    # Realised correlation from the 6 copula-sampled inputs
     _smp = _extras['samples']
     _corr_mat = np.vstack([
         _smp['revenue_growth'],
@@ -759,8 +815,9 @@ def run_valuation(
         _smp['terminal_g'],
         _smp['wacc'],
         _smp['target_margin'],
+        _smp['capex_pct'],
     ])
-    corr_realized = np.corrcoef(_corr_mat) if _corr_mat.shape[1] >= 2 else np.eye(5)
+    corr_realized = np.corrcoef(_corr_mat) if _corr_mat.shape[1] >= 2 else np.eye(6)
 
     # FX info
     _fx_extra = _extras.get('fx_extra')
@@ -797,6 +854,12 @@ def run_valuation(
             'threshold':    SIGMA_CROSS_THRESHOLD,
             'actual_value': _max_sc,
             'fired':        _max_sc > SIGMA_CROSS_THRESHOLD,
+        },
+        {
+            'name':         'unproven_company',
+            'threshold':    None,
+            'actual_value': None,
+            'fired':        unproven,
         },
     ]
     copula_info = {
@@ -855,6 +918,7 @@ def run_valuation(
         sw=sw, stm=stm, stg=stg,
         transparency=transparency,
         dcf_applicable=dcf_applicable,
+        data_provenance=provenance, unproven=unproven, target_margin_basis=tm_basis,
     )
 
 

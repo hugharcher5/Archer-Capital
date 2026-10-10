@@ -6,7 +6,7 @@
 
 ## Executive Summary
 
-A Monte Carlo DCF that runs 2,000 simulated cash flow paths per ticker is expensive to build and expensive to run. The first question any serious researcher must answer before defending that complexity is whether it actually outperforms a free multiple that any analyst can compute in a spreadsheet. Frankel and Lee (1998) showed that an intrinsic-value-to-price ratio predicts future abnormal returns over a three-year horizon, and the effect survives controls for size and book-to-market. Xu (2007) counters directly: the V/P ratio has no incremental power beyond its components. That debate is the gate this research tries to force open.
+A Monte Carlo DCF that runs 2,000 simulated cash flow paths per ticker took a long time to build. Before relying on it, I want to know whether all that work actually beats a simple multiple that any analyst can compute in a spreadsheet. Frankel and Lee (1998) showed that an intrinsic-value-to-price ratio predicts future abnormal returns over a three-year horizon, and the effect survives controls for size and book-to-market. Xu (2007) counters directly: the V/P ratio has no incremental power beyond its components. That debate is the gate this research tries to force open.
 
 Three hypotheses were constructed from first principles, each with a distinct signal, data source, and falsification criterion. The universe was US non-financial small-cap companies with sufficient SEC EDGAR filing history, evaluated at ten annual rebalance dates from June 30 2015 through June 30 2024. Every signal was computed point-in-time using only filings available on or before each rebalance date. No parameter was adjusted after seeing results.
 

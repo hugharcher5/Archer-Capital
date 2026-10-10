@@ -43,6 +43,9 @@ class Drivers:
     # Historical year-by-year DataFrame for display
     hist_df: pd.DataFrame = None
 
+    # σ of historical CapEx / Revenue — spread of the sampled CapEx% in the MC
+    std_capex_pct: float = 0.0
+
 
 def compute_drivers(raw: RawData) -> Drivers:
     # ── Align all income-stmt + cashflow series ───────────────────────────────
@@ -58,6 +61,12 @@ def compute_drivers(raw: RawData) -> Drivers:
     }
     df = pd.concat(series, axis=1).dropna(subset=['revenue', 'ebit']).sort_index()
 
+    if raw.ebit.empty and not raw.revenue.empty:
+        raise ValueError(
+            f"{raw.ticker} reports no operating income (EBIT) line in its filings or on "
+            "Yahoo Finance. This is usual for banks and insurers, whose cash flows a "
+            "free-cash-flow-to-the-firm DCF cannot value."
+        )
     if len(df) < 2:
         raise ValueError(
             f"Need ≥2 years of financial history for {raw.ticker}; "
@@ -73,7 +82,12 @@ def compute_drivers(raw: RawData) -> Drivers:
     df['sbc_pct']        = df['sbc']   / df['revenue']
 
     # NWC from most-recent balance sheet (single observation, applied uniformly)
-    nwc_latest = (raw.current_assets - raw.cash) - (raw.current_liabilities - raw.current_debt)
+    # cash_nwc is the cash figure from the same balance sheet as current assets
+    # (filings.py sets it; raw.cash itself may come from a later 10-Q).
+    cash_nwc   = getattr(raw, 'cash_nwc', float('nan'))
+    if not np.isfinite(cash_nwc):
+        cash_nwc = raw.cash
+    nwc_latest = (raw.current_assets - cash_nwc) - (raw.current_liabilities - raw.current_debt)
     rev_latest  = float(df['revenue'].iloc[-1])
     nwc_pct = nwc_latest / rev_latest if rev_latest != 0 else 0.0
 
@@ -90,6 +104,7 @@ def compute_drivers(raw: RawData) -> Drivers:
     sbc_pct      = float(df['sbc_pct'].mean())
     std_growth   = float(df['revenue_growth'].std())
     std_margin   = float(df['ebit_margin'].std())
+    std_capex    = float(df['capex_pct'].std()) if df['capex_pct'].notna().sum() >= 2 else 0.0
 
     df['fcf_pct'] = (df['ebit'] * (1.0 - df['tax_rate']) + df['da'] - df['capex']) / df['revenue']
     _fcf_clean    = df['fcf_pct'].dropna()
@@ -149,6 +164,7 @@ def compute_drivers(raw: RawData) -> Drivers:
         std_fcf_pct=std_fcf_pct,
         years_used=years_used,
         hist_df=df,
+        std_capex_pct=std_capex,
     )
 
     # ── Plausibility checks ───────────────────────────────────────────────────

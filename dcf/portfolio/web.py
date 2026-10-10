@@ -17,7 +17,7 @@ import streamlit as st
 
 from valuation.montecarlo    import run_valuation
 from valuation.result        import ValuationResult
-from valuation.dcf           import MATURE_MARGIN_DEFAULT, value as _dcf_value
+from valuation.dcf           import value as _dcf_value
 from valuation.sources       import fetch_yahoo, fetch_fmp, fetch_edgar
 from valuation.reconcile     import reconcile
 
@@ -48,6 +48,7 @@ def _cached_valuation(ticker: str) -> tuple[ValuationResult, dict[str, str]]:
             source_status[name] = str(e)
     if len(sources) >= 2:
         recon = reconcile(sources)
+        recon.source_status = source_status   # lets the provenance table explain EDGAR gaps
         result = run_valuation(ticker, n_sims=10_000,
                              sigma_cross=recon.sigma_cross,
                              reconcile_result=recon)
@@ -150,8 +151,9 @@ def _render_expander_drivers(r: ValuationResult) -> None:
     rf = r.recon_fields
     with st.expander("Historical Drivers", expanded=False):
         st.markdown(
-            "The model starts by pulling several years of the company's actual reported "
-            "financials and computing the key ratios for each year. I average across years "
+            "The model starts by pulling up to five years of the company's reported "
+            "financials, from its SEC filings where possible, and computing the key ratios "
+            "for each year. I average across years "
             "rather than just using the most recent year to make the base-case inputs more "
             "stable and less sensitive to one-off events. The standard deviations of each "
             "annual figure feed directly into the Monte Carlo: a company that has been "
@@ -171,37 +173,39 @@ def _render_expander_drivers(r: ValuationResult) -> None:
                 use_container_width=True,
             )
 
-        # Map driver label → reconcile field key for source/disagree annotation
+        # driver label → (provenance key for "Source", reconcile key for "Disagree")
         _DRIVER_FIELD = {
-            "Revenue growth":  "revenue",
-            "EBIT margin":     "ebit",
-            "Tax rate":        "tax_rate",
-            "D&A / Revenue":   "dep_amort",
-            "CapEx / Revenue": "capex",
+            "Revenue growth":  ("revenue",       "revenue"),
+            "EBIT margin":     ("ebit",          "ebit"),
+            "Tax rate":        ("tax_provision", "tax_rate"),
+            "D&A / Revenue":   ("da",            "dep_amort"),
+            "CapEx / Revenue": ("capex",         "capex"),
+            "NWC / Revenue":   ("nwc",           ""),
+            "SBC / Revenue":   ("sbc",           ""),
         }
         base_rows = [
             ("Revenue growth",   f"{d.revenue_growth:.2%}",   f"σ = {d.std_revenue_growth:.2%}"),
             ("EBIT margin",      f"{d.ebit_margin:.2%}",      f"σ = {d.std_ebit_margin:.2%}  (best: {d.best_ebit_margin:.2%})"),
             ("Tax rate",         f"{d.tax_rate:.2%}",         ""),
             ("D&A / Revenue",    f"{d.da_pct:.2%}",           ""),
-            ("CapEx / Revenue",  f"{d.capex_pct:.2%}",        ""),
-            ("NWC / Revenue",    f"{d.nwc_pct:.2%}",          "most recent balance sheet"),
+            ("CapEx / Revenue",  f"{d.capex_pct:.2%}",        f"σ = {d.std_capex_pct:.2%}"),
+            ("NWC / Revenue",    f"{d.nwc_pct:.2%}",          "most recent fiscal-year balance sheet"),
             ("SBC / Revenue",    f"{d.sbc_pct:.2%}",          "Route 1: already in EBIT"),
         ]
-        if rf:
-            table_rows = []
-            for driver, mean, note in base_rows:
-                src, dis = _recon_source_disagree(rf, _DRIVER_FIELD.get(driver, ""))
-                table_rows.append((driver, mean, note, src, dis))
-            st.dataframe(
-                pd.DataFrame(table_rows, columns=["Driver", "Mean", "Note", "Source", "Disagree"]),
-                use_container_width=True, hide_index=True,
-            )
-        else:
-            st.dataframe(
-                pd.DataFrame(base_rows, columns=["Driver", "Mean", "Note"]),
-                use_container_width=True, hide_index=True,
-            )
+        prov = r.data_provenance or {}
+        table_rows = []
+        for driver, mean, note in base_rows:
+            prov_key, recon_key = _DRIVER_FIELD[driver]
+            src = prov.get(prov_key, {}).get("source", "Yahoo Finance")
+            row = [driver, mean, note, src]
+            if rf:
+                row.append(_recon_source_disagree(rf, recon_key)[1] if recon_key else "—")
+            table_rows.append(row)
+        cols = ["Driver", "Mean", "Note", "Source"] + (["Disagree"] if rf else [])
+        st.dataframe(
+            pd.DataFrame(table_rows, columns=cols),
+            use_container_width=True, hide_index=True,
+        )
 
 
 def _render_expander_wacc(r: ValuationResult) -> None:
@@ -221,13 +225,16 @@ def _render_expander_wacc(r: ValuationResult) -> None:
         )
         st.latex(r"\text{WACC} = w_E \cdot K_E + w_D \cdot K_D (1-t)")
 
-        sh_src, _ = _recon_source_disagree(rf, "diluted_shares")
-        td_src, td_dis = _recon_source_disagree(rf, "total_debt")
+        prov = r.data_provenance or {}
+        sh_src = prov.get("diluted_shares", {}).get("source", "")
+        td_src = prov.get("total_debt", {}).get("source", "")
+        _, td_dis = _recon_source_disagree(rf, "total_debt")
         eq_note   = f"{ccy} {w.equity_value/1e9:.1f}B market cap"
         debt_note = f"{ccy} {w.debt_value/1e9:.1f}B total debt"
-        if rf:
+        if sh_src:
             eq_note   += f"  |  shares: {sh_src}"
-            debt_note += f"  |  {td_src}, {td_dis}"
+        if td_src:
+            debt_note += f"  |  {td_src}" + (f", {td_dis}" if rf else "")
 
         rows = [
             ("Risk-free rate",         f"{w.rf:.3%}",                   w.rf_source),
@@ -260,21 +267,19 @@ def _render_expander_assumptions(r: ValuationResult) -> None:
             "Revenue growth and EBIT margin are not held constant: they start at the "
             "historically averaged base-case values and fade linearly toward their terminal "
             "values over the forecast horizon. I chose linear fading because growth and "
-            "margins always evolve gradually rather than jumping overnight. CapEx fades to "
-            "match D&A by the final year so that the model's steady-state reinvestment "
-            "assumption is consistent with the Gordon Growth terminal value, which assumes "
-            "the company is no longer growing faster than the economy."
+            "margins always evolve gradually rather than jumping overnight. CapEx stays at "
+            "its historical share of revenue, so it grows in line with revenue, including "
+            "in the terminal value."
         )
-        capex_end = a.da_pct if a.capex_pct > a.da_pct else a.capex_pct
         rows = [
             ("Ticker / currency",    f"{a.ticker} / {ccy}",       ""),
             ("Starting revenue",     f"{ccy} {a.start_revenue/1e9:.3f}B", "most recent fiscal year"),
             ("Revenue growth yr 1",  f"{a.revenue_growth:.2%}",   f"→ {a.terminal_g:.2%} by yr {a.forecast_years}"),
             ("EBIT margin (start)",  f"{a.ebit_margin:.2%}",      f"→ {a.target_margin:.2%} target by yr {a.forecast_years}"),
-            ("Target EBIT margin",   f"{a.target_margin:.2%}",    f"max(best historical, {MATURE_MARGIN_DEFAULT:.0%} floor)"),
+            ("Target EBIT margin",   f"{a.target_margin:.2%}",    r.target_margin_basis),
             ("Tax rate",             f"{a.tax_rate:.2%}",         ""),
             ("D&A / Revenue",        f"{a.da_pct:.2%}",           "held constant"),
-            ("CapEx / Revenue",      f"{a.capex_pct:.2%}",        f"→ {capex_end:.2%} (= D&A%) by yr {a.forecast_years}"),
+            ("CapEx / Revenue",      f"{a.capex_pct:.2%}",        "held constant: CapEx grows with revenue"),
             ("NWC / Revenue",        f"{a.nwc_pct:.2%}",          ""),
             ("Terminal growth (g)",  f"{a.terminal_g:.2%}",       "Gordon Growth Model"),
             ("WACC",                 f"{a.wacc:.3%}",             ""),
@@ -300,7 +305,8 @@ def _render_expander_forecast(r: ValuationResult) -> None:
             "minus the change in net working capital (cash consumed or released by the "
             "business growing or contracting). Each year's FCFF is discounted back to today "
             "at WACC to get its present value. The margin column shows the year-by-year "
-            "fade from the starting EBIT margin toward the target mature margin."
+            "fade from the starting EBIT margin toward the target mature margin. The growth "
+            "column shows the rate actually applied, after the size-dependent growth ceiling."
         )
         st.latex(r"\text{FCFF}_t = \text{NOPAT}_t + \text{D\&A}_t - \text{CapEx}_t - \Delta\text{NWC}_t")
 
@@ -465,13 +471,28 @@ entirely mine.
 
 ### 1. Data Sourcing and Reconciliation
 
-Financial data is fetched from up to three independent sources: Yahoo Finance, Financial
-Modelling Prep (FMP), and SEC EDGAR. I pull from multiple sources rather than relying on
-just one because no single provider is perfectly reliable across all companies. Yahoo Finance
-is fast and generally accurate for US reporters. FMP has well-structured financial statement
-data. EDGAR is the original source filing, which makes it authoritative but harder to parse
-consistently. By comparing all three, I can identify where they disagree and treat that
-disagreement as useful information in its own right.
+Financial data is fetched from up to three sources: SEC EDGAR, Financial Modelling Prep
+(FMP), and Yahoo Finance. EDGAR holds the companies' own 10-K and 10-Q filings, so it is the
+primary source: every figure the model needs is taken from the official filings wherever the
+filings provide it cleanly. The "Where the Data Comes From" section lists, for every input,
+which source was used and why.
+
+Yahoo Finance is used in two situations. The first is market data that filings never
+contain: the share price, market capitalisation, beta, and exchange rates. The second is
+where the filing data is unusable for a particular company. Companies tag their filings
+inconsistently. Some split a single line such as depreciation and amortisation across several
+tags, some stop tagging a line in later years, some tag revenue by segment rather than as one
+total, and foreign companies filing under IFRS on Form 20-F use a different taxonomy
+altogether. Rather than guess, the model checks each filing figure: it must exist for the
+latest fiscal year and must not differ wildly from the reported total. When a check fails,
+that one field comes from Yahoo Finance, and the table says so and gives the reason.
+
+Revenue, operating income, pre-tax income, tax, interest expense, D&A, CapEx and stock-based
+compensation come from the 10-K. Cash, debt and the share count come from the most recent
+10-Q or 10-K, so the bridge from enterprise value to equity value uses the latest balance
+sheet. Working capital comes from the fiscal-year-end balance sheet so it lines up with annual
+revenue. FMP is used for cash, debt and shares only when EDGAR has no data. Where two or more
+sources are available, I also compare them and treat any disagreement as useful information.
 
 **How specific fields are defined:**
 
@@ -484,14 +505,12 @@ margins and again as a deduction from enterprise value. Finance leases represent
 borrowed capital and belong in net debt. Operating leases are committed rental contracts
 whose cost is already captured inside the margins.
 
-For depreciation and amortisation, I use Yahoo Finance's figure, which is pulled directly
-as a single reported line item from the cash flow statement. I tested building D&A from
-SEC EDGAR's structured data, but EDGAR constructs the figure by summing separate XML tags
-for depreciation, amortisation of intangibles, and lease amortisation independently. This
-approach frequently misses components, particularly for companies with complex capital
-structures or international operations, and produces a figure that does not match what the
-company actually reported. The Yahoo cash flow statement number is the line the company
-itself presented to shareholders, which is exactly what I want.
+For depreciation and amortisation, I use the filing figure only when the company reports
+D&A as one tagged line on its cash flow statement. Many companies instead split D&A across
+separate tags for depreciation, amortisation of intangibles, and lease amortisation. I tested
+adding those pieces together, and it frequently misses components and produces a figure that
+does not match what the company actually reported. For those companies I use Yahoo Finance's
+figure, which is the single D&A line from the cash flow statement as the company presented it.
 
 For the tax rate, I calculate it as income tax expense divided by income before tax, both
 taken directly from the income statement. I chose this over using the statutory corporate
@@ -523,13 +542,14 @@ to a directly sampled input in the Monte Carlo, meaning its value is independent
 each simulation rather than held fixed. Balance-sheet data uncertainty feeds directly into
 the distribution of intrinsic value estimates.
 
-Source priority when values conflict: SEC EDGAR takes precedence, then FMP, then Yahoo Finance.
+Source priority: SEC EDGAR first, then FMP (cash, debt and shares only), then Yahoo Finance.
 
 ---
 
 ### 2. Financial History
 
-I use three to five fiscal years of annual income statement and cash flow data. For each year
+I use up to five fiscal years of annual income statement and cash flow data (so up to four
+years of revenue growth). For each year
 I calculate the key financial ratios: revenue growth, EBIT margin, D&A as a percentage of
 revenue, CapEx as a percentage of revenue, stock-based compensation as a percentage of
 revenue, and the effective tax rate. These annual figures are averaged to form the base-case
@@ -582,28 +602,51 @@ already generating around $250 billion of annual revenue can realistically susta
 6%. The exponent of 1.029 means the ceiling roughly halves as revenue doubles, which is
 consistent with how growth constraints work in practice at scale.
 
-This ceiling matters for high-growth companies whose Monte Carlo draws can include very high
-sampled growth rates. Without it, a company like NVDA, which had historical revenue growth
-above 100% in recent years, would compound those draws across a 10-year forecast horizon
-into revenue figures that exceed the entire global economy. The ceiling does not adjust the
-terminal growth rate, does not cap the market capitalisation, and does not constrain the
-base-case DCF. It only clips the year-by-year applied growth rate inside each simulation
-path when that path reaches a revenue scale where the sampled rate becomes economically
-implausible.
+This ceiling matters most for high-growth companies. Without it, a company like NVDA, which
+had historical revenue growth above 100% in recent years, would compound that growth across
+a 10-year forecast horizon into revenue figures that exceed the entire global economy.
 
-**EBIT margin:** fades linearly from the starting historically-averaged margin to the target
-mature margin. I set the target as the higher of the company's best historical EBIT margin
-and a 20% floor. The reasoning is that a business should be capable of reaching at least
-20% operating margins at full maturity unless its own history demonstrates it cannot sustain
-margins anywhere near that level, in which case the best year it has achieved is the right
-anchor.
+The ceiling applies everywhere the DCF runs: to every Monte Carlo path and to the base-case
+DCF as well. I apply it to the base case deliberately. If a company's historical growth rate
+is already above what is achievable at its current size, the base case should not assume it
+continues, any more than a simulation path should. For most companies the ceiling never
+binds, because their growth is far below it. At $100 billion of revenue the ceiling is about
+65% a year, at $250 billion about 25%, and at $500 billion about 12%. It only bites for very
+large companies that are still growing very fast. It does not change the terminal growth rate
+and does not cap market capitalisation. It only clips the growth rate applied in a given
+forecast year when revenue has reached a scale where that rate is no longer plausible.
 
-**CapEx:** fades linearly from the historical average to the D&A percentage by the final
-forecast year, so that steady-state net reinvestment (CapEx minus D&A) approaches zero.
-This is consistent with the Gordon Growth terminal value assumption that in perpetuity the
-company reinvests only enough capital to replace depreciating assets. Without this fade, the
-terminal value would implicitly assume the company keeps investing heavily forever, which
-significantly overstates value.
+**EBIT margin:** fades linearly from the starting historically-averaged margin to a target
+mature margin by the final forecast year, and the terminal value assumes that margin forever.
+How the target is set depends on whether the company has a profitable track record.
+
+For companies with a profitable history, the target is the midpoint of the company's average
+EBIT margin and its best single year. The best year alone can be a one-off peak, and the
+average alone ignores improvement the company has already shown it can reach. The target
+never pushes a company above what its own history supports. A grocer that has always earned
+4% is valued as a 4% business, not as a business that will one day earn 20%.
+
+For unproven companies (no profitable history, or fewer than three years of growth history),
+the company's own margins say nothing yet about what it will earn at maturity. For these I
+follow the standard approach for young companies and use the average operating margin of its
+industry, taken from Aswath Damodaran's January 2026 industry data set. If the industry is
+unknown, I use the US market average excluding financials, about 13%. Because these forecasts
+rest on far less evidence, every Monte Carlo input for an unproven company gets wider tails:
+each spread is 1.5 times wider, the target margin range is at least plus or minus 10
+percentage points, and the fat-tailed Student-t copula is always used.
+
+**CapEx:** held at the company's historical average CapEx as a share of revenue in every
+forecast year and in the terminal value, so CapEx grows in line with revenue. A company that
+needs heavy investment to grow keeps needing it. In the Monte Carlo, CapEx as a share of
+revenue is itself a sampled input, drawn from a PERT distribution centred on the historical
+average with a spread set by how much that ratio has varied historically. It is linked to
+revenue growth through the copula (correlation +0.40), so simulated paths with faster growth
+tend to carry heavier investment, as they would in reality.
+
+An earlier version of this model faded CapEx down to D&A by the final year, so that net
+reinvestment approached zero. That raised the valuation, because it cut spending while
+revenue kept growing in perpetuity, which is growth without the investment needed to fund
+it. I removed it for that reason.
 
 **Free cash flow to the firm each year:**
 """)
@@ -699,8 +742,8 @@ points, which is consistent with observed WACC variation for investment-grade co
 
 ### 5. Monte Carlo Uncertainty Quantification
 
-Five variables are sampled jointly in each simulation: revenue growth, EBIT margin, target
-margin, terminal growth rate, and WACC. Running 10,000 simulations produces a distribution
+Six variables are sampled jointly in each simulation: revenue growth, EBIT margin, target
+margin, terminal growth rate, WACC, and CapEx as a share of revenue. Running 10,000 simulations produces a distribution
 of 10,000 independent intrinsic value estimates from which I read off percentiles to
 characterise the full range of outcomes.
 
@@ -737,15 +780,16 @@ such as very high revenue growth paired with very low WACC, which would produce 
 unreasonably optimistic scenario. Real financial variables have natural relationships. Faster-
 growing companies tend to carry higher risk profiles and therefore higher discount rates.
 Compressed margins tend to occur at the same time as weaker cash conversion. A copula allows
-me to preserve these relationships across all five variables simultaneously while still
+me to preserve these relationships across all six variables simultaneously while still
 drawing each one from its own PERT marginal distribution.
 
 I use a Gaussian copula by default, which captures linear correlations between variables
-through a hand-specified 5x5 target correlation matrix. For instance, revenue growth and
+through a hand-specified 6x6 target correlation matrix. For instance, revenue growth and
 WACC carry a positive correlation of 0.20 because faster-growing companies are generally
-riskier.
+riskier, and revenue growth and CapEx carry +0.40 because growth has to be funded.
 
-When any of four fundamental uncertainty triggers fire, I switch to a Student-t copula with
+When any of four fundamental uncertainty triggers fire, or the company is unproven, I switch
+to a Student-t copula with
 5 degrees of freedom. A Student-t copula has heavier tails than Gaussian, which means it
 generates more extreme simultaneous adverse scenarios: growth is low AND margins are
 compressed AND WACC is elevated, all at the same time. This reflects the well-documented
@@ -793,13 +837,12 @@ the centre of the distribution stays pinned to the current exchange rate.
 I think it is important to be transparent about where this model is deliberately conservative
 and where those choices have consequences.
 
-CapEx fading to D&A means that in the terminal year, the model assumes net reinvestment
-(CapEx minus D&A) is essentially zero. This is a reasonable assumption for asset-light
-businesses like software companies whose growth is not constrained by physical capital. For
-asset-heavy businesses such as energy infrastructure or manufacturing, this assumption is
-wrong: they need to keep spending more than they depreciate just to sustain operations. The
-model will treat asset-light companies fairly and may overvalue asset-heavy ones by assuming
-an unrealistic reinvestment holiday in perpetuity.
+CapEx is held at its historical share of revenue forever. For a company in the middle of an
+unusually heavy investment cycle, such as a large AI data-centre build-out, the historical
+average includes those peak years, so the model assumes that intensity continues in
+perpetuity. That will undervalue a company whose spending later normalises. The reverse is
+also true: a company whose recent CapEx has been unusually light will look better than it
+should.
 
 SBC being expensed in EBIT depresses margins relative to cash-based metrics. High-SBC
 companies, particularly cloud software and early-stage technology businesses, will appear
@@ -814,7 +857,11 @@ undervalues them. I accept that constraint because the alternative, allowing com
 terminal rates above GDP, opens the door to circular reasoning where the terminal rate is
 simply tuned to justify a target price.
 
-The consequence of these three choices taken together is that mature, large-cap technology
+Target margins come from each company's own history. A company that has never been very
+profitable is not assumed to become very profitable, which is conservative for a business
+genuinely on the cusp of a margin step-change.
+
+The consequence of these choices taken together is that mature, large-cap technology
 companies with high multiples will frequently appear overvalued under this model. That is not
 always because the market is wrong. It is because the market is pricing in a longer
 high-growth runway and a cash-earnings premium that this model does not grant. The designed
@@ -846,11 +893,11 @@ present a negative number as if it means something.
 
 # ── Correlation Structure & Copula expander ───────────────────────────────────
 
-_CORR_VAR_NAMES = ['rev_growth', 'ebit_margin', 'terminal_g', 'wacc', 'tgt_margin']
+_CORR_VAR_NAMES = ['rev_growth', 'ebit_margin', 'terminal_g', 'wacc', 'tgt_margin', 'capex_pct']
 
 
 def _make_corr_heatmap(matrix: np.ndarray, title: str) -> go.Figure:
-    """5×5 annotated diverging heatmap for a correlation matrix."""
+    """Annotated diverging heatmap for the copula correlation matrix."""
     n = len(_CORR_VAR_NAMES)
     text = [[f'{matrix[i, j]:.2f}' for j in range(n)] for i in range(n)]
     fig = go.Figure(go.Heatmap(
@@ -907,7 +954,7 @@ def _render_expander_corr_copula(r: ValuationResult) -> None:
         else:
             st.success(
                 '**Gaussian copula** used for this run. '
-                'None of the four fundamental unpredictability triggers fired, so the joint '
+                'None of the fundamental unpredictability triggers fired, so the joint '
                 'distribution of sampled inputs follows a standard multivariate normal structure '
                 'on the probability scale.'
             )
@@ -916,17 +963,18 @@ def _render_expander_corr_copula(r: ValuationResult) -> None:
         st.markdown('**Trigger evaluation:** the model switches to Student-t if any one of these fires:')
         trig_rows = []
         for tr in triggers:
+            is_flag = tr['threshold'] is None
             trig_rows.append({
                 'Trigger':   tr['name'],
-                'Actual':    f'{tr["actual_value"]:.2%}',
-                'Threshold': f'{tr["threshold"]:.0%}',
+                'Actual':    ('yes' if tr['fired'] else 'no') if is_flag else f'{tr["actual_value"]:.2%}',
+                'Threshold': 'no profitable history or < 3 yrs' if is_flag else f'{tr["threshold"]:.0%}',
                 'Fired':     '✅' if tr['fired'] else 'No',
             })
         st.dataframe(pd.DataFrame(trig_rows), use_container_width=False, hide_index=True)
         st.caption(
             'These triggers measure fundamental unpredictability in the business inputs: '
-            'revenue growth volatility, EBIT margin volatility, FCF volatility, and '
-            'cross-source data disagreement. '
+            'revenue growth volatility, EBIT margin volatility, FCF volatility, '
+            'cross-source data disagreement, and whether the company is unproven. '
             'Stock-price volatility is deliberately excluded because it reflects market '
             'sentiment, not the uncertainty of the underlying valuation inputs. '
             'Using price volatility to widen a fundamental DCF would conflate two entirely '
@@ -991,7 +1039,7 @@ def _render_expander_corr_copula(r: ValuationResult) -> None:
         st.markdown('**Sampling pipeline: how the correlated draws are generated**')
         st.markdown(
             r"""
-1. Draw **Z**, a matrix of shape (n simulations x 5 variables) of independent standard-normal variates, where every entry is completely random and uncorrelated.
+1. Draw **Z**, a matrix of shape (n simulations x 6 variables) of independent standard-normal variates, where every entry is completely random and uncorrelated.
 2. Cholesky-decompose the target correlation matrix: find **L** such that **L** multiplied by its own transpose equals **Σ**. This produces a lower-triangular matrix that encodes the desired correlations.
 3. Correlate the draws: **Z_C** = **Z** multiplied by **L** transposed. Each row of **Z_C** is now drawn from a multivariate normal distribution with correlation structure **Σ**.
 4. *(Student-t only)* draw chi-squared scalars **w** from a chi-squared distribution with ν degrees of freedom, then divide: **T** = **Z_C** divided by the square root of (**w** divided by ν). This produces correlated t-variates with ν degrees of freedom that preserve the same correlation structure but with heavier joint tails.
@@ -1020,6 +1068,7 @@ _MC_VAR_META: dict = {
     'target_margin':  {'label': 'Target Margin',   'is_pct': True},
     'terminal_g':     {'label': 'Terminal Growth', 'is_pct': True},
     'wacc':           {'label': 'WACC',            'is_pct': True},
+    'capex_pct':      {'label': 'CapEx / Revenue', 'is_pct': True},
     'diluted_shares': {'label': 'Diluted Shares',  'is_pct': False},
     'net_debt':       {'label': 'Net Debt',        'is_pct': False},
 }
@@ -1042,15 +1091,27 @@ _MC_RATIONALE: dict = {
         "in some historical years without breaking the simulation."
     ),
     'best_historical_ebit_margin': (
-        "**Mode:** the higher of the company's best historical EBIT margin and a 20% floor. "
-        "The reasoning is that a business at full maturity should reach at least 20% operating "
-        "margins unless its own track record suggests the ceiling is lower, in which case the "
-        "best year it has achieved is the right anchor. "
+        "**Mode:** for a company with a profitable history, the midpoint of its average and "
+        "best historical EBIT margin, so the target never exceeds what the company has shown "
+        "it can earn. For an unproven company (no profitable history, or fewer than three "
+        "years of history), the average operating margin of its industry from Damodaran's "
+        "January 2026 data, or the US market average of about 13% if the industry is unknown. "
         "**Spread source:** the same sigma as the current EBIT margin, because both figures are "
         "derived from the same reported income statement data and the uncertainty is symmetric. "
         "The PERT half-width is clamped to the range of 3 to 20 percentage points so that "
         "companies with short histories do not produce a degenerate zero-width distribution, "
-        "and companies with very erratic margins do not produce implausibly wide ones."
+        "and companies with very erratic margins do not produce implausibly wide ones. For "
+        "unproven companies the half-width is 10 to 25 percentage points instead."
+    ),
+    'historical_capex_intensity': (
+        "**Mode:** the company's average CapEx as a share of revenue over the historical "
+        "years. CapEx is held at this share of revenue in every forecast year and in the "
+        "terminal value, so it grows with revenue. "
+        "**Spread source:** the standard deviation of the annual CapEx/revenue ratio, combined "
+        "with any cross-source disagreement in quadrature. The PERT bounds are the mode plus or "
+        "minus 3 times sigma_eff (at least 0.5 percentage points), clamped to 0% to 60%. "
+        "**Correlation:** linked to revenue growth (+0.40) through the copula, so faster-growing "
+        "paths carry heavier investment."
     ),
     'avg_growth_anchored_to_gdp': (
         "**Mode derivation:** avg_g = (starting revenue growth + 2.5%) divided by 2. This is "
@@ -1203,8 +1264,13 @@ def _render_mc_var_card(
             draws_mean   = float(np.mean(samps))   if n_samps > 0 else float('nan')
 
             # Human-readable clamp note
-            raw_lo_str = _fp(md - 3.0 * se)
-            raw_hi_str = _fp(md + 3.0 * se)
+            half = 3.0 * se
+            if var == 'target_margin':
+                half = (min(max(half, 0.10), 0.25) if r.unproven else min(max(half, 0.03), 0.20))
+            elif var == 'capex_pct':
+                half = max(half, 0.005)
+            raw_lo_str = _fp(md - half)
+            raw_hi_str = _fp(md + half)
             cf_str = _fp(cf) if math.isfinite(cf) else '−∞'
             cc_str = _fp(cc) if math.isfinite(cc) else '∞'
             if cb == 'none':
@@ -1257,6 +1323,9 @@ def _render_mc_var_card(
                     'σ_WACC is set to 1.5 pp, a conservative estimate consistent with observed '
                     'WACC variation for investment-grade companies.'
                 )
+            if r.unproven:
+                rationale += ('\n\n**Unproven company:** σ_eff here is 1.5 times the historical '
+                              'figure because the forecast rests on little evidence.')
             if rationale:
                 st.markdown(rationale)
 
@@ -1339,7 +1408,7 @@ def _render_expander_mc_inputs(r: ValuationResult) -> None:
         )
 
         # Per-variable cards
-        var_order = ['revenue_growth', 'ebit_margin', 'target_margin', 'terminal_g', 'wacc']
+        var_order = ['revenue_growth', 'ebit_margin', 'target_margin', 'terminal_g', 'wacc', 'capex_pct']
         for pv in ('diluted_shares', 'net_debt'):
             if pv in samps_dict:
                 var_order.append(pv)
@@ -1605,7 +1674,7 @@ def _render_expander_validation(r: ValuationResult) -> None:
             'inverse-CDF is accurate at the mode.\n'
             '- **USD ticker FX path:** when `currency == "USD"`, fx_path is never set and '
             '`vps_usd = vps_local x 1.0`, which is byte-identical to the non-FX code path.\n'
-            '- **Realized correlation matching target:** the corrcoef of the 5 sampled input '
+            '- **Realized correlation matching target:** the corrcoef of the 6 sampled input '
             'arrays should be within approximately 0.02 of the target correlation matrix entries '
             'at 10,000 draws (visible in the Correlation Structure and Copula expander).'
         )
@@ -1668,6 +1737,9 @@ def _render_expander_reconciliation(r: ValuationResult) -> None:
             _VAR_LABELS = {
                 "revenue_growth": "Revenue Growth",
                 "ebit_margin":    "EBIT Margin",
+                "target_margin":  "Target Margin",
+                "terminal_g":     "Terminal Growth",
+                "capex_pct":      "CapEx / Revenue",
                 "diluted_shares": "Diluted Shares (abs)",
                 "net_debt":       "Net Debt (abs)",
             }
@@ -1692,6 +1764,32 @@ def _render_expander_reconciliation(r: ValuationResult) -> None:
                 "σ_eff = the square root of (σ_hist squared + σ_cross squared), "
                 "which is the combined uncertainty fed into the PERT bounds."
             )
+
+
+# ── Data provenance expander ─────────────────────────────────────────────────
+
+def _render_expander_provenance(r: ValuationResult) -> None:
+    from valuation.filings import FIELD_LABELS
+    prov = r.data_provenance or {}
+    if not prov:
+        return
+    with st.expander("Where the Data Comes From", expanded=False):
+        st.markdown(
+            "Every input is taken from the company's own SEC filings (10-K and 10-Q, via SEC "
+            "EDGAR) wherever the filings provide it cleanly. Yahoo Finance is used for market "
+            "data that filings do not contain, and for any line where the filing data is "
+            "missing, out of date, or inconsistent. Companies tag their filings in different "
+            "ways: some split a line across several tags, some stop tagging a line, some tag "
+            "revenue by segment, and foreign companies use a different taxonomy. Each Yahoo "
+            "row below says why the filing figure was not used."
+        )
+        rows = [(FIELD_LABELS.get(k, k), v["source"], v["detail"]) for k, v in prov.items()]
+        st.dataframe(
+            pd.DataFrame(rows, columns=["Input", "Source", "Detail"]),
+            use_container_width=True, hide_index=True,
+        )
+        n_filing = sum(1 for v in prov.values() if v["source"] == "SEC EDGAR")
+        st.caption(f"{n_filing} of {len(prov)} inputs come from SEC filings.")
 
 
 # ── Gap analysis helpers ──────────────────────────────────────────────────────
@@ -1932,6 +2030,7 @@ def _render_dcf_not_applicable(r: ValuationResult, dcf_app: dict) -> None:
 
     st.divider()
     _render_expander_methodology(r)
+    _render_expander_provenance(r)
     _render_expander_drivers(r)
     _render_expander_wacc(r)
     _render_expander_assumptions(r)
@@ -1967,6 +2066,16 @@ def _render_valuation(r: ValuationResult) -> None:
 
     # ── Gap interpretation paragraph ──────────────────────────────────────────
     _render_gap_paragraph(r)
+
+    if r.unproven:
+        st.warning(
+            f"**Unproven company.** {r.ticker} has no profitable history or fewer than three "
+            f"years of history, so its own margins say little about its mature economics. "
+            f"The target EBIT margin is the {r.target_margin_basis} "
+            f"({r.assumptions.target_margin:.1%}), and every Monte Carlo input has been "
+            f"given wider tails. Treat the range as much less certain than for an "
+            f"established company."
+        )
 
     # ── Distribution histogram ────────────────────────────────────────────────
     _render_histogram(r)
@@ -2018,6 +2127,7 @@ def _render_valuation(r: ValuationResult) -> None:
 
     # ── Expanders ─────────────────────────────────────────────────────────────
     _render_expander_methodology(r)
+    _render_expander_provenance(r)
     _render_expander_drivers(r)
     _render_expander_wacc(r)
     _render_expander_assumptions(r)

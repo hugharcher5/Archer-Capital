@@ -48,6 +48,11 @@ class RawData:
 
     missing_fields: list = field(default_factory=list)
 
+    # Yahoo sector / industry labels — used to pick an industry operating margin
+    # for companies without a profitable history of their own.
+    sector:   str = ""
+    industry: str = ""
+
 
 def _safe_row(df: pd.DataFrame, candidates: list[str],
               missing: list[str], label: str) -> pd.Series:
@@ -282,4 +287,6 @@ def fetch_raw(ticker: str, years: int = 5) -> RawData:
         op_lease_liab=op_lease_liab,
         price_vol=price_vol,
         missing_fields=uniq_missing,
+        sector=str(info.get('sector') or ''),
+        industry=str(info.get('industry') or ''),
     )

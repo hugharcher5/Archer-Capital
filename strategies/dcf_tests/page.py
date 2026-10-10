@@ -56,10 +56,9 @@ def render_dcf_tests_page() -> None:
             st.markdown("""
 **The central question**
 
-A Monte Carlo DCF that runs 10,000 simulated cash flow paths per ticker is expensive to
-build and expensive to run. The first question any serious researcher must answer before
-defending that complexity is whether it actually outperforms a free multiple that any
-analyst can compute in a spreadsheet. Frankel and Lee (1998) showed that an
+A Monte Carlo DCF that runs 10,000 simulated cash flow paths per ticker took a long time
+to build. Before relying on it, I want to know whether all that work actually beats a
+simple multiple that any analyst can compute in a spreadsheet. Frankel and Lee (1998) showed that an
 intrinsic-value-to-price ratio predicts future abnormal returns over three years and the
 effect survives controls for size and book-to-market. Xu (2007) counters directly: the
 V/P ratio has no incremental power beyond its components. That debate is the gate this

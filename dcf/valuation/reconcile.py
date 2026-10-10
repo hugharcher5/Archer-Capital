@@ -151,6 +151,16 @@ def reconcile(sources: list[SourceData]) -> ReconcileResult:
     if len(margin_vals) >= 2:
         sigma_cross["ebit_margin"] = float(np.std(margin_vals, ddof=0))
 
+    # CapEx intensity: last-year CapEx / revenue from each source.
+    capex_vals: list[float] = []
+    for s in sources:
+        if not s.capex.empty and not s.revenue.empty:
+            rev = float(s.revenue.iloc[-1])
+            if abs(rev) > 1e-9:
+                capex_vals.append(float(s.capex.iloc[-1]) / rev)
+    if len(capex_vals) >= 2:
+        sigma_cross["capex_pct"] = float(np.std(capex_vals, ddof=0))
+
     # Diluted shares: std of the level across sources.
     shares_vals = [s.diluted_shares for s in sources if math.isfinite(s.diluted_shares)]
     if len(shares_vals) >= 2:
