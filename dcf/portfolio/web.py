@@ -2062,7 +2062,8 @@ def _render_valuation(r: ValuationResult) -> None:
               delta=f"{(det-price)/price*100:+.1f}%")
     c3.metric("Median (P50)",       f"${r.p50:.2f}",
               delta=f"{pct_vs_market:+.1f}%")
-    c4.metric("P10 / P90",          f"${r.p10:.0f} - ${r.p90:.0f}")
+    # Escaped: two bare "$" signs in a metric render as LaTeX
+    c4.metric("P10 / P90",          f"\\${r.p10:.0f} - \\${r.p90:.0f}")
     c5.metric("P(Undervalued)",     f"{r.pct_undervalued:.1f}%")
 
     # ── Gap interpretation paragraph ──────────────────────────────────────────
